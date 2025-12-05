@@ -13,6 +13,8 @@ class Session(models.Model):
     # 1. The Customer (User)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        to_field="user_uuid", # Links to UUID column
+        db_column="user_uuid",
         on_delete=models.CASCADE,
         related_name="sessions"
     )
@@ -20,6 +22,8 @@ class Session(models.Model):
     # 2. The Agent (Also a User now, thanks to our refactor)
     assigned_staff = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        to_field="user_uuid", # Links to UUID column
+        db_column="assigned_staff_uuid",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="assigned_sessions",
@@ -71,6 +75,8 @@ class Message(models.Model):
     # Since Admins are Users, we only need ONE Foreign Key.
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        to_field="user_uuid", # Links to UUID column
+        db_column="sender_uuid",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="sent_messages"

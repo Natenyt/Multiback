@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ai_endpoints',
+    'bot',
     'departments',
     'message_app',
     'users',
@@ -137,3 +138,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+TOKEN_BOT = os.getenv('TOKEN_BOT')

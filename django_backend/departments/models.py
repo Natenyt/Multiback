@@ -39,7 +39,9 @@ class StaffProfile(models.Model):
     
     # 1. Link to the Identity (The User Table)
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, # Points to your custom User model
+        settings.AUTH_USER_MODEL,
+        to_field="user_uuid", # Links to UUID column
+        db_column="user_uuid",
         on_delete=models.CASCADE,
         related_name='staff_profile' # user.staff_profile
     )

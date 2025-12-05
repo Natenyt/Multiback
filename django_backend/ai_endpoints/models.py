@@ -12,6 +12,8 @@ class InjectionLog(models.Model):
     
     message = models.ForeignKey(
         Message,
+        to_field="message_uuid", # Links to UUID column
+        db_column="message_uuid",
         on_delete=models.CASCADE,
         related_name="injection_logs"
     )
@@ -74,6 +76,8 @@ class AIAnalysis(models.Model):
     # Who corrected it? (Links to your Staff User)
     corrected_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        to_field="user_uuid", # Links to UUID column
+        db_column="corrected_by_uuid",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="ai_corrections"
