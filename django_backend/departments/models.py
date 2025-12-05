@@ -6,13 +6,12 @@ class Department(models.Model):
     Represents a functional unit (e.g., Sales, HR, Support).
     """
     id = models.BigAutoField(primary_key=True)
-    name = models.CharField(max_length=100, unique=True)
     description_uz = models.TextField(blank=True, null=True)
     description_ru = models.TextField(blank=True, null=True)
     
     # If you need multi-language support (Uzbek/Russian)
-    name_uz = models.CharField(max_length=100, blank=True, null=True)
-    name_ru = models.CharField(max_length=100, blank=True, null=True)
+    name_uz = models.CharField(max_length=500, blank=True, null=True)
+    name_ru = models.CharField(max_length=500, blank=True, null=True)
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -64,6 +63,7 @@ class StaffProfile(models.Model):
     job_title = models.CharField(max_length=100, blank=True, null=True)
     
     joined_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.full_name} [{self.role}] - {self.department.name if self.department else 'No Dept'}"

@@ -9,11 +9,9 @@ class Neighborhood(models.Model):
     
     name_uz = models.CharField(max_length=128, db_index=True)  # Uzbek name
     name_ru = models.CharField(max_length=128, blank=True, null=True)  # Russian name
-    region = models.CharField(max_length=128, blank=True, null=True)  # Region name
     
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = "Neighborhood"

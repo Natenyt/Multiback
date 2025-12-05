@@ -97,6 +97,7 @@ class TelegramConnection(models.Model):
     
     last_interaction = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"@{self.telegram_username}" if self.telegram_username else str(self.telegram_chat_id)
