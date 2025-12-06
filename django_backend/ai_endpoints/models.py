@@ -21,6 +21,8 @@ class InjectionLog(models.Model):
     # Detection Details
     is_injection = models.BooleanField(default=False, db_index=True)
     risk_score = models.FloatField(help_text="0.0 to 1.0 safety score")
+    tokens_used = models.IntegerField(null=True, blank=True)
+    processing_time_ms = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -63,7 +65,7 @@ class AIAnalysis(models.Model):
 
     # --- 3. Reasoning & Search ---
     # Why did the AI choose this?
-    reasoning_text = models.TextField(blank=True, null=True) 
+    reason = models.TextField(blank=True, null=True) 
     
     # Vector Search Context (Top K results found in Qdrant)
     # e.g. [{"dept": "Sales", "similarity": 0.92}, ...]
@@ -88,8 +90,10 @@ class AIAnalysis(models.Model):
     correction_notes = models.TextField(blank=True, null=True) # Optional operator comment
 
     # --- 5. Performance Metrics ---
+    language_detected = models.CharField(max_length=64, blank=True, null=True, db_index=True) 
+    embedding_tokens = models.IntegerField(null=True, blank=True)
     prompt_tokens = models.IntegerField(null=True, blank=True)
-    completion_tokens = models.IntegerField(null=True, blank=True)
+    total_tokens = models.IntegerField(null=True, blank=True)
     processing_time_ms = models.IntegerField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # INFRASTRUCTURE (Databases & Cache)
+  # ---------------------------------------------------------------------------
+
+  # 1. Vector Database (Already set up)
+  qdrant:
+    image: qdrant/qdrant:v1.16.1
+    container_name: qdrant
+    ports:
+      - "6333:6333" # HTTP API
+      - "6334:6334" # gRPC API
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    networks:
+      - civic_network
+    restart: always
+  # 2. Relational Database (PostgreSQL)
+  # This replaces your local Postgres installation.
+  # db:
+  #   image: postgres:15-alpine
+  #   container_name: postgres_db
+  #   ports:
+  #     - "5432:5432" # Expose to host so you can connect with PgAdmin/DBeaver
+  #   environment:
+  #     - POSTGRES_DB=civic_connect
+  #     - POSTGRES_USER=admin
+  #     - POSTGRES_PASSWORD=change_this_password # In production, use a .env file
+  #   volumes:
+  #     # CRITICAL: This folder will appear in your project root and hold all DB data
+  #     - ./postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - civic_network
+  #   restart: always
+
+  # 3. Cache & Queue Broker (Redis)
+  # Used by Celery for background tasks and caching.
+  # redis:
+  #   image: redis:alpine
+  #   container_name: redis_cache
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - ./redis_data:/data
+  #   networks:
+  #     - civic_network
+  #   restart: always
+  # ---------------------------------------------------------------------------
+  # APPLICATIONS (Uncomment these sections when we add Dockerfiles later)
+  # ---------------------------------------------------------------------------
+
+  # 4. Backend Orchestrator
+  # django_backend:
+  #   build: ./django_backend  # Path to your Django folder
+  #   container_name: django_server
+  #   command: python manage.py runserver 0.0.0.0:8000
+  #   volumes:
+  #     - ./django_backend:/app
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - db
+  #     - redis
+  #     - qdrant
+  #   networks:
+  #     - civic_network
+
+  # 5. AI Microservice
+  # fastapi_service:
+  #   build: ./fastapi_microservice # Path to your FastAPI folder
+  #   container_name: ai_brain
+  #   command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+  #   volumes:
+  #     - ./fastapi_microservice:/app
+  #   ports:
+  #     - "8001:8001"
+  #   depends_on:
+  #     - qdrant
+  #   networks:
+  #     - civic_network
+
+  # 6. Frontend Dashboard
+  # nextjs_frontend:
+  #   build: ./frontend # Path to your Next.js folder
+  #   container_name: civic_frontend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #   networks:
+  #     - civic_network
+
+  # Define a shared network so all containers can talk to each other by name
+  # e.g. Django can connect to "postgres_db" instead of "localhost"
+networks:
+  civic_network:
+    driver: bridge
