@@ -4,3 +4,4 @@ python-dotenv==1.1.1
 qdrant-client
 mysqlclient
 djangorestframework
+google-generativeai

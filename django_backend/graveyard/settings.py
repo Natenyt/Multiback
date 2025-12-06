@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'message_app',
     'users',
     'support_tools',
+    'api',
 ]
 
 MIDDLEWARE = [

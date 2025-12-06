@@ -14,3 +14,5 @@ django_backend/*/migrations/*.py
 
 # Ignore compiled migrations
 django_backend*/migrations/*.py
+qdrant_storage
+qdrant_storage/raft_state.json

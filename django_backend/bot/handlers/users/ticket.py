@@ -7,6 +7,8 @@ from bot.utils.i18n import get_text
 from bot.keyboards.default.menu import get_main_menu_keyboard
 from users.models import TelegramConnection
 from message_app.models import Session, Message, MessageContent
+from message_app.routing import route_message
+from support_tools.ai_client import send_to_ai_service
 
 async def get_user_lang(telegram_id):
     connection = await sync_to_async(TelegramConnection.objects.filter(telegram_chat_id=telegram_id).first)()
@@ -43,37 +45,76 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
         user = connection.user
         
         @sync_to_async
-        def create_session_and_message():
-            # Check for open session
-            # Logic from requirements:
-            # If Open Session & assigned_department exists: Route message directly to that department (Skip AI).
-            # If New Session or assigned_department is Null: Create Session -> Send message payload to FastAPI Microservice.
-            
-            # For now, we just create the session and message. The routing logic is likely in Django signals or a service layer.
-            # But here we just need to save it.
-            
-            # Find open session
-            session = Session.objects.filter(user=user, status='open').first()
-            if not session:
-                session = Session.objects.create(user=user, status='open')
-            
-            # Create Message
-            msg = Message.objects.create(
-                session=session,
-                sender=user,
-                is_staff_message=False,
-                sender_platform='telegram'
-            )
-            
-            # Create Content
-            MessageContent.objects.create(
-                message=msg,
-                content_type='text',
-                text=full_text
-            )
-            return session
+        def create_session_and_message(user_obj, text_content):
+            try:
+                # Find open session
+                session = Session.objects.filter(user=user_obj, status='open').first()
+                if not session:
+                    session = Session.objects.create(user=user_obj, status='open')
+                
+                # Create Message
+                msg = Message.objects.create(
+                    session=session,
+                    sender=user_obj,
+                    is_staff_message=False,
+                    sender_platform='telegram'
+                )
+                
+                # Create Content
+                MessageContent.objects.create(
+                    message=msg,
+                    content_type='text',
+                    text=text_content
+                )
+                return session, msg.message_uuid
+            except Exception as e:
+                print(f"Error in create_session_and_message: {e}")
+                raise e
 
-        await create_session_and_message()
+        try:
+            session, msg_uuid = await create_session_and_message(user, full_text)
+            
+            # Post-Creation Logic: Check Routing vs AI
+            
+            @sync_to_async
+            def check_and_route(session_obj, message_uuid_str):
+                # Reload to ensure we have latest state if needed
+                session_obj.refresh_from_db()
+                
+                if session_obj.assigned_department:
+                    # Direct Route - Skip AI
+                    route_payload = {
+                        "department_id": session_obj.assigned_department.id,
+                        "session_uuid": str(session_obj.session_uuid),
+                        "message_uuid": str(message_uuid_str)
+                    }
+                    route_message(route_payload)
+                    return "routed"
+                return "needs_ai"
+
+            action = await check_and_route(session, msg_uuid)
+            
+            if action == "routed":
+                # Message was automatically routed to the existing assigned department
+                pass
+            else:
+                # New session or unassigned -> Send to AI Microservice
+                success = await send_to_ai_service(
+                    session_uuid=session.session_uuid,
+                    message_uuid=msg_uuid,
+                    text=full_text,
+                    language=lang
+                )
+                if not success:
+                     # Log error but don't fail the user interaction entirely if possible?
+                     # For now, we notify user as requested.
+                     await message.answer(get_text("error_generic", lang))
+                     return
+
+        except Exception as e:
+            print(f"Handler Error: {e}")
+            await message.answer(get_text("error_generic", lang))
+            return
         
         await message.answer(get_text("ticket_received", lang), reply_markup=get_main_menu_keyboard(lang))
         await state.clear()
@@ -84,6 +125,5 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
     messages = data.get("messages", [])
     if message.text:
         messages.append(message.text)
-    # TODO: Handle media? For now just text as per requirements "User types text".
     
     await state.update_data(messages=messages)

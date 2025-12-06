@@ -82,6 +82,10 @@ MESSAGES = {
     "cancelled": {
         "uz": "Bekor qilindi.",
         "ru": "Отменено."
+    },
+    "error_generic": {
+        "uz": "Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring.",
+        "ru": "Произошла ошибка. Пожалуйста, попробуйте позже."
     }
 }
 
