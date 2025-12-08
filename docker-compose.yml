@@ -37,16 +37,16 @@ services:
 
   # 3. Cache & Queue Broker (Redis)
   # Used by Celery for background tasks and caching.
-  # redis:
-  #   image: redis:alpine
-  #   container_name: redis_cache
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - ./redis_data:/data
-  #   networks:
-  #     - civic_network
-  #   restart: always
+  redis:
+    image: redis:alpine
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - civic_network
+    restart: always
   # ---------------------------------------------------------------------------
   # APPLICATIONS (Uncomment these sections when we add Dockerfiles later)
   # ---------------------------------------------------------------------------

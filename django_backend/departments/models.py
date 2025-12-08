@@ -53,7 +53,7 @@ class StaffProfile(models.Model):
         null=True,
         related_name='staff_members' # department.staff_members.all()
     )
-
+    username = models.CharField(max_length=50, unique=True, db_index=True, null=True) 
     # 3. The Role (Manager vs Staff)
     role = models.CharField(
         max_length=20, 

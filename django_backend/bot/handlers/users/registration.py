@@ -42,7 +42,19 @@ async def enter_phone(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.fullname)
         return
 
-    phone = message.contact.phone_number if message.contact else message.text
+    # Strict Check: Must be a contact
+    if not message.contact:
+        await message.answer(get_text("share_phone", lang), reply_markup=get_phone_keyboard(lang))
+        return
+
+    # Clean phone number
+    raw_phone = message.contact.phone_number
+    phone = raw_phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    
+    # Ensure it starts with + if missing (Telegram sometimes sends without +)
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
     await state.update_data(phone=phone)
     
     # Fetch neighborhoods

@@ -5,3 +5,6 @@ qdrant-client
 mysqlclient
 djangorestframework
 google-generativeai
+djangorestframework-simplejwt
+django-redis
+redis
