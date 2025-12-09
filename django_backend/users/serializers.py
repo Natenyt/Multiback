@@ -61,7 +61,7 @@ class UserProfileSaveSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'user_uuid', 'phone_number', 'full_name', 'neighborhood', 'location', 'preferred_language']
+        fields = ['id', 'user_uuid', 'phone_number', 'full_name', 'neighborhood', 'location', 'preferred_language', 'avatar']
         read_only_fields = ['id', 'user_uuid', 'phone_number']
 
     preferred_language = serializers.SerializerMethodField()
@@ -71,3 +71,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'telegram_profile'):
             return obj.telegram_profile.language_preference
         return 'uz'
+class StaffPublicSerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source='department.name_uz', read_only=True)
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
+    
+    class Meta:
+        model = StaffProfile
+        fields = ['id', 'username', 'role', 'department_name', 'job_title', 'full_name', 'avatar']

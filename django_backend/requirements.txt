@@ -8,3 +8,6 @@ google-generativeai
 djangorestframework-simplejwt
 django-redis
 redis
+channels
+daphne
+channels-redis

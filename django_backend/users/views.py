@@ -11,7 +11,8 @@ from .serializers import (
     OTPVerifySerializer, 
     StaffLoginSerializer, 
     UserProfileSerializer,
-    UserProfileSaveSerializer
+    UserProfileSaveSerializer,
+    StaffPublicSerializer
 )
 import logging
 
@@ -130,3 +131,9 @@ class MyDataView(generics.RetrieveAPIView):
             data['role'] = 'citizen'
             
         return Response(data)
+
+class StaffDetailView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = StaffPublicSerializer
+    queryset = StaffProfile.objects.all()
+    lookup_field = 'id'

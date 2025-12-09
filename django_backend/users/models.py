@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from support_tools.models import Neighborhood
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, phone_number, password=None, **extra_fields):
@@ -34,12 +35,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     user_uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     
     # Identity
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     phone_number = models.CharField(max_length=32, unique=True, db_index=True)
     email = models.EmailField(unique=True, blank=True, null=True)
     full_name = models.CharField(max_length=128, blank=True, null=True)
     
     # Demographics
-    neighborhood = models.CharField(max_length=128, blank=True, null=True)
+    neighborhood = models.ForeignKey(Neighborhood, on_delete=models.SET_NULL, null=True, blank=True)
     location = models.CharField(max_length=256, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
 
@@ -97,7 +99,7 @@ class TelegramConnection(models.Model):
     
     last_interaction = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"@{self.telegram_username}" if self.telegram_username else str(self.telegram_chat_id)

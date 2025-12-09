@@ -1,5 +1,7 @@
 from django.db import models
-from django.conf import settings # Best practice to refer to User model
+from django.conf import settings 
+from django.contrib.auth.models import User
+from django.utils import timezone   
 
 class Department(models.Model):
     """
@@ -17,7 +19,7 @@ class Department(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return self.name_uz
 
 
 class StaffProfile(models.Model):
@@ -60,6 +62,7 @@ class StaffProfile(models.Model):
         choices=ROLE_CHOICES, 
         default=ROLE_STAFF
     )
+    personal_best_record = models.IntegerField(default=0)
 
     # Optional: Job Title (e.g., "Senior Support Specialist")
     job_title = models.CharField(max_length=100, blank=True, null=True)
@@ -73,3 +76,31 @@ class StaffProfile(models.Model):
     @property
     def is_manager(self):
         return self.role == self.ROLE_MANAGER
+
+
+
+
+class StaffDailyPerformance(models.Model):
+    """
+    Aggregates a staff member's performance for a single day.
+    This prevents the system from having to count thousands of raw 
+    tickets every time the dashboard loads.
+    """
+    staff = models.ForeignKey(settings.AUTH_USER_MODEL, to_field="user_uuid", on_delete=models.CASCADE, related_name='daily_stats')
+    date = models.DateField(default=timezone.now, db_index=True)
+    
+    # metrics
+    tickets_solved = models.IntegerField(default=0)
+    avg_response_time_seconds = models.FloatField(default=0.0) 
+    
+    # We can add more specific counters later if needed
+    # e.g., tickets_escalated = models.IntegerField(default=0)
+
+    class Meta:
+        # Ensures a staff member has only ONE stats row per day
+        unique_together = ('staff', 'date')
+        ordering = ['-date']
+        verbose_name = "Staff Daily Performance"
+
+    def __str__(self):
+        return f"{self.staff.username} - {self.date} ({self.tickets_solved} solved)"

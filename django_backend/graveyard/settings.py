@@ -36,6 +36,7 @@ AUTH_USER_MODEL = 'users.User'
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne', # Must be at the top
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,9 +49,12 @@ INSTALLED_APPS = [
     'message_app',
     'users',
     'support_tools',
+    'broadcast',
+    'websockets',
     'api',
     'rest_framework',
     'rest_framework_simplejwt',
+    'channels',
 ]
 
 REST_FRAMEWORK = {
@@ -59,7 +63,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-    ]
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20
 }
 
 from datetime import timedelta
@@ -76,6 +82,17 @@ CACHES = {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     }
+}
+
+# Django Channels
+ASGI_APPLICATION = 'graveyard.asgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
 }
 
 MIDDLEWARE = [

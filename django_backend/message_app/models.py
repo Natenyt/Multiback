@@ -39,12 +39,14 @@ class Session(models.Model):
     )
 
     STATUS_CHOICES = [
-        ("open", "Open"),
-        ("pending", "Pending"), # Useful for when waiting on user reply
-        ("closed", "Closed")
+        ("assigned", "Assigned"),
+        ("unassigned", "Unassigned"), # Useful for when waiting on user reply
+        ("closed", "Closed"),
+        ("escalated", "Escalated"),
+        ("hold", "Hold"),
     ]
 
-    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="open")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="unassigned")
 
     created_at = models.DateTimeField(auto_now_add=True)
     closed_at = models.DateTimeField(null=True, blank=True)
