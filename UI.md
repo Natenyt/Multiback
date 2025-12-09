@@ -1,3 +1,5 @@
+ok i will now first send the whole descriptio but you don't start coding, i ll guide myself ok. first read the whole description
+
 ⭐ FULL UPDATED DESCRIPTION (WITH ALL IMPROVEMENTS ADDED)
 
 When a user visits the website, they see a modern, minimal, and clear interface with a horizontal top navbar.
@@ -49,19 +51,19 @@ A friendly small line under it:
 Below that:
 
 A neutral instruction line:
-“Please press the button below to send an appeal or press Asadbek AI to talk to our AI.”
+“Murojaat yuborish uchun pastdagi tugmani bosing yoki bizning AI bilan suhbatlashish uchun Asadbek AI ni bosing.”
 
-Two Buttons
+
+there Buttons
 
 Send an Appeal
 
 Asadbek AI
+Mening Murojatlarim
 
 Background
 
-Abstract minimal patterns (no flag):
-
-Soft geometric shapes
+use the image uploaded firt one for desktop and the second for mobile , mobile width is 390px
 
 Symbolizing seriousness, clarity, AI identity, and trust
 
@@ -88,6 +90,10 @@ tiny green checkmark animation confirming success
 
 No confirm button.
 Validation is automatic.
+
+you will use these endpoints for this flow:
+    path('auth/send-otp/', SendOTPView.as_view(), name='send_otp'),
+    path('auth/verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
 
 2. Popup Expands → Fullscreen Form
 
@@ -148,6 +154,7 @@ Cancel (left)
 Send Appeal (right)
 
 Navbar stays visible at the top.
+the data of feilds Full name, Neighborhood, Location will be saved using the api "users/profile-save/" patch method, and the appeal message is created with and the appeal sessionis created with 'appeals/create/' post method.
 
 ⭐ CHAT UI (AFTER SENDING APPEAL)
 
@@ -217,7 +224,7 @@ Avatar (staff or phantom)
 
 Staff full name (if assigned)
 
-Status badge (Assigned / Pending / Closed)
+Status badge (Open(meaning assigned)/ Pending / Closed)
 
 Message preview
 
@@ -277,10 +284,31 @@ Smooth micro-animations for transitions
 
 Fully responsive on very small devices
 
-⭐ Optional Final Touch: Appeal Status Progress Bar
+⭐ Final Touch: Appeal Status Progress Bar
 
 Inside the chat header, a small 3-step line:
 
 “Yuborildi → Biriktirildi → Yakunlandi”
 
 Subtle, clean, extremely helpful
+
+
+tech stack, 
+Next.js
+Tailwind.css
+Typescript
+Frame-motion
+Shadcn ui optionally.
+and you can use any other ui library if you want.
+
+create a seperate folder for this web inside @node_backend and create the frontedn there
+
+i have uploaded images,
+
+the first image is  sketch image of the home page , you have to take reference from it but make it better more cocise and neat and please give the Asadbek AI button a magic button design , give it blue and purple gradient stroke circling the button.  
+
+you can use the second image as the background for desktop and the third image for mobile, the forth image is the log, the fifth image is the reference image of the chat ui
+
+please leave the asadbek ai button as static , and don't build the asadbek ai view yet
+
+

@@ -1,1 +1,1 @@
-Node.js backend
+Node backend
