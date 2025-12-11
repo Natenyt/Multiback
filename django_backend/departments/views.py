@@ -40,7 +40,7 @@ def dashboard_stats(request):
         assigned_staff=user
     ).count()
 
-    # 4. solved_today & avg_response_time
+    # 4. solved_today
     today = timezone.now().date()
     # Attempt to get the daily performance row
     # Use .filter().first() to avoid exceptions if multiple rows accidentally exist 
@@ -52,19 +52,13 @@ def dashboard_stats(request):
 
     if daily_perf:
         solved_today = daily_perf.tickets_solved
-        avg_response_time = daily_perf.avg_response_time_seconds
     else:
         solved_today = 0
-        avg_response_time = 0.0
 
     # 5. personal_best_record
     personal_best_record = profile.personal_best_record
 
-    # 6. personal_best_today
-    # Simply the value of solved_today
-    personal_best_today = solved_today
-
-    # 7. completion_rate
+    # 6. completion_rate
     # (solved_today / (solved_today + active_count)) * 100
     total_active_and_solved = solved_today + active_count
     if total_active_and_solved > 0:
@@ -76,9 +70,7 @@ def dashboard_stats(request):
         "unassigned_count": unassigned_count,
         "active_count": active_count,
         "solved_today": solved_today,
-        "avg_response_time": avg_response_time,
         "personal_best_record": personal_best_record,
-        "personal_best_today": personal_best_today,
         "completion_rate": completion_rate,
     })
 
