@@ -11,12 +11,12 @@ class Session(models.Model):
     session_uuid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
 
     # 1. The Customer (User)
-    user = models.ForeignKey(
+    citizen = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         to_field="user_uuid", # Links to UUID column
-        db_column="user_uuid",
+        db_column="citizen_uuid",
         on_delete=models.CASCADE,
-        related_name="sessions"
+        related_name="sessions",
     )
 
     # 2. The Agent (Also a User now, thanks to our refactor)
@@ -45,7 +45,12 @@ class Session(models.Model):
         ("escalated", "Escalated"),
         ("hold", "Hold"),
     ]
+    ORIGIN_CHOICES = [
+        ("web", "Web"),
+        ("telegram", "Telegram"),
+    ]
 
+    origin = models.CharField(max_length=16, choices=ORIGIN_CHOICES, default="web")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="unassigned")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -55,7 +60,7 @@ class Session(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"Session {str(self.session_uuid)[:8]} - {self.user}"
+        return f"Session {str(self.session_uuid)[:8]} - {self.citizen}"
 
 
 class Message(models.Model):
@@ -64,6 +69,7 @@ class Message(models.Model):
     """
     id = models.BigAutoField(primary_key=True)
     message_uuid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    client_message_id = models.CharField(max_length=64, null=True, blank=True)
 
     session = models.ForeignKey(
         Session,
@@ -109,6 +115,13 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['created_at'] # Ensures messages always load in order
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'client_message_id'],
+                condition=models.Q(client_message_id__isnull=False),
+                name='unique_session_client_message_id'
+            )
+        ]
 
     def __str__(self):
         return f"Message {str(self.message_uuid)[:8]}"

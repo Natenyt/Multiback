@@ -101,8 +101,8 @@ async def process_message_pipeline(request: AnalyzeRequest):
     logger.info(f"Input Text: {request.text[:100]}...") 
 
     processing_data = {
-        "session_uuid": request.session_uuid,
-        "message_uuid": request.message_uuid,
+        "session_uuid": str(request.session_uuid),
+        "message_uuid": str(request.message_uuid),
         "processing_time_ms": 0,
         "embedding_tokens": 0,
         "prompt_tokens": 0,

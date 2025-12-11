@@ -2,16 +2,17 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from django.urls import reverse
+import requests
 
 from ai_endpoints.models import InjectionLog, AIAnalysis # Keep imports from ai_endpoints models as they are defined there
 from message_app.models import Session, Message
-from message_app.routing import route_message
 import logging
 
 logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
 def injection_alert(request):
     data = request.data
     logger.warning(f"Injection Detected: {data}")
@@ -24,10 +25,10 @@ def injection_alert(request):
         if message_ref:
             InjectionLog.objects.create(
                 message=message_ref,
-                risk_score=data.get('risk_score'),
-                reason=data.get('reason'),
+                risk_score=data.get('risk_score', 0.0),
+                is_injection=True
             )
-            print(f"!!! INJECTION ALERT !!! {data}")
+            logger.warning(f"!!! INJECTION ALERT !!! {data}")
         else:
             logger.error(f"Injection Alert: Message {data.get('message_uuid')} not found.")
             
@@ -39,7 +40,7 @@ def injection_alert(request):
 from departments.models import Department
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
 def routing_result(request):
     data = request.data
     logger.info(f"Routing Result Received: {data}")
@@ -87,15 +88,23 @@ def routing_result(request):
         )
         
         # Call routing function
-        route_payload = {
-            "department_id": data.get('suggested_department_id'),
-            "session_uuid": session_uuid,
-            "message_uuid": message_uuid,
-        }
-        route_message(route_payload)
+        if dept_id:
+            route_payload = {
+                "department_id": dept_id,
+                "session_uuid": session_uuid,
+                "message_uuid": message_uuid,
+            }
+            webhook_url = request.build_absolute_uri(reverse('ai_webhook'))
+            try:
+                requests.post(webhook_url, json=route_payload, timeout=5)
+            except requests.RequestException as req_err:
+                logger.error(f"Failed to call AI webhook: {req_err}")
         
     except Exception as e:
         logger.error(f"Error processing routing result: {e}")
-        return Response({"status": "error", "error": str(e)}, status=status.HTTP_200_OK)
+        return Response(
+            {"status": "error", "error": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
     return Response({"status": "processed"}, status=status.HTTP_200_OK)

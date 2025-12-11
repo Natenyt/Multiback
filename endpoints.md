@@ -47,7 +47,7 @@ These endpoints manage the conversation and the state transitions (Unassigned â†
 | Method | Endpoint | Purpose |
 | :--- | :--- | :--- |
 | **GET** | `/api/tickets/{id}/history/` | **Load Chat.** Fetches the conversation history for the selected ticket. |
-| **POST** | `/api/tickets/{id}/message/` | **Send Message.** Handles text input and file attachments. |
+| **POST** | `/api/tickets/{id}/send/` | **Send Message.** Handles text input and file attachments. |
 | **GET** | `/api/quick-replies/` | **âš¡ Quick Replies.** Fetches the list of pre-set Uzbek phrases (e.g., "Assalomu alaykum..."). |
 
 #### **B. Ticket Actions (State Changes)**
@@ -79,3 +79,5 @@ Since you are dealing with government data, you might eventually need to display
 4.  **Actions:** 4 POST endpoints (Assign, Hold, Escalate, Close).
 
 **Total Endpoints to Build: \~15**
+
+.

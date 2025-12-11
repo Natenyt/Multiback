@@ -1,6 +1,21 @@
+# websocket/routing.py
 from django.urls import re_path
-from . import consumers
+from channels.routing import URLRouter
+from .consumers import ChatConsumer, DepartmentConsumer, StaffConsumer
+from .middleware import JWTAuthMiddleware  # your custom middleware
 
 websocket_urlpatterns = [
-    re_path(r'ws/chat/(?P<session_uuid>[0-9a-f-]+)/$', consumers.ChatConsumer.as_asgi()),
+    # Chat for a specific session
+    re_path(r"ws/chat/(?P<session_uuid>[0-9a-f-]{36})/$", ChatConsumer.as_asgi()),
+
+    # Department dashboard channel
+    re_path(r"ws/department/(?P<department_id>\d+)/$", DepartmentConsumer.as_asgi()),
+
+    # Optional personal staff notifications
+    re_path(r"ws/staff/(?P<user_uuid>[0-9a-f-]{36})/$", StaffConsumer.as_asgi()),
 ]
+
+# Replace AuthMiddlewareStack with JWTAuthMiddleware
+application = JWTAuthMiddleware(
+    URLRouter(websocket_urlpatterns)
+)

@@ -11,3 +11,5 @@ redis
 channels
 daphne
 channels-redis
+python-decouple
+celery

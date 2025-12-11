@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from decouple import config
 import dotenv
 
 dotenv.load_dotenv()
@@ -24,12 +25,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-02c+j)k@z3d$zp5&opmk!1r$#ya(cmf284_@^65d1ge*dc^s^!'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-02c+j)k@z3d$zp5&opmk!1r$#ya(cmf284_@^65d1ge*dc^s^!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+# In development (DEBUG=True), Django allows all hosts by default
+# For production, set ALLOWED_HOSTS in .env to specific domains (comma-separated)
+# Example: ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+allowed_hosts_str = config('ALLOWED_HOSTS', default='')
+if allowed_hosts_str:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
+else:
+    # In development, allow common localhost variants
+    # In production with DEBUG=False, you MUST set ALLOWED_HOSTS in .env
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 AUTH_USER_MODEL = 'users.User'
 
 
@@ -183,5 +193,15 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-TOKEN_BOT = os.getenv('TOKEN_BOT')
+
+GEMINI_API_KEY = config('GEMINI_API_KEY')
+TOKEN_BOT = config('TOKEN_BOT')
+TELEGRAM_BOT_TOKEN = TOKEN_BOT
+
+TELEGRAM_FILE_CACHE_DIR = config('TELEGRAM_FILE_CACHE_DIR', default='telegram_files')
+
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = '/media/'
+THUMBNAIL_CACHE_DIR = config('THUMBNAIL_CACHE_DIR', default='thumbnails')
+THUMBNAIL_MAX_SIZE = (512, 512)  # px, max thumbnail dimension
+AI_MICROSERVICE_URL = config('AI_MICROSERVICE_URL', default='http://localhost:8001/api/v1')

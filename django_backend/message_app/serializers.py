@@ -1,106 +1,17 @@
 from rest_framework import serializers
+from django.urls import reverse
 from message_app.models import Session, Message, MessageContent
 from support_tools.models import Neighborhood
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class MessageContentSerializer(serializers.ModelSerializer):
-    file_name = serializers.SerializerMethodField()
-    file_size = serializers.SerializerMethodField()
-
-    class Meta:
-        model = MessageContent
-        fields = ['id', 'content_type', 'text', 'caption', 'file', 'file_name', 'file_size', 'created_at']
-
-    def get_file_name(self, obj):
-        if obj.file:
-            return obj.file.name.split('/')[-1]
-        return None
-
-    def get_file_size(self, obj):
-        if obj.file:
-            try:
-                 return obj.file.size
-            except:
-                 return None
-        return None
-
-class MessageSerializer(serializers.ModelSerializer):
-    contents = MessageContentSerializer(many=True, read_only=True)
-    sender_name = serializers.SerializerMethodField()
-    is_me = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Message
-        fields = ['message_uuid', 'sender_platform', 'is_staff_message', 'created_at', 'contents', 'sender_name', 'is_me']
-
-    def get_sender_name(self, obj):
-        if obj.sender:
-            return obj.sender.full_name or "Unknown"
-        return "System"
-    
-    def get_is_me(self, obj):
-        request = self.context.get('request')
-        if request and request.user and obj.sender:
-            return obj.sender.user_uuid == request.user.user_uuid
-        return False
-
-class SessionListSerializer(serializers.ModelSerializer):
-    last_message = serializers.SerializerMethodField()
-    last_message_timestamp = serializers.SerializerMethodField()
-    assigned_staff_name = serializers.CharField(source='assigned_staff.full_name', read_only=True)
-    assigned_staff_avatar = serializers.ImageField(source='assigned_staff.avatar', read_only=True)
-    neighborhood_name = serializers.CharField(source='user.neighborhood', read_only=True)
-    location = serializers.CharField(source='user.location', read_only=True)
-
-    class Meta:
-        model = Session
-        fields = ['session_uuid', 'status', 'created_at', 'last_message', 'last_message_timestamp', 'assigned_staff_name', 'assigned_staff_avatar', 'neighborhood_name', 'location']
-
-    def get_last_message(self, obj):
-        last_msg = obj.messages.last()
-        if last_msg:
-             content = last_msg.contents.first()
-             if content:
-                 if content.content_type == 'text':
-                     return content.text[:50] + "..." if len(content.text) > 50 else content.text
-                 return f"[{content.content_type}]"
-        return "No messages"
-
-    def get_last_message_timestamp(self, obj):
-        last_msg = obj.messages.last()
-        if last_msg:
-            return last_msg.created_at
-        return obj.created_at
-
-class SessionCreateSerializer(serializers.Serializer):
-    """
-    Handles the creation of a NEW appeal (Session + Initial Message).
-    """
-    neighborhood_id = serializers.IntegerField(required=False)
-    location = serializers.CharField(required=False, max_length=256)
-    text = serializers.CharField(required=False)
-    # File handling will be done in View (Multipart/Form-data is tricky in nested serializers)
-
-class ChatHistorySerializer(serializers.ModelSerializer):
-    messages = MessageSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = Session
-        fields = ['session_uuid', 'status', 'messages']
 
 
-
-
-
-
-
-# tickets/serializers.py
 class TicketListSerializer(serializers.ModelSerializer):
     session_id = serializers.CharField(source='session_uuid')
-    citizen_name = serializers.CharField(source='user.full_name')
-    location = serializers.CharField(source='user.location')
+    citizen_name = serializers.CharField(source='citizen.full_name')
+    location = serializers.CharField(source='citizen.location')
     preview_text = serializers.SerializerMethodField()
     neighborhood = serializers.SerializerMethodField()
 
@@ -114,7 +25,7 @@ class TicketListSerializer(serializers.ModelSerializer):
 
     def get_neighborhood(self, obj):
         lang = self.context.get('lang', 'uz')
-        neighborhood = obj.user.neighborhood
+        neighborhood = obj.citizen.neighborhood
         if neighborhood and neighborhood.is_active:
             return neighborhood.name_uz if lang == 'uz' else neighborhood.name_ru
         return None
@@ -126,3 +37,141 @@ class TicketListSerializer(serializers.ModelSerializer):
 
 
 
+class MessageContentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MessageContent
+        fields = [
+            "id",
+            "content_type",
+            "text",
+            "caption",
+            "file_url",
+            "telegram_file_id",
+            "media_group_id",
+            "thumbnail_url",
+            "created_at",
+        ]
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        # Priority: local file (FileField) -> stored file_url -> telegram proxy
+        if obj.file:
+            try:
+                url = obj.file.url
+                return request.build_absolute_uri(url) if request else url
+            except Exception:
+                pass
+        if obj.file_url:
+            return obj.file_url
+        if obj.telegram_file_id:
+            # Proxy endpoint by content id
+            path = reverse('telegram-proxy', args=[obj.id])
+            return request.build_absolute_uri(path) if request else path
+        return None
+
+    def get_thumbnail_url(self, obj):
+        request = self.context.get('request')
+        # Return thumbnail endpoint for images and videos (backend will handle generation or proxy)
+        if obj.content_type in ('image', 'video'):
+            path = reverse('thumbnail-proxy', args=[obj.id])
+            return request.build_absolute_uri(path) if request else path
+        # For other types, no thumbnail
+        return None
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    contents = MessageContentSerializer(many=True, read_only=True)
+    sender = serializers.SerializerMethodField()
+    is_me = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = [
+            "message_uuid",
+            "created_at",
+            "delivered_at",
+            "read_at",
+            "is_staff_message",
+            "is_me",
+            "sender_platform",
+            "sender",
+            "contents",
+        ]
+
+    def get_sender(self, obj):
+        if obj.sender:
+            s = obj.sender
+            avatar = None
+            try:
+                avatar = s.avatar.url if getattr(s, 'avatar', None) else None
+            except Exception:
+                avatar = None
+            request = self.context.get('request')
+            avatar_url = request.build_absolute_uri(avatar) if (request and avatar) else avatar
+            return {
+                "user_uuid": str(s.user_uuid),
+                "full_name": s.full_name,
+                "avatar_url": avatar_url
+            }
+        # System
+        return {"user_uuid": None, "full_name": "System", "avatar_url": None}
+
+    def get_is_me(self, obj):
+        request = self.context.get('request')
+        if not request or not getattr(request, 'user', None) or not obj.sender:
+            return False
+        try:
+            return str(obj.sender.user_uuid) == str(request.user.user_uuid)
+        except Exception:
+            return False
+
+
+class SessionSerializer(serializers.ModelSerializer):
+    assigned_staff = serializers.SerializerMethodField()
+    citizen = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Session
+        fields = [
+            "session_uuid",
+            "status",
+            "origin",
+            "created_at",
+            "assigned_staff",
+            "citizen",
+        ]
+
+    def get_assigned_staff(self, obj):
+        if obj.assigned_staff:
+            s = obj.assigned_staff
+            avatar = None
+            try:
+                avatar = s.avatar.url if getattr(s, 'avatar', None) else None
+            except Exception:
+                avatar = None
+            request = self.context.get('request')
+            avatar_url = request.build_absolute_uri(avatar) if (request and avatar) else avatar
+            return {
+                "user_uuid": str(s.user_uuid),
+                "full_name": s.full_name,
+                "avatar_url": avatar_url
+            }
+        return None
+
+    def get_citizen(self, obj):
+        u = obj.citizen
+        avatar = None
+        try:
+            avatar = u.avatar.url if getattr(u, 'avatar', None) else None
+        except Exception:
+            avatar = None
+        request = self.context.get('request')
+        avatar_url = request.build_absolute_uri(avatar) if (request and avatar) else avatar
+        return {
+            "user_uuid": str(u.user_uuid),
+            "full_name": u.full_name,
+            "avatar_url": avatar_url
+        }

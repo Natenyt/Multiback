@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
+from uuid import UUID
 
 class GeminiSettings(BaseModel):
     model: str = "gemini-2.0-flash"
@@ -7,8 +8,8 @@ class GeminiSettings(BaseModel):
     max_tokens: int = 500
 
 class AnalyzeRequest(BaseModel):
-    session_uuid: str
-    message_uuid: str
+    session_uuid: UUID
+    message_uuid: UUID
     text: str
     settings: Optional[GeminiSettings] = None
 

@@ -3,21 +3,6 @@ from django.contrib.auth import authenticate
 from .models import User
 from departments.models import StaffProfile
 
-class OTPSendSerializer(serializers.Serializer):
-    phone_number = serializers.CharField(max_length=20)
-
-    def validate_phone_number(self, value):
-        # Remove spaces, dashes, parentheses
-        return value.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-
-class OTPVerifySerializer(serializers.Serializer):
-    phone_number = serializers.CharField(max_length=20)
-    code = serializers.CharField(max_length=6)
-
-    def validate_phone_number(self, value):
-        # Remove spaces, dashes, parentheses
-        return value.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-
 class StaffLoginSerializer(serializers.Serializer):
     username = serializers.CharField() # Changed from phone_number
     password = serializers.CharField(write_only=True)
@@ -52,30 +37,3 @@ class StaffLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Must include 'username' and 'password'")
 
         return data
-
-class UserProfileSaveSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['full_name', 'neighborhood', 'location']
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'user_uuid', 'phone_number', 'full_name', 'neighborhood', 'location', 'preferred_language', 'avatar']
-        read_only_fields = ['id', 'user_uuid', 'phone_number']
-
-    preferred_language = serializers.SerializerMethodField()
-
-    def get_preferred_language(self, obj):
-        # Fetch from Telegram connection if available, else default
-        if hasattr(obj, 'telegram_profile'):
-            return obj.telegram_profile.language_preference
-        return 'uz'
-class StaffPublicSerializer(serializers.ModelSerializer):
-    department_name = serializers.CharField(source='department.name_uz', read_only=True)
-    full_name = serializers.CharField(source='user.full_name', read_only=True)
-    avatar = serializers.ImageField(source='user.avatar', read_only=True)
-    
-    class Meta:
-        model = StaffProfile
-        fields = ['id', 'username', 'role', 'department_name', 'job_title', 'full_name', 'avatar']

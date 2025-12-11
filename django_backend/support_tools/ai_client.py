@@ -10,7 +10,7 @@ async def send_to_ai_service(session_uuid, message_uuid, text, language='uz'):
     """
     Sends the user message to the FastAPI AI Microservice for analysis.
     """
-    url = os.getenv("FastAPI_Microservice_Analyze_URL", "http://127.0.0.1:8001/api/v1/analyze")
+    url = f"{settings.AI_MICROSERVICE_URL}/analyze"
     
     payload = {
         "session_uuid": str(session_uuid),
@@ -23,11 +23,11 @@ async def send_to_ai_service(session_uuid, message_uuid, text, language='uz'):
         }
     }
     
-    print(f"DEBUG: sending to {url} with payload size {len(str(payload))}")
+    logger.debug(f"Sending to {url} with payload size {len(str(payload))}")
     
     try:
         async with httpx.AsyncClient() as client:
-            print(f"DEBUG: Initiating httpx post request to {url}")
+            logger.debug(f"Initiating httpx post request to {url}")
             response = await client.post(url, json=payload, timeout=10.0)
             
             if response.status_code == 200:

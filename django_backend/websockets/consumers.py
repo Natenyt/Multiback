@@ -1,74 +1,216 @@
+# websocket/consumers.py
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from asgiref.sync import sync_to_async
+from django.contrib.auth import get_user_model
+from message_app.models import Session
+from departments.models import Department
 
-class ChatConsumer(AsyncWebsocketConsumer):
+User = get_user_model()
+
+# Helpers for permission checks (sync wrappers)
+@sync_to_async
+def get_session(session_uuid):
+    try:
+        return Session.objects.select_related('citizen', 'assigned_staff', 'assigned_department').get(session_uuid=session_uuid)
+    except Session.DoesNotExist:
+        return None
+
+@sync_to_async
+def get_department(department_id):
+    try:
+        return Department.objects.get(id=department_id)
+    except Department.DoesNotExist:
+        return None
+
+class ChatConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Connected clients join group: chat_{session_uuid}.
+    Only allowed:
+      - citizen if session.origin == 'web' and session.citizen == user
+      - staff if they are assigned_staff OR session.assigned_department == staff_profile.department
+    """
     async def connect(self):
-        # The URL route is: ws/chat/<session_uuid>/
-        self.session_uuid = self.scope['url_route']['kwargs']['session_uuid']
-        self.room_group_name = f'chat_{self.session_uuid}'
+        self.user = self.scope.get("user", None)
+        self.session_uuid = self.scope['url_route']['kwargs'].get('session_uuid')
 
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
+        if not self.user or not self.user.is_authenticated:
+            await self.close(code=4401)
+            return
 
+        session = await get_session(self.session_uuid)
+        if not session:
+            await self.close(code=4404)
+            return
+
+        allowed = await sync_to_async(self._has_access_sync)(self.user, session)
+        if not allowed:
+            await self.close(code=4403)
+            return
+
+        self.group_name = f"chat_{self.session_uuid}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
-    async def disconnect(self, close_code):
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+        # Optionally: send session info on connect
+        await self.send_json({
+            "type": "session.joined",
+            "session_uuid": str(self.session_uuid)
+        })
 
-    # Receive message from WebSocket (Client -> Server)
-    # Note: Currently, messages are sent via HTTP API, but we might support direct WS sending later.
-    # For now, this handles "typing" events mainly.
-    async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        event_type = text_data_json.get('type')
-        
-        if event_type == 'typing':
-            # Broadcast "typing" to others in the room
+    async def disconnect(self, code):
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        except Exception:
+            pass
+
+    # This consumer doesn't accept sending messages from websocket for creation;
+    # message creation should go through REST POST /send/ to ensure persistency & analysis pipeline.
+    async def receive_json(self, content, **kwargs):
+        # we can optionally handle typing indicators or presence
+        event_type = content.get("type")
+        if event_type == "typing":
+            # broadcast typing indicator to group
             await self.channel_layer.group_send(
-                self.room_group_name,
+                self.group_name,
                 {
-                    'type': 'chat_typing',
-                    'sender_id': text_data_json.get('sender_id'),
-                    'is_typing': text_data_json.get('is_typing', False)
+                    "type": "chat.typing",
+                    "user_uuid": str(self.user.user_uuid),
+                    "is_typing": content.get("is_typing", False)
                 }
             )
+        # else ignore or handle other small signals
 
-    # --- Handlers for Group Messages (Server -> Client) ---
-
+    # Handler for incoming "chat.message" events from server code (group_send)
     async def chat_message(self, event):
         """
-        Called when a new message is sent via HTTP API and broadcasted to this group.
+        event expected to contain: {"message": <serialized message dict>}
         """
-        await self.send(text_data=json.dumps({
-            'type': 'chat.message',
-            'message': event['message'] # Serialized message data
-        }))
+        message = event.get("message")
+        await self.send_json({
+            "type": "message.created",
+            "message": message
+        })
 
     async def chat_typing(self, event):
-        """
-        Called when someone is typing.
-        """
-        await self.send(text_data=json.dumps({
-            'type': 'typing',
-            'sender_id': event['sender_id'],
-            'is_typing': event['is_typing']
-        }))
+        await self.send_json({
+            "type": "typing",
+            "user_uuid": event.get("user_uuid"),
+            "is_typing": event.get("is_typing", False)
+        })
 
-    async def status_update(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'status.update',
-            'status': event['status']
-        }))
+    async def chat_message_update(self, event):
+        """
+        e.g. delivery update or message edited
+        """
+        await self.send_json({
+            "type": "message.delivery_update",
+            "message": event.get("message"),
+            "update": event.get("update", {})
+        })
 
-    async def staff_join(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'staff.join',
-            'staff': event['staff'] # Staff info
-        }))
+    def _has_access_sync(self, user, session):
+        # Citizen: must be the owner and origin web
+        if session.citizen == user:
+            return session.origin == 'web'
+
+        # Staff: must have staff_profile
+        if hasattr(user, 'staff_profile') and user.staff_profile:
+            staff_dept = getattr(user.staff_profile, 'department', None)
+            if session.assigned_staff == user:
+                return True
+            if session.assigned_department and staff_dept and session.assigned_department == staff_dept:
+                return True
+
+        return False
+
+
+class DepartmentConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Joins group: department_{department_id}. For staff dashboards in that department.
+    """
+    async def connect(self):
+        self.user = self.scope.get("user", None)
+        self.department_id = self.scope['url_route']['kwargs'].get('department_id')
+
+        if not self.user or not self.user.is_authenticated:
+            await self.close(code=4401)
+            return
+
+        # Only staff members belonging to this department may join
+        # Use sync_to_async for database access
+        has_profile = await sync_to_async(lambda: hasattr(self.user, 'staff_profile') and self.user.staff_profile is not None)()
+        if not has_profile:
+            await self.close(code=4403)
+            return
+
+        staff_dept = await sync_to_async(lambda: getattr(self.user.staff_profile, 'department', None))()
+        if not staff_dept or str(staff_dept.id) != str(self.department_id):
+            await self.close(code=4403)
+            return
+
+        self.group_name = f"department_{self.department_id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        await self.send_json({
+            "type": "department.joined",
+            "department_id": int(self.department_id)
+        })
+
+    async def disconnect(self, code):
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        except Exception:
+            pass
+
+    # Handler for session.created events
+    async def session_created(self, event):
+        await self.send_json({
+            "type": "session.created",
+            "session": event.get("session")
+        })
+
+    async def session_assignment(self, event):
+        await self.send_json({
+            "type": "session.assigned",
+            "session": event.get("session")
+        })
+
+
+class StaffConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Personal staff notifications: staff_{user_uuid}
+    """
+    async def connect(self):
+        self.user = self.scope.get("user", None)
+        self.user_uuid = self.scope['url_route']['kwargs'].get('user_uuid')
+
+        if not self.user or not self.user.is_authenticated:
+            await self.close(code=4401)
+            return
+
+        # ensure this socket belongs to the same logged-in user
+        if str(self.user.user_uuid) != str(self.user_uuid):
+            await self.close(code=4403)
+            return
+
+        self.group_name = f"staff_{self.user_uuid}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+        await self.send_json({"type": "staff.joined", "user_uuid": self.user_uuid})
+
+    async def disconnect(self, code):
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        except Exception:
+            pass
+
+    async def staff_notification(self, event):
+        await self.send_json({
+            "type": "staff.notification",
+            "payload": event.get("payload")
+        })
