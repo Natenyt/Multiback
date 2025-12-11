@@ -90,6 +90,13 @@ class SendMessageAPIView(APIView):
                     elif mime.startswith('audio/'): ctype = 'voice'
                     MessageContent.objects.create(message=msg, content_type=ctype, file=uploaded)
 
+                # Update last_messaged and check SLA breach when staff sends a message
+                if is_staff_message:
+                    from django.utils import timezone
+                    session.last_messaged = timezone.now()
+                    session.check_sla_breach()
+                    session.save()
+
         except Exception as exc:
             traceback.print_exc()
             return Response({"detail": "Failed to save message", "error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

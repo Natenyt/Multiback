@@ -1,7 +1,7 @@
 # websocket/routing.py
 from django.urls import re_path
 from channels.routing import URLRouter
-from .consumers import ChatConsumer, DepartmentConsumer, StaffConsumer
+from .consumers import ChatConsumer, DepartmentConsumer, StaffConsumer, SuperuserConsumer
 from .middleware import JWTAuthMiddleware  # your custom middleware
 
 websocket_urlpatterns = [
@@ -13,6 +13,9 @@ websocket_urlpatterns = [
 
     # Optional personal staff notifications
     re_path(r"ws/staff/(?P<user_uuid>[0-9a-f-]{36})/$", StaffConsumer.as_asgi()),
+
+    # Superuser dashboard channel
+    re_path(r"ws/superuser/$", SuperuserConsumer.as_asgi()),
 ]
 
 # Replace AuthMiddlewareStack with JWTAuthMiddleware

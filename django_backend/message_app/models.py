@@ -40,10 +40,9 @@ class Session(models.Model):
 
     STATUS_CHOICES = [
         ("assigned", "Assigned"),
-        ("unassigned", "Unassigned"), # Useful for when waiting on user reply
+        ("unassigned", "Unassigned"),
         ("closed", "Closed"),
         ("escalated", "Escalated"),
-        ("hold", "Hold"),
     ]
     ORIGIN_CHOICES = [
         ("web", "Web"),
@@ -58,6 +57,20 @@ class Session(models.Model):
     
     is_deleted = models.BooleanField(default=False) # Fixed typo (BooleanFiled -> BooleanField)
     deleted_at = models.DateTimeField(null=True, blank=True)
+
+    # SLA Tracking Fields
+    last_messaged = models.DateTimeField(null=True, blank=True, help_text="Timestamp of last staff message")
+    sla_deadline = models.DateTimeField(null=True, blank=True, help_text="Effective SLA deadline (base + hold extension)")
+    sla_breached = models.BooleanField(default=False, help_text="Flag indicating SLA breach")
+    is_hold = models.BooleanField(default=False, help_text="Flag indicating hold has been used")
+
+    def check_sla_breach(self):
+        """Check if SLA deadline has been breached and update flag."""
+        if not self.sla_deadline:
+            self.sla_breached = False
+            return
+        from django.utils import timezone
+        self.sla_breached = timezone.now() > self.sla_deadline
 
     def __str__(self):
         return f"Session {str(self.session_uuid)[:8]} - {self.citizen}"

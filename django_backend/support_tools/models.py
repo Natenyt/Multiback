@@ -23,3 +23,28 @@ class Neighborhood(models.Model):
     
     def __str__(self):
         return self.name_uz
+
+
+
+
+class QuickReply(models.Model):
+    id = models.AutoField(primary_key=True)
+
+    # Text of the quick reply (Uzbek phrases)
+    text = models.CharField(max_length=500)
+
+    # Optional: determine ordering in UI
+    order = models.PositiveIntegerField(default=0)
+
+    # Optional: to group phrases in categories
+    category = models.CharField(max_length=100, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+        verbose_name = "Quick Reply"
+        verbose_name_plural = "Quick Replies"
+
+    def __str__(self):
+        return self.text[:50]

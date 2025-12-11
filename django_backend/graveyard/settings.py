@@ -205,3 +205,19 @@ MEDIA_URL = '/media/'
 THUMBNAIL_CACHE_DIR = config('THUMBNAIL_CACHE_DIR', default='thumbnails')
 THUMBNAIL_MAX_SIZE = (512, 512)  # px, max thumbnail dimension
 AI_MICROSERVICE_URL = config('AI_MICROSERVICE_URL', default='http://localhost:8001/api/v1')
+
+# SLA Configuration
+SLA_THRESHOLD_DAYS = config('SLA_THRESHOLD_DAYS', default=3, cast=int)
+HOLD_EXTENSION_DAYS = config('HOLD_EXTENSION_DAYS', default=1, cast=int)
+
+# Celery Configuration
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://127.0.0.1:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_ENABLE_UTC = True
+
+# Celery Beat Schedule (can also be defined in celery.py)
+# The schedule is defined in celery.py for better organization

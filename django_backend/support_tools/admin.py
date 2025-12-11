@@ -1,3 +1,9 @@
 from django.contrib import admin
+from .models import QuickReply
 
-# Register your models here.
+@admin.register(QuickReply)
+class QuickReplyAdmin(admin.ModelAdmin):
+    list_display = ("text", "order", "category")
+    list_filter = ("category",)
+    search_fields = ("text",)
+    ordering = ("order",)

@@ -100,6 +100,70 @@ class TestTicketHistory:
         
         assert response.status_code == status.HTTP_403_FORBIDDEN
     
+    def test_ticket_history_escalated_forbidden_for_staff(self, authenticated_staff_client, staff_profile, telegram_session):
+        """Test staff from same department cannot access escalated sessions."""
+        # Escalate the session (same department as staff)
+        telegram_session.status = 'escalated'
+        telegram_session.assigned_staff = None
+        telegram_session.sla_deadline = None
+        telegram_session.save()
+        
+        response = authenticated_staff_client.get(
+            f'/api/tickets/{telegram_session.session_uuid}/history/'
+        )
+        
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert 'Forbidden' in response.data['detail']
+    
+    def test_ticket_history_escalated_allowed_for_superuser(self, api_client, telegram_session):
+        """Test superusers can access escalated sessions."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        # Create superuser
+        superuser = User.objects.create_user(
+            phone_number='+998901234599',
+            full_name='Superuser',
+            is_active=True,
+            is_verified=True,
+            is_superuser=True
+        )
+        
+        # Escalate the session
+        telegram_session.status = 'escalated'
+        telegram_session.assigned_staff = None
+        telegram_session.sla_deadline = None
+        telegram_session.save()
+        
+        # Authenticate as superuser
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(superuser)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        response = api_client.get(
+            f'/api/tickets/{telegram_session.session_uuid}/history/'
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'session' in response.data
+        assert response.data['session']['status'] == 'escalated'
+    
+    def test_ticket_history_escalated_allowed_for_citizen(self, authenticated_citizen_client, web_session):
+        """Test citizens can access their own escalated sessions."""
+        # Escalate the session
+        web_session.status = 'escalated'
+        web_session.assigned_staff = None
+        web_session.sla_deadline = None
+        web_session.save()
+        
+        response = authenticated_citizen_client.get(
+            f'/api/tickets/{web_session.session_uuid}/history/'
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'session' in response.data
+        assert response.data['session']['status'] == 'escalated'
+    
     def test_ticket_history_pagination(self, authenticated_staff_client, staff_profile, assigned_session):
         """Test ticket history pagination."""
         # Create multiple messages

@@ -31,6 +31,9 @@ class TicketListAPIView(APIView):
         queryset = Session.objects.select_related('citizen', 'citizen__neighborhood')
 
         # Status-based filtering
+        # Always exclude escalated sessions from staff views (they go to superuser)
+        queryset = queryset.exclude(status='escalated')
+        
         if status == 'unassigned':
             queryset = queryset.filter(assigned_staff__isnull=True, assigned_department=staff.staff_profile.department)
         elif status == 'assigned':
@@ -60,6 +63,13 @@ class TicketListAPIView(APIView):
         start = (page - 1) * page_size
         end = start + page_size
         tickets = queryset.order_by('-created_at')[start:end]
+
+        # On-demand SLA breach check for real-time accuracy
+        for ticket in tickets:
+            if ticket.sla_deadline:
+                ticket.check_sla_breach()
+                # Save if breach status changed (optional - can be done in bulk)
+                ticket.save(update_fields=['sla_breached'])
 
         serializer = TicketListSerializer(tickets, many=True, context={'lang': lang})
         return Response(serializer.data)

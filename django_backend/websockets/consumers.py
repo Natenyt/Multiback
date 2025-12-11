@@ -110,10 +110,44 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             "update": event.get("update", {})
         })
 
+    async def session_escalated(self, event):
+        """
+        Handler for session escalation event.
+        Notifies connected clients that the session has been escalated.
+        Frontend can use this to show read-only mode and display message.
+        """
+        await self.send_json({
+            "type": "session.escalated",
+            "session": event.get("session"),
+            "message": event.get("message", "Your appeal is being rerouted to a supervisor for review.")
+        })
+
+    async def session_closed(self, event):
+        """
+        Handler for session closure event.
+        Notifies connected clients that the session has been closed.
+        Frontend can use this to show read-only mode and display closure message.
+        """
+        await self.send_json({
+            "type": "session.closed",
+            "session": event.get("session"),
+            "message": event.get("message", "This session has been closed.")
+        })
+
     def _has_access_sync(self, user, session):
-        # Citizen: must be the owner and origin web
+        # Citizen: must be the owner
         if session.citizen == user:
+            # For escalated sessions, citizens can always access their own sessions
+            if session.status == 'escalated':
+                return True
+            # For non-escalated sessions, only web origin
             return session.origin == 'web'
+
+        # Escalated sessions: only accessible to superusers and the citizen (handled above)
+        if session.status == 'escalated':
+            if hasattr(user, 'is_superuser') and user.is_superuser:
+                return True
+            return False
 
         # Staff: must have staff_profile
         if hasattr(user, 'staff_profile') and user.staff_profile:
@@ -179,6 +213,17 @@ class DepartmentConsumer(AsyncJsonWebsocketConsumer):
             "session": event.get("session")
         })
 
+    async def session_closed(self, event):
+        """
+        Handler for session closure event.
+        Notifies department dashboard that a session has been closed.
+        Updates UI to remove from active list.
+        """
+        await self.send_json({
+            "type": "session.closed",
+            "session": event.get("session")
+        })
+
 
 class StaffConsumer(AsyncJsonWebsocketConsumer):
     """
@@ -213,4 +258,50 @@ class StaffConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({
             "type": "staff.notification",
             "payload": event.get("payload")
+        })
+
+
+class SuperuserConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Superuser dashboard channel: superuser
+    Only users with is_superuser=True can connect.
+    Receives escalated sessions for review.
+    """
+    async def connect(self):
+        self.user = self.scope.get("user", None)
+
+        if not self.user or not self.user.is_authenticated:
+            await self.close(code=4401)
+            return
+
+        # Only superusers can connect
+        is_superuser = await sync_to_async(lambda: getattr(self.user, 'is_superuser', False))()
+        if not is_superuser:
+            await self.close(code=4403)
+            return
+
+        self.group_name = "superuser"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        await self.send_json({
+            "type": "superuser.joined",
+            "message": "Connected to superuser dashboard"
+        })
+
+    async def disconnect(self, code):
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        except Exception:
+            pass
+
+    async def session_escalated(self, event):
+        """
+        Handler for escalated session events.
+        Sends escalated session data to superuser dashboard.
+        """
+        await self.send_json({
+            "type": "session.escalated",
+            "session": event.get("session")
         })

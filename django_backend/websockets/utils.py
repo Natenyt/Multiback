@@ -72,3 +72,106 @@ def broadcast_new_session_to_department(department_id, session_uuid):
             "session_uuid": str(session_uuid)
         }
     )
+
+
+def broadcast_session_assigned(department_id, session_obj, request=None):
+    """
+    Notifies the department group that a session has been assigned to a staff member.
+    """
+    serializer = SessionSerializer(session_obj, context={'request': request})
+    data = serializer.data
+    async_to_sync(channel_layer.group_send)(
+        f"department_{department_id}",
+        {
+            "type": "session.assigned",
+            "session": data
+        }
+    )
+
+
+def broadcast_session_hold(department_id, session_obj, request=None):
+    """
+    Notifies the department group that a session has been put on hold.
+    Optional: Can be used for UI updates when hold is applied.
+    """
+    serializer = SessionSerializer(session_obj, context={'request': request})
+    data = serializer.data
+    async_to_sync(channel_layer.group_send)(
+        f"department_{department_id}",
+        {
+            "type": "session.hold",
+            "session": data
+        }
+    )
+
+
+def broadcast_session_escalated_to_superuser(session_obj, request=None):
+    """
+    Notifies the superuser group that a session has been escalated.
+    All superusers connected to the dashboard will receive this event.
+    """
+    serializer = SessionSerializer(session_obj, context={'request': request})
+    data = serializer.data
+    async_to_sync(channel_layer.group_send)(
+        "superuser",
+        {
+            "type": "session.escalated",
+            "session": data
+        }
+    )
+
+
+def broadcast_session_escalated_to_citizen(session_uuid, session_obj=None, request=None):
+    """
+    Notifies the citizen chat that their session has been escalated.
+    Frontend can use this to show read-only mode and display message.
+    """
+    session_data = None
+    if session_obj:
+        serializer = SessionSerializer(session_obj, context={'request': request})
+        session_data = serializer.data
+    
+    async_to_sync(channel_layer.group_send)(
+        f"chat_{session_uuid}",
+        {
+            "type": "session.escalated",
+            "session": session_data,
+            "message": "Your appeal is being rerouted to a supervisor for review."
+        }
+    )
+
+
+def broadcast_session_closed_to_department(department_id, session_obj, request=None):
+    """
+    Notifies the department group that a session has been closed.
+    Updates department dashboard to remove from active list.
+    """
+    serializer = SessionSerializer(session_obj, context={'request': request})
+    data = serializer.data
+    async_to_sync(channel_layer.group_send)(
+        f"department_{department_id}",
+        {
+            "type": "session.closed",
+            "session": data
+        }
+    )
+
+
+def broadcast_session_closed_to_citizen(session_uuid, session_obj=None, request=None):
+    """
+    Notifies the citizen chat that their session has been closed.
+    Frontend can use this to show read-only mode and display closure message.
+    """
+    session_data = None
+    if session_obj:
+        serializer = SessionSerializer(session_obj, context={'request': request})
+        session_data = serializer.data
+    
+    async_to_sync(channel_layer.group_send)(
+        f"chat_{session_uuid}",
+        {
+            "type": "session.closed",
+            "session": session_data,
+            "message": "This session has been closed."
+        }
+    )

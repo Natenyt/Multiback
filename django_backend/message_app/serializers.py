@@ -142,6 +142,10 @@ class SessionSerializer(serializers.ModelSerializer):
             "created_at",
             "assigned_staff",
             "citizen",
+            "last_messaged",
+            "sla_deadline",
+            "sla_breached",
+            "is_hold",
         ]
 
     def get_assigned_staff(self, obj):

@@ -49,10 +49,15 @@ class TicketHistoryAPIView(APIView):
         # 6) Reverse to chronological order (old -> new)
         messages_list = list(reversed(serializer.data))
 
-        # 7) Session metadata
+        # 7) On-demand SLA breach check for real-time accuracy
+        if session.sla_deadline:
+            session.check_sla_breach()
+            session.save(update_fields=['sla_breached'])
+
+        # 8) Session metadata
         session_data = SessionSerializer(session, context={'request': request}).data
 
-        # 8) Build response
+        # 9) Build response
         response = {
             "session": session_data,
             "messages": messages_list,
@@ -66,6 +71,12 @@ class TicketHistoryAPIView(APIView):
         # owner
         if session.citizen == user:
             return True
+
+        # Escalated sessions: only accessible to superusers and the citizen
+        if session.status == 'escalated':
+            if hasattr(user, 'is_superuser') and user.is_superuser:
+                return True
+            return False
 
         # staff?
         if hasattr(user, 'staff_profile') and user.staff_profile:

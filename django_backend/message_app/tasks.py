@@ -95,3 +95,37 @@ def upload_message_to_telegram(self, message_id, chat_id=None):
         return {"status": "sent", "responses": responses}
     except Exception as e:
         return {"status": "failed", "error": str(e)}
+
+
+@shared_task(name="check_sla_breaches")
+def check_sla_breaches():
+    """
+    Periodic task to check and update SLA breach flags for all active sessions.
+    Should be scheduled to run daily (or configurable interval).
+    """
+    from .models import Session
+    from django.utils import timezone
+    
+    # Query all active sessions (not closed) with sla_deadline set
+    active_sessions = Session.objects.filter(
+        status__in=['assigned', 'unassigned', 'escalated'],
+        sla_deadline__isnull=False
+    )
+    
+    checked_count = 0
+    updated_count = 0
+    for session in active_sessions:
+        checked_count += 1
+        old_breach_status = session.sla_breached
+        session.check_sla_breach()
+        # Only save if status changed to avoid unnecessary writes
+        if session.sla_breached != old_breach_status:
+            session.save(update_fields=['sla_breached'])
+            updated_count += 1
+    
+    return {
+        "status": "completed",
+        "checked": checked_count,
+        "updated": updated_count,
+        "timestamp": timezone.now().isoformat()
+    }
