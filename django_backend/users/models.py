@@ -44,6 +44,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     neighborhood = models.ForeignKey(Neighborhood, on_delete=models.SET_NULL, null=True, blank=True)
     location = models.CharField(max_length=256, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    gender = models.CharField(
+        max_length=10,
+        choices=[('M', 'Male'), ('F', 'Female'), ('U', 'Unknown')],
+        blank=True,
+        null=True,
+        help_text="Auto-detected from name"
+    )
 
     # State
     is_active = models.BooleanField(default=True)

@@ -13,3 +13,4 @@ daphne
 channels-redis
 python-decouple
 celery
+django-cors-headers

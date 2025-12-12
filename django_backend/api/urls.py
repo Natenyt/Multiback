@@ -1,6 +1,13 @@
 from django.urls import path
 from . import views
-from departments.views import dashboard_stats, dashboard_leaderboard
+from departments.views import (
+    dashboard_stats, 
+    dashboard_leaderboard,
+    staff_profile,
+    dashboard_sessions_chart,
+    dashboard_demographics,
+    dashboard_top_neighborhoods
+)
 from broadcast.views import dashboard_broadcast, broadcast_seen, broadcast_ack
 from users.views import StaffLoginView
 
@@ -23,6 +30,10 @@ urlpatterns = [
     # Dashboard
     path('dashboard/stats/', dashboard_stats, name='dashboard_stats'),
     path('dashboard/leaderboard/', dashboard_leaderboard, name='dashboard_leaderboard'),
+    path('dashboard/staff-profile/', staff_profile, name='staff_profile'),
+    path('dashboard/sessions-chart/', dashboard_sessions_chart, name='dashboard_sessions_chart'),
+    path('dashboard/demographics/', dashboard_demographics, name='dashboard_demographics'),
+    path('dashboard/top-neighborhoods/', dashboard_top_neighborhoods, name='dashboard_top_neighborhoods'),
     
     # Broadcast
     path('dashboard/broadcast/', dashboard_broadcast, name='dashboard_broadcast'),

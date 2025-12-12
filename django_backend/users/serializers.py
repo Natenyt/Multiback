@@ -4,36 +4,41 @@ from .models import User
 from departments.models import StaffProfile
 
 class StaffLoginSerializer(serializers.Serializer):
-    username = serializers.CharField() # Changed from phone_number
+    identifier = serializers.CharField()  # New field to accept username or email
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        username = data.get('username')
+        identifier = data.get('identifier')
         password = data.get('password')
 
-        if username and password:
-            # 1. Find the Staff Profile first
+        if not identifier or not password:
+            raise serializers.ValidationError("Must include 'identifier' and 'password'")
+
+        # Try to find staff profile by username or email
+        staff_profile = None
+        if '@' in identifier:  # Assume it's an email
             try:
-                staff_profile = StaffProfile.objects.get(username=username)
+                user = User.objects.get(email=identifier)
+                staff_profile = StaffProfile.objects.get(user=user)
+            except (User.DoesNotExist, StaffProfile.DoesNotExist):
+                pass
+        
+        if not staff_profile:  # If not found by email, try by username
+            try:
+                staff_profile = StaffProfile.objects.get(username=identifier)
             except StaffProfile.DoesNotExist:
-                raise serializers.ValidationError("Invalid credentials") # Don't reveal username exists
-
-            # 2. Get the linked User account (where the password hash lives)
-            user = staff_profile.user
-
-            # 3. Check the password manually
-            if not user.check_password(password):
                 raise serializers.ValidationError("Invalid credentials")
-            
-            # 4. Success! Check if active
-            if not user.is_active:
-                raise serializers.ValidationError("User account is disabled.")
 
-            # Attach to data for the View to use
-            data['user'] = user
-            data['staff_profile'] = staff_profile
-            
-        else:
-            raise serializers.ValidationError("Must include 'username' and 'password'")
+        user = staff_profile.user
+        if not user.check_password(password):
+            raise serializers.ValidationError("Invalid credentials")
+        
+        # Check if active
+        if not user.is_active:
+            raise serializers.ValidationError("User account is disabled.")
+
+        # Attach to data for the View to use
+        data['user'] = user
+        data['staff_profile'] = staff_profile
 
         return data

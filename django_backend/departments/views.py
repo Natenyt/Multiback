@@ -4,9 +4,10 @@ from rest_framework.response import Response
 from django.utils import timezone
 from .models import StaffDailyPerformance
 from message_app.models import Session
-from datetime import timedelta
-from django.db.models import Sum
+from datetime import timedelta, datetime
+from django.db.models import Sum, Count, Q
 from django.contrib.auth import get_user_model
+from django.db.models.functions import TruncDate
 
 # Create your views here.
 
@@ -26,28 +27,32 @@ def dashboard_stats(request):
     if department is None:
         return Response({"error": "Staff member is not assigned to a department."}, status=400)
 
-    # 2. unassigned_count
-    # Status='unassigned' AND assigned_department equals the current user's department.
+    # 2. Check for date parameter
+    date_param = request.query_params.get('date', None)
+    if date_param:
+        try:
+            selected_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
+    else:
+        selected_date = timezone.now().date()
+
+    # 3. unassigned_count (always current, not date-filtered)
     unassigned_count = Session.objects.filter(
         status='unassigned', 
         assigned_department=department
     ).count()
 
-    # 3. active_count
-    # Status='assigned' AND assigned_staff equals the current user.
+    # 4. active_count (always current, not date-filtered)
     active_count = Session.objects.filter(
         status='assigned', 
         assigned_staff=user
     ).count()
 
-    # 4. solved_today
-    today = timezone.now().date()
-    # Attempt to get the daily performance row
-    # Use .filter().first() to avoid exceptions if multiple rows accidentally exist 
-    # (though model has unique_together) or if none exist.
+    # 5. solved_today (for selected date)
     daily_perf = StaffDailyPerformance.objects.filter(
         staff=user, 
-        date=today
+        date=selected_date
     ).first()
 
     if daily_perf:
@@ -55,10 +60,10 @@ def dashboard_stats(request):
     else:
         solved_today = 0
 
-    # 5. personal_best_record
+    # 6. personal_best_record
     personal_best_record = profile.personal_best_record
 
-    # 6. completion_rate
+    # 7. completion_rate
     # (solved_today / (solved_today + active_count)) * 100
     total_active_and_solved = solved_today + active_count
     if total_active_and_solved > 0:
@@ -109,24 +114,42 @@ def dashboard_leaderboard(request):
     # Convert to list immediately to iterate multiple times without hitting DB twice
     leaderboard_data = list(queryset)
 
-    # --- 3. Build Top 10 List ---
-    leaderboard_response = []
+    # --- 3. Find current user's rank and score ---
+    user_total_score = 0
+    user_rank = None
     
-    for rank, entry in enumerate(leaderboard_data[:10], start=1):
+    # Find user's score in the full list
+    for idx, entry in enumerate(leaderboard_data, start=1):
+        if entry['staff'] == user.id:
+            user_total_score = entry['total_score']
+            # Calculate rank: count how many have higher score
+            better_scores_count = sum(1 for e in leaderboard_data if e['total_score'] > user_total_score)
+            user_rank = better_scores_count + 1
+            break
+
+    # --- 4. Build Top 5 List (excluding current user if not in top 5) ---
+    leaderboard_response = []
+    top_5_data = leaderboard_data[:5]
+    user_in_top_5 = user_rank is not None and user_rank <= 5
+    
+    for entry in top_5_data:
         staff_id = entry['staff']
         score = entry['total_score']
+        
+        # Skip current user if they're not in top 5
+        if staff_id == user.id and not user_in_top_5:
+            continue
         
         try:
             # Fetch user + department in one go
             staff_user = User.objects.select_related('staff_profile__department').get(id=staff_id)
             
-            # Handle name (check if your model uses full_name property or get_full_name method)
+            # Handle name
             name = getattr(staff_user, 'full_name', staff_user.get_full_name())
             if not name: 
                 name = staff_user.username # Fallback if name is empty
 
             leaderboard_response.append({
-                "rank": rank,
                 "name": name,
                 "department": get_dept_name(staff_user),
                 "score": score
@@ -134,29 +157,253 @@ def dashboard_leaderboard(request):
         except User.DoesNotExist:
             continue
 
-    # --- 4. Current User Logic ---
-    user_total_score = 0
-    
-    # Find user's score in the full list
-    for entry in leaderboard_data:
-        if entry['staff'] == user.id:
-            user_total_score = entry['total_score']
-            break
-            
-    # Calculate Rank: Count how many people have a higher score than you
-    # (No need to query DB again, we have the list in memory)
-    better_scores_count = sum(1 for entry in leaderboard_data if entry['total_score'] > user_total_score)
-    user_rank = better_scores_count + 1
-
-    user_stats = {
-        "rank": user_rank,
-        "name": "You",
-        "department": get_dept_name(user),
-        "score": user_total_score,
-        "is_in_top_10": user_rank <= 10
-    }
-
     return Response({
-        "leaderboard": leaderboard_response,
-        "user_stats": user_stats
+        "leaderboard": leaderboard_response
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def staff_profile(request):
+    """Return comprehensive staff profile information."""
+    user = request.user
+    
+    try:
+        profile = user.staff_profile
+    except AttributeError:
+        return Response({"error": "User has no staff profile."}, status=400)
+    
+    # Get department name (localized)
+    accept_lang = request.headers.get('Accept-Language', '').lower()
+    lang_code = 'ru' if accept_lang.startswith('ru') else 'uz'
+    
+    department_name = None
+    if profile.department:
+        department_name = getattr(profile.department, f'name_{lang_code}', profile.department.name_uz) or "Unknown"
+    
+    # Get avatar URL
+    avatar_url = None
+    if user.avatar:
+        try:
+            avatar_url = request.build_absolute_uri(user.avatar.url)
+        except Exception:
+            avatar_url = None
+    
+    # Handle email
+    email = user.email if user.email else "emailnot@registered.com"
+    
+    return Response({
+        "full_name": user.full_name or "",
+        "email": email,
+        "avatar_url": avatar_url,
+        "job_title": profile.job_title or "",
+        "department": department_name,
+        "phone_number": user.phone_number,
+        "joined_at": profile.joined_at.isoformat() if profile.joined_at else None,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_sessions_chart(request):
+    """Return time series data for sessions chart (unassigned, assigned, closed)."""
+    user = request.user
+    
+    try:
+        profile = user.staff_profile
+        department = profile.department
+    except AttributeError:
+        return Response({"error": "User has no staff profile."}, status=400)
+        
+    if department is None:
+        return Response({"error": "Staff member is not assigned to a department."}, status=400)
+    
+    # Get filter parameters
+    period = request.query_params.get('period', '30d')
+    date_param = request.query_params.get('date', None)
+    
+    # Base queryset: sessions for this department, excluding escalated
+    base_queryset = Session.objects.filter(
+        assigned_department=department
+    ).exclude(status='escalated')
+    
+    # Handle date parameter (single day - overrides period)
+    if date_param:
+        try:
+            selected_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+            base_queryset = base_queryset.filter(
+                created_at__date=selected_date
+            )
+            
+            # Return single day data
+            unassigned = base_queryset.filter(status='unassigned').count()
+            assigned = base_queryset.filter(status='assigned').count()
+            closed = base_queryset.filter(status='closed').count()
+            
+            return Response([{
+                "date": selected_date.isoformat(),
+                "unassigned": unassigned,
+                "assigned": assigned,
+                "closed": closed,
+            }])
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
+    
+    # Handle period filter
+    now = timezone.now()
+    if period == '7d':
+        start_date = now - timedelta(days=7)
+    elif period == '30d':
+        start_date = now - timedelta(days=30)
+    elif period == 'this_month':
+        start_date = now.replace(day=1)
+    elif period == 'all':
+        start_date = None
+    else:
+        start_date = now - timedelta(days=30)  # default
+    
+    if start_date:
+        base_queryset = base_queryset.filter(created_at__gte=start_date)
+    
+    # Group by date and status
+    # Annotate with date (truncated to day)
+    queryset = base_queryset.annotate(
+        date_trunc=TruncDate('created_at')
+    ).values('date_trunc', 'status').annotate(
+        count=Count('id')
+    ).order_by('date_trunc')
+    
+    # Build time series data
+    # Get all unique dates
+    dates = sorted(set(item['date_trunc'] for item in queryset if item['date_trunc']))
+    
+    result = []
+    for date in dates:
+        date_data = {
+            "date": date.isoformat(),
+            "unassigned": 0,
+            "assigned": 0,
+            "closed": 0,
+        }
+        
+        # Fill in counts for this date
+        for item in queryset:
+            if item['date_trunc'] == date:
+                status = item['status']
+                if status in ['unassigned', 'assigned', 'closed']:
+                    date_data[status] = item['count']
+        
+        result.append(date_data)
+    
+    return Response(result)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_demographics(request):
+    """Return demographics data (Male/Female percentages) for all-time sessions."""
+    user = request.user
+    
+    try:
+        profile = user.staff_profile
+        department = profile.department
+    except AttributeError:
+        return Response({"error": "User has no staff profile."}, status=400)
+        
+    if department is None:
+        return Response({"error": "Staff member is not assigned to a department."}, status=400)
+    
+    # Get all sessions routed to department (excluding escalated)
+    sessions = Session.objects.filter(
+        assigned_department=department
+    ).exclude(status='escalated')
+    
+    # Get unique users (citizens) from those sessions
+    unique_users = sessions.values('citizen').distinct()
+    user_ids = [item['citizen'] for item in unique_users]
+    
+    # Count by gender
+    User = get_user_model()
+    users = User.objects.filter(id__in=user_ids)
+    
+    male_count = users.filter(gender='M').count()
+    female_count = users.filter(gender='F').count()
+    total_appealers = users.count()
+    
+    # Calculate percentages
+    if total_appealers > 0:
+        male_percentage = (male_count / total_appealers) * 100
+        female_percentage = (female_count / total_appealers) * 100
+    else:
+        male_percentage = 0
+        female_percentage = 0
+    
+    return Response({
+        "male_count": male_count,
+        "female_count": female_count,
+        "male_percentage": round(male_percentage, 2),
+        "female_percentage": round(female_percentage, 2),
+        "total_appealers": total_appealers,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_top_neighborhoods(request):
+    """Return top 5 neighborhoods by appeal count (all-time, excluding escalated)."""
+    user = request.user
+    
+    try:
+        profile = user.staff_profile
+        department = profile.department
+    except AttributeError:
+        return Response({"error": "User has no staff profile."}, status=400)
+        
+    if department is None:
+        return Response({"error": "Staff member is not assigned to a department."}, status=400)
+    
+    # Get all sessions routed to department (excluding escalated)
+    sessions = Session.objects.filter(
+        assigned_department=department
+    ).exclude(status='escalated').select_related('citizen__neighborhood')
+    
+    # Get total count for percentage calculation
+    total_sessions = sessions.count()
+    
+    # Count sessions by neighborhood
+    # Group by citizen's neighborhood
+    from support_tools.models import Neighborhood
+    
+    neighborhood_counts = sessions.values(
+        'citizen__neighborhood__id',
+        'citizen__neighborhood__name_uz'
+    ).annotate(
+        count=Count('id')
+    ).order_by('-count')[:5]
+    
+    # Build response
+    result = []
+    for item in neighborhood_counts:
+        neighborhood_name = item['citizen__neighborhood__name_uz']
+        if not neighborhood_name:
+            # Try to get name from Neighborhood model if available
+            neighborhood_id = item['citizen__neighborhood__id']
+            if neighborhood_id:
+                try:
+                    neighborhood = Neighborhood.objects.get(id=neighborhood_id)
+                    neighborhood_name = neighborhood.name_uz or "Unknown"
+                except Neighborhood.DoesNotExist:
+                    neighborhood_name = "Unknown"
+            else:
+                neighborhood_name = "Unknown"
+        
+        count = item['count']
+        percentage = (count / total_sessions * 100) if total_sessions > 0 else 0
+        
+        result.append({
+            "neighborhood_name": neighborhood_name,
+            "count": count,
+            "percentage": round(percentage, 2),
+        })
+    
+    return Response(result)
