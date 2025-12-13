@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.db.models import Q
 from datetime import timedelta, datetime
 from departments.models import Department, StaffProfile, StaffDailyPerformance
 from message_app.models import Session
@@ -54,6 +55,9 @@ class Command(BaseCommand):
 
         # Create Daily Performance records
         self.create_daily_performance(staff_users)
+
+        # Create chart test data for Aziza Karimova
+        self.create_chart_test_data(citizen_users, staff_users)
 
         self.stdout.write(self.style.SUCCESS('Data seeding completed successfully!'))
 
@@ -263,20 +267,27 @@ class Command(BaseCommand):
                     if dept_staff:
                         assigned_staff = random.choice(dept_staff)
 
+                # Create session first
                 session = Session.objects.create(
                     citizen=citizen,
                     assigned_department=department,
                     assigned_staff=assigned_staff,
                     status=status,
                     origin=origin,
-                    created_at=session_time,
                 )
-
+                
+                # Manually set created_at to override auto_now_add
+                session.created_at = session_time
+                
                 # Set closed_at if status is closed
+                update_fields = ['created_at']
                 if status == "closed":
                     closed_time = session_time + timedelta(hours=random.randint(1, 48))
                     session.closed_at = closed_time
-                    session.save()
+                    update_fields.append('closed_at')
+                
+                # Save with update_fields to ensure created_at is saved
+                session.save(update_fields=update_fields)
 
         self.stdout.write(f'Created sessions for the past 7 days')
 
@@ -302,4 +313,114 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write(f'Created daily performance records for the past 7 days')
+
+    def create_chart_test_data(self, citizen_users, staff_users):
+        """Create 1 month of sessions for Aziza Karimova's department for chart testing."""
+        try:
+            # Find Aziza Karimova by email or full name
+            aziza_user = User.objects.filter(
+                Q(email="aziza.staff@example.com") | Q(full_name="Aziza Karimova")
+            ).first()
+            
+            if not aziza_user:
+                # Try to find by StaffProfile username
+                try:
+                    aziza_profile = StaffProfile.objects.get(username="aziza")
+                    aziza_user = aziza_profile.user
+                except StaffProfile.DoesNotExist:
+                    self.stdout.write(self.style.WARNING('Aziza Karimova not found. Skipping chart test data creation.'))
+                    return
+            
+            if not hasattr(aziza_user, 'staff_profile'):
+                self.stdout.write(self.style.WARNING('Aziza Karimova has no staff profile. Skipping chart test data creation.'))
+                return
+            
+            aziza_profile = aziza_user.staff_profile
+            department = aziza_profile.department
+            
+            if not department:
+                self.stdout.write(self.style.WARNING('Aziza Karimova has no department. Skipping chart test data creation.'))
+                return
+            
+            # Date range: December 6, 2025 to December 12, 2025
+            start_date = datetime(2025, 12, 6, 0, 0, 0)
+            end_date = datetime(2025, 12, 12, 23, 59, 59)
+            
+            # Make timezone aware
+            if timezone.is_naive(start_date):
+                start_date = timezone.make_aware(start_date)
+            if timezone.is_naive(end_date):
+                end_date = timezone.make_aware(end_date)
+            
+            statuses = ["unassigned", "assigned", "closed"]  # Exclude escalated
+            origins = ["web", "telegram"]
+            
+            sessions_created = 0
+            current_date = start_date
+            
+            # Create sessions for each day
+            while current_date <= end_date:
+                # Create 150-250 sessions per day to match current date volume (~200 sessions)
+                num_sessions = random.randint(150, 250)
+                
+                for _ in range(num_sessions):
+                    # Random time during the day
+                    hour = random.randint(8, 20)
+                    minute = random.randint(0, 59)
+                    second = random.randint(0, 59)
+                    session_time = current_date.replace(hour=hour, minute=minute, second=second, microsecond=0)
+                    
+                    citizen = random.choice(citizen_users)
+                    status = random.choice(statuses)
+                    origin = random.choice(origins)
+                    
+                    # Assign staff if status is assigned
+                    assigned_staff = None
+                    if status == "assigned":
+                        # Pick a staff member from the same department
+                        dept_staff = [
+                            s for s in staff_users 
+                            if hasattr(s, 'staff_profile') 
+                            and s.staff_profile.department == department
+                        ]
+                        if dept_staff:
+                            assigned_staff = random.choice(dept_staff)
+                    
+                    # Create session first
+                    session = Session.objects.create(
+                        citizen=citizen,
+                        assigned_department=department,
+                        assigned_staff=assigned_staff,
+                        status=status,
+                        origin=origin,
+                    )
+                    
+                    # Manually set created_at to override auto_now_add
+                    session.created_at = session_time
+                    
+                    # Set closed_at if status is closed
+                    update_fields = ['created_at']
+                    if status == "closed":
+                        closed_time = session_time + timedelta(hours=random.randint(1, 48))
+                        session.closed_at = closed_time
+                        update_fields.append('closed_at')
+                    
+                    # Save with update_fields to ensure created_at is saved
+                    session.save(update_fields=update_fields)
+                    
+                    sessions_created += 1
+                
+                # Move to next day
+                current_date += timedelta(days=1)
+            
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Created {sessions_created} sessions for Aziza Karimova\'s department '
+                    f'({department.name_uz}) from December 6 to December 12, 2025'
+                )
+            )
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Error creating chart test data: {str(e)}')
+            )
 

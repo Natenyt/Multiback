@@ -37,16 +37,18 @@ def dashboard_stats(request):
     else:
         selected_date = timezone.now().date()
 
-    # 3. unassigned_count (always current, not date-filtered)
+    # 3. unassigned_count (for today)
     unassigned_count = Session.objects.filter(
         status='unassigned', 
-        assigned_department=department
+        assigned_department=department,
+        created_at__date=selected_date
     ).count()
 
-    # 4. active_count (always current, not date-filtered)
+    # 4. active_count (for today, assigned to this user)
     active_count = Session.objects.filter(
         status='assigned', 
-        assigned_staff=user
+        assigned_staff=user,
+        created_at__date=selected_date
     ).count()
 
     # 5. solved_today (for selected date)
@@ -255,6 +257,8 @@ def dashboard_sessions_chart(request):
         start_date = now - timedelta(days=7)
     elif period == '30d':
         start_date = now - timedelta(days=30)
+    elif period == '3m':
+        start_date = now - timedelta(days=90)
     elif period == 'this_month':
         start_date = now.replace(day=1)
     elif period == 'all':
@@ -262,8 +266,19 @@ def dashboard_sessions_chart(request):
     else:
         start_date = now - timedelta(days=30)  # default
     
+    # Determine date range
     if start_date:
         base_queryset = base_queryset.filter(created_at__gte=start_date)
+        start_date_obj = start_date.date()
+        end_date_obj = now.date()
+    else:
+        # For "all" period, get the earliest session date
+        earliest_session = base_queryset.order_by('created_at').first()
+        if earliest_session:
+            start_date_obj = earliest_session.created_at.date()
+        else:
+            start_date_obj = now.date()
+        end_date_obj = now.date()
     
     # Group by date and status
     # Annotate with date (truncated to day)
@@ -273,27 +288,28 @@ def dashboard_sessions_chart(request):
         count=Count('id')
     ).order_by('date_trunc')
     
-    # Build time series data
-    # Get all unique dates
-    dates = sorted(set(item['date_trunc'] for item in queryset if item['date_trunc']))
+    # Build a dictionary of date -> status -> count
+    data_by_date = {}
+    for item in queryset:
+        date = item['date_trunc']
+        if date not in data_by_date:
+            data_by_date[date] = {'unassigned': 0, 'assigned': 0, 'closed': 0}
+        status = item['status']
+        if status in ['unassigned', 'assigned', 'closed']:
+            data_by_date[date][status] = item['count']
     
+    # Generate all dates in the range and fill with data
     result = []
-    for date in dates:
+    current_date = start_date_obj
+    while current_date <= end_date_obj:
         date_data = {
-            "date": date.isoformat(),
-            "unassigned": 0,
-            "assigned": 0,
-            "closed": 0,
+            "date": current_date.isoformat(),
+            "unassigned": data_by_date.get(current_date, {}).get('unassigned', 0),
+            "assigned": data_by_date.get(current_date, {}).get('assigned', 0),
+            "closed": data_by_date.get(current_date, {}).get('closed', 0),
         }
-        
-        # Fill in counts for this date
-        for item in queryset:
-            if item['date_trunc'] == date:
-                status = item['status']
-                if status in ['unassigned', 'assigned', 'closed']:
-                    date_data[status] = item['count']
-        
         result.append(date_data)
+        current_date += timedelta(days=1)
     
     return Response(result)
 
@@ -319,12 +335,12 @@ def dashboard_demographics(request):
     ).exclude(status='escalated')
     
     # Get unique users (citizens) from those sessions
-    unique_users = sessions.values('citizen').distinct()
-    user_ids = [item['citizen'] for item in unique_users]
+    # Session.citizen is a ForeignKey with to_field="user_uuid", so values('citizen') returns UUIDs
+    unique_citizen_uuids = sessions.values_list('citizen', flat=True).distinct()
     
     # Count by gender
     User = get_user_model()
-    users = User.objects.filter(id__in=user_ids)
+    users = User.objects.filter(user_uuid__in=unique_citizen_uuids)
     
     male_count = users.filter(gender='M').count()
     female_count = users.filter(gender='F').count()
@@ -350,7 +366,7 @@ def dashboard_demographics(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_top_neighborhoods(request):
-    """Return top 5 neighborhoods by appeal count (all-time, excluding escalated)."""
+    """Return top 6 neighborhoods by appeal count (all-time, excluding escalated)."""
     user = request.user
     
     try:
@@ -379,7 +395,7 @@ def dashboard_top_neighborhoods(request):
         'citizen__neighborhood__name_uz'
     ).annotate(
         count=Count('id')
-    ).order_by('-count')[:5]
+    ).order_by('-count')[:6]
     
     # Build response
     result = []

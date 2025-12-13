@@ -1,0 +1,320 @@
+"use client"
+
+import * as React from "react"
+import Image from "next/image"
+import { useRouter } from "next/navigation"
+import {
+  LayoutDashboard,
+  Inbox,
+  CheckCircle2,
+  Archive,
+  Search,
+  LogOut,
+  User,
+  Bell,
+  ChevronsUpDown,
+  BarChart3,
+  Check,
+} from "lucide-react"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getStaffProfile, clearAuthTokens } from "@/dash_department/lib/api"
+import type { StaffProfileResponse } from "@/dash_department/lib/api"
+
+// Menu items with Lucide icons
+const menuItems = [
+  {
+    title: "Dashboard",
+    icon: LayoutDashboard,
+    href: "/dashboard",
+  },
+  {
+    title: "Tayinlanmagan",
+    icon: Inbox,
+    href: "/dashboard/unassigned",
+  },
+  {
+    title: "Tayinlangan",
+    icon: CheckCircle2,
+    href: "/dashboard/assigned",
+  },
+  {
+    title: "Arxiv",
+    icon: Archive,
+    href: "/dashboard/archive",
+  },
+  {
+    title: "Global qidiruv",
+    icon: Search,
+    href: "/dashboard/search",
+  },
+  {
+    title: "Asadbek AI",
+    icon: null,
+    href: "/dashboard/ai",
+  },
+]
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const router = useRouter()
+  const { state } = useSidebar()
+  const isCollapsed = state === "collapsed"
+  const [staffProfile, setStaffProfile] = React.useState<StaffProfileResponse | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [currentWorkspace, setCurrentWorkspace] = React.useState("Dashboard")
+
+  React.useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const profile = await getStaffProfile()
+        setStaffProfile(profile)
+      } catch (error) {
+        console.error("Failed to fetch staff profile:", error)
+        // If authentication error, clear tokens and redirect to login
+        if (error instanceof Error && (
+          error.message.includes('token') ||
+          error.message.includes('authentication') ||
+          error.message.includes('not valid')
+        )) {
+          clearAuthTokens()
+          router.push("/login")
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchProfile()
+  }, [router])
+
+  const handleLogout = () => {
+    clearAuthTokens()
+    router.push("/login")
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  return (
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex w-full items-center gap-2 rounded-md px-2 py-4 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group/logo group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground group-hover/logo:bg-sidebar-primary/90 group-data-[collapsible=icon]:group-hover/logo:bg-sidebar-primary !transition-none">
+                <Image
+                  src="/logo.svg"
+                  alt="Logo"
+                  width={14}
+                  height={14}
+                  className="object-contain"
+                />
+              </div>
+              <div className="flex flex-1 items-center gap-2 group-data-[collapsible=icon]:hidden">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold group-hover/logo:text-sidebar-foreground/80 whitespace-nowrap text-left">
+                    NTMP
+                  </span>
+                </div>
+              </div>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="w-[200px]"
+            side="right"
+          >
+            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setCurrentWorkspace("Dashboard")}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border">
+                  <Image
+                    src="/logo.svg"
+                    alt="Dashboard"
+                    width={14}
+                    height={14}
+                    className="object-contain"
+                  />
+                </div>
+                <span className="flex-1">Dashboard</span>
+                {currentWorkspace === "Dashboard" && <Check className="h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setCurrentWorkspace("Statistics")}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border">
+                  <BarChart3 className="h-4 w-4" />
+                </div>
+                <span className="flex-1">Statistics</span>
+                {currentWorkspace === "Statistics" && <Check className="h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild className="!transition-none">
+                    <a
+                      href={item.href}
+                      className={`flex items-center !transition-none ${
+                        isCollapsed
+                          ? "justify-center px-2"
+                          : "gap-2 px-2"
+                      }`}
+                    >
+                      <span className="shrink-0 !transition-none">
+                        {item.title === "Asadbek AI" ? (
+                          <Image
+                            src="/AI.svg"
+                            alt="AI"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                        ) : item.icon ? (
+                          <item.icon className="h-4 w-4" />
+                        ) : null}
+                      </span>
+                      <span className="group-data-[collapsible=icon]:hidden">
+                        {item.title}
+                      </span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
+        {isLoading ? (
+          <div className="px-2 py-4">
+            <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
+              <div className="h-8 w-8 shrink-0 rounded-lg bg-sidebar-primary animate-pulse" />
+              <div className="flex flex-col gap-1 group-data-[collapsible=icon]:hidden">
+                <div className="h-3 w-20 bg-sidebar-primary/20 rounded animate-pulse" />
+                <div className="h-2 w-32 bg-sidebar-primary/20 rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+        ) : staffProfile ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex w-full items-center gap-2 rounded-md px-2 py-2 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
+                <Avatar className="h-8 w-8 shrink-0 rounded-lg">
+                  {staffProfile.avatar_url ? (
+                    <AvatarImage src={staffProfile.avatar_url} alt={staffProfile.full_name} />
+                  ) : null}
+                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground rounded-lg">
+                    {getInitials(staffProfile.full_name || "User")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-1 flex-col gap-0.5 overflow-hidden text-left group-data-[collapsible=icon]:hidden">
+                  <span className="text-sm font-medium truncate text-left">
+                    {staffProfile.full_name || "User"}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate text-left">
+                    {staffProfile.email || "emailnot@registered.com"}
+                  </span>
+                </div>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-[200px]"
+              side="right"
+            >
+              <DropdownMenuLabel>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    {staffProfile.avatar_url ? (
+                      <AvatarImage src={staffProfile.avatar_url} alt={staffProfile.full_name} />
+                    ) : null}
+                    <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground rounded-lg">
+                      {getInitials(staffProfile.full_name || "User")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">
+                      {staffProfile.full_name || "User"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {staffProfile.email || "emailnot@registered.com"}
+                    </span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/dashboard/account")}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Account</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/notifications")}>
+                <Bell className="mr-2 h-4 w-4" />
+                <span>Notifications</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="px-2 py-4">
+            <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
+              <div className="flex h-8 w-8 shrink-0 rounded-lg items-center justify-center bg-sidebar-primary text-sidebar-primary-foreground">
+                <span className="text-xs">U</span>
+              </div>
+              <div className="flex flex-col gap-0.5 text-left group-data-[collapsible=icon]:hidden">
+                <span className="text-sm font-medium text-left">User</span>
+                <span className="text-xs text-muted-foreground text-left">emailnot@registered.com</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </SidebarFooter>
+    </Sidebar>
+  )
+}
+
