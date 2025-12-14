@@ -250,6 +250,28 @@ export function SessionsChart() {
                 <ChartTooltipContent
                   labelFormatter={(value) => formatDate(value)}
                   indicator="dot"
+                  formatter={(value, name, item) => {
+                    const itemConfig = chartConfig[name as keyof typeof chartConfig]
+                    const label = itemConfig?.label || name
+                    const indicatorColor = item.payload?.fill || item.color || chartConfig[name as keyof typeof chartConfig]?.color
+                    return (
+                      <div className="flex w-full flex-wrap items-center gap-2">
+                        <div
+                          className="h-2.5 w-2.5 shrink-0 rounded-[2px] border"
+                          style={{
+                            backgroundColor: indicatorColor,
+                            borderColor: indicatorColor,
+                          }}
+                        />
+                        <div className="flex flex-1 items-center justify-between gap-2 leading-none">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="text-foreground font-mono font-medium tabular-nums">
+                            {typeof value === 'number' ? value.toLocaleString() : value}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  }}
                 />
               }
             />

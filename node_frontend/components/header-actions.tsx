@@ -46,9 +46,9 @@ export function HeaderActions() {
   return (
     <div className="flex items-center gap-2 bg-muted/30 rounded-lg px-1.5 py-1 border border-border/30">
       {/* Notification Bell */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="relative flex items-center justify-center w-8 h-8 rounded-full bg-muted/50 border border-border/50 hover:bg-muted transition-colors">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button suppressHydrationWarning className="relative flex items-center justify-center w-8 h-8 rounded-full bg-muted/50 border border-border/50 hover:bg-muted transition-colors">
             <Bell className="h-4 w-4 text-muted-foreground" />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-medium text-white">
@@ -80,9 +80,9 @@ export function HeaderActions() {
       </DropdownMenu>
 
       {/* Language Toggle */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button suppressHydrationWarning className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors">
             <span className="text-sm font-medium text-muted-foreground">{language}</span>
             <Globe className="h-4 w-4 text-muted-foreground" />
           </button>

@@ -112,6 +112,22 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+:root {
+  --chat-bg: #F0F1F3;
+  --chat-header: #F8F9FA;
+  --chat-input: #F8F9FA;
+  --chat-border: #D1D5DB;
+  --chat-shadow: rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --chat-bg: oklch(0.205 0 0);
+  --chat-header: oklch(0.269 0 0);
+  --chat-input: oklch(0.269 0 0);
+  --chat-border: oklch(1 0 0 / 15%);
+  --chat-shadow: rgba(255, 255, 255, 0.06);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -134,4 +150,15 @@ input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0px 1000px hsl(var(--background)) inset;
 
   /* 3. Keep the border radius consistent (optional but good for shadcn) */
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

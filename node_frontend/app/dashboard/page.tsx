@@ -1,10 +1,18 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function DashboardPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push('/dashboard/dashboard');
+  }, [router]);
+
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Dashboard Content</h1>
-        <p className="text-muted-foreground">Welcome to your dashboard!</p>
-      </div>
+      <p>Redirecting to dashboard...</p>
     </div>
   );
 }

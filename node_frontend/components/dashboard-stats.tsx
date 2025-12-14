@@ -67,31 +67,31 @@ export function DashboardStats() {
       icon: Inbox,
       value: stats.unassigned_count,
       label: "Tayinlanmagan",
-      iconColor: "text-blue-400/80", // Muted blue matching chart theme
+      iconColor: "text-blue-500", // Same blue for all icons
     },
     {
       icon: CheckCircle2,
       value: stats.active_count,
       label: "Tayinlangan",
-      iconColor: "text-cyan-400/80", // Cyan-blue variant
+      iconColor: "text-blue-500", // Same blue for all icons
     },
     {
       icon: Trophy,
       value: stats.solved_today,
       label: "Bugun yechildi",
-      iconColor: "text-blue-300/80", // Lighter blue
+      iconColor: "text-blue-500", // Same blue for all icons
     },
     {
       icon: Target,
       value: stats.personal_best_record,
       label: "Shaxsiy rekord",
-      iconColor: "text-indigo-400/80", // Indigo-blue variant
+      iconColor: "text-blue-500", // Same blue for all icons
     },
     {
       icon: TrendingUp,
       value: Math.round(stats.completion_rate),
       label: "Yakunlanish",
-      iconColor: "text-sky-400/80", // Sky blue variant
+      iconColor: "text-blue-500", // Same blue for all icons
       isPercentage: true,
     },
   ]
@@ -103,18 +103,18 @@ export function DashboardStats() {
           key={index}
           className="flex-1 bg-card border border-input rounded-md p-4 flex flex-col items-center text-center gap-0 transition-transform duration-200 ease-out hover:scale-[1.02] cursor-default will-change-transform"
         >
-          {/* Icon Gap: 2px */}
-          <card.icon className={`h-6 w-6 ${card.iconColor} mb-[22px] drop-shadow-[0_0_8px_currentColor]`} />
-          
-          {/* Number Gap: 0.5px */}
-          {/* added leading-none to remove line-height spacing so the 0.5px is accurate */}
-          <div className="text-3xl font-bold text-foreground leading-none mb-[5px]">
-            {card.value}{card.isPercentage ? '%' : ''}
-          </div>
-          
-          <div className={`text-sm text-muted-foreground ${poppins.className} font-medium`}>
-            {card.label}
-          </div>
+            {/* Icon Gap: 2px */}
+            <card.icon className={`h-6 w-6 ${card.iconColor} mb-[22px]`} />
+            
+            {/* Number Gap: 0.5px */}
+            {/* added leading-none to remove line-height spacing so the 0.5px is accurate */}
+            <div className="text-3xl font-bold text-foreground leading-none mb-[5px]">
+              {card.value}{card.isPercentage ? '%' : ''}
+            </div>
+            
+            <div className={`text-sm text-muted-foreground/70 ${poppins.className} font-medium`}>
+              {card.label}
+            </div>
         </Card>
       ))}
     </div>

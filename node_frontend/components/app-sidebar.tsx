@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Inbox,
@@ -46,7 +46,7 @@ const menuItems = [
   {
     title: "Dashboard",
     icon: LayoutDashboard,
-    href: "/dashboard",
+    href: "/dashboard/dashboard",
   },
   {
     title: "Tayinlanmagan",
@@ -77,6 +77,7 @@ const menuItems = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter()
+  const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
   const [staffProfile, setStaffProfile] = React.useState<StaffProfileResponse | null>(null)
@@ -125,7 +126,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex w-full items-center gap-2 rounded-md px-2 py-4 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group/logo group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
+            <button suppressHydrationWarning className="flex w-full items-center gap-2 rounded-md px-2 py-4 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group/logo group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground group-hover/logo:bg-sidebar-primary/90 group-data-[collapsible=icon]:group-hover/logo:bg-sidebar-primary !transition-none">
                 <Image
                   src="/logo.svg"
@@ -189,38 +190,41 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="!transition-none">
-                    <a
-                      href={item.href}
-                      className={`flex items-center !transition-none ${
-                        isCollapsed
-                          ? "justify-center px-2"
-                          : "gap-2 px-2"
-                      }`}
-                    >
+            <SidebarMenu className="gap-[5px]">
+              {menuItems.map((item) => {
+                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href))
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive} className="!transition-none">
+                      <a
+                        href={item.href}
+                        className={`flex items-center !transition-none ${
+                          isCollapsed
+                            ? "justify-center px-2"
+                            : "gap-2 px-2"
+                        }`}
+                      >
                       <span className="shrink-0 !transition-none">
                         {item.title === "Asadbek AI" ? (
                           <Image
                             src="/AI.svg"
                             alt="AI"
-                            width={16}
-                            height={16}
+                            width={18}
+                            height={18}
                             className="object-contain"
                           />
                         ) : item.icon ? (
-                          <item.icon className="h-4 w-4" />
+                          <item.icon className="h-[18px] w-[18px]" />
                         ) : null}
                       </span>
-                      <span className="group-data-[collapsible=icon]:hidden">
-                        {item.title}
-                      </span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                        <span className="group-data-[collapsible=icon]:hidden">
+                          {item.title}
+                        </span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -239,7 +243,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ) : staffProfile ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center gap-2 rounded-md px-2 py-2 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
+              <button suppressHydrationWarning className="flex w-full items-center gap-2 rounded-md px-2 py-2 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
                 <Avatar className="h-8 w-8 shrink-0 rounded-lg">
                   {staffProfile.avatar_url ? (
                     <AvatarImage src={staffProfile.avatar_url} alt={staffProfile.full_name} />

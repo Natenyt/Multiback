@@ -23,6 +23,17 @@ class TicketListAPIView(APIView):
 
     def get(self, request):
         staff = request.user
+        
+        # Verify user has staff profile
+        if not hasattr(staff, 'staff_profile') or not staff.staff_profile:
+            return Response({"error": "User has no staff profile."}, status=400)
+        
+        staff_profile = staff.staff_profile
+        department = staff_profile.department
+        
+        if not department:
+            return Response({"error": "Staff member is not assigned to a department."}, status=400)
+        
         lang = request.query_params.get('lang', 'uz')
         status = request.query_params.get('status', 'unassigned')
         search = request.query_params.get('search', '')
@@ -35,7 +46,8 @@ class TicketListAPIView(APIView):
         queryset = queryset.exclude(status='escalated')
         
         if status == 'unassigned':
-            queryset = queryset.filter(assigned_staff__isnull=True, assigned_department=staff.staff_profile.department)
+            # Filter unassigned sessions that belong to the staff's department
+            queryset = queryset.filter(assigned_staff__isnull=True, assigned_department=department)
         elif status == 'assigned':
             queryset = queryset.filter(assigned_staff=staff)
         elif status == 'closed':

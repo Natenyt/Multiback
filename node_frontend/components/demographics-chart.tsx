@@ -56,11 +56,11 @@ export function DemographicsChart() {
           <CardTitle>Demografik ma'lumotlar</CardTitle>
           <CardDescription>Jins bo'yicha taqsimot</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 pb-0">
-          <div className="mx-auto aspect-square max-h-[250px] flex items-center justify-center">
-            <div className="h-[200px] w-[200px] bg-muted/50 animate-pulse rounded-full" />
-          </div>
-        </CardContent>
+          <CardContent className="flex-1 pb-0 flex items-center justify-center">
+            <div className="aspect-square max-h-[300px] w-full max-w-[300px] flex items-center justify-center">
+              <div className="h-[280px] w-[280px] bg-muted/50 animate-pulse rounded-full" />
+            </div>
+          </CardContent>
       </Card>
     )
   }
@@ -88,13 +88,13 @@ export function DemographicsChart() {
           <CardTitle>Demografik ma'lumotlar</CardTitle>
           <CardDescription>Jins bo'yicha taqsimot</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 pb-0">
-          <div className="mx-auto aspect-square max-h-[250px] flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-muted-foreground">Ma'lumot mavjud emas</p>
+          <CardContent className="flex-1 pb-0 flex items-center justify-center">
+            <div className="aspect-square max-h-[300px] w-full max-w-[300px] flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground">Ma'lumot mavjud emas</p>
+              </div>
             </div>
-          </div>
-        </CardContent>
+          </CardContent>
         <CardFooter className="flex-col gap-2 text-sm">
           <div className="text-muted-foreground leading-none">
             Jami murojaatlar soni
@@ -110,11 +110,11 @@ export function DemographicsChart() {
         <CardTitle>Demografik ma'lumotlar</CardTitle>
         <CardDescription>Jins bo'yicha taqsimot</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
-        >
+        <CardContent className="flex-1 pb-0 flex items-center justify-center">
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-square max-h-[300px] w-full max-w-[300px]"
+          >
           <PieChart>
             <ChartTooltip
               cursor={false}

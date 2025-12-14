@@ -9,7 +9,7 @@ from django.conf import settings
 from django.db.models import Q
 from datetime import timedelta, datetime
 from departments.models import Department, StaffProfile, StaffDailyPerformance
-from message_app.models import Session
+from message_app.models import Session, Message, MessageContent
 from support_tools.models import Neighborhood
 import random
 
@@ -58,6 +58,12 @@ class Command(BaseCommand):
 
         # Create chart test data for Aziza Karimova
         self.create_chart_test_data(citizen_users, staff_users)
+
+        # Create leaderboard test data (closed sessions with assigned_staff)
+        self.create_leaderboard_test_data(citizen_users, staff_users, departments)
+
+        # Create unassigned sessions with messages for Aziza Karimova's department
+        self.create_unassigned_sessions_with_messages(citizen_users, staff_users)
 
         self.stdout.write(self.style.SUCCESS('Data seeding completed successfully!'))
 
@@ -259,9 +265,9 @@ class Command(BaseCommand):
                 status = random.choice(statuses)
                 origin = random.choice(origins)
 
-                # Assign staff if status is assigned
+                # Assign staff if status is assigned OR closed (closed sessions need assigned_staff for leaderboard)
                 assigned_staff = None
-                if status == "assigned":
+                if status in ["assigned", "closed"]:
                     # Pick a staff member from the same department
                     dept_staff = [s for s in staff_users if hasattr(s, 'staff_profile') and s.staff_profile.department == department]
                     if dept_staff:
@@ -374,9 +380,9 @@ class Command(BaseCommand):
                     status = random.choice(statuses)
                     origin = random.choice(origins)
                     
-                    # Assign staff if status is assigned
+                    # Assign staff if status is assigned OR closed (closed sessions need assigned_staff for leaderboard)
                     assigned_staff = None
-                    if status == "assigned":
+                    if status in ["assigned", "closed"]:
                         # Pick a staff member from the same department
                         dept_staff = [
                             s for s in staff_users 
@@ -422,5 +428,297 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'Error creating chart test data: {str(e)}')
+            )
+
+    def create_leaderboard_test_data(self, citizen_users, staff_users, departments):
+        """Create closed sessions with assigned_staff for leaderboard testing."""
+        try:
+            self.stdout.write(self.style.SUCCESS('Creating leaderboard test data...'))
+            
+            # Create closed sessions for each staff member across all departments
+            # This ensures the leaderboard has data to display
+            now = timezone.now()
+            sessions_created = 0
+            
+            # Create closed sessions for the past 30 days to have a good distribution
+            for day_offset in range(30):
+                date = now - timedelta(days=day_offset)
+                
+                # For each staff member, create some closed sessions
+                for staff_user in staff_users:
+                    try:
+                        staff_profile = staff_user.staff_profile
+                        if not staff_profile or not staff_profile.department:
+                            continue
+                        
+                        department = staff_profile.department
+                        
+                        # Create 2-8 closed sessions per staff member per day
+                        num_closed = random.randint(2, 8)
+                        
+                        for _ in range(num_closed):
+                            # Random time during the day
+                            hour = random.randint(8, 20)
+                            minute = random.randint(0, 59)
+                            second = random.randint(0, 59)
+                            session_time = date.replace(hour=hour, minute=minute, second=second, microsecond=0)
+                            
+                            citizen = random.choice(citizen_users)
+                            origin = random.choice(["web", "telegram"])
+                            
+                            # Create closed session with assigned_staff set
+                            session = Session.objects.create(
+                                citizen=citizen,
+                                assigned_department=department,
+                                assigned_staff=staff_user,  # IMPORTANT: Set assigned_staff for closed sessions
+                                status='closed',
+                                origin=origin,
+                            )
+                            
+                            # Manually set created_at and closed_at
+                            session.created_at = session_time
+                            closed_time = session_time + timedelta(hours=random.randint(1, 48))
+                            session.closed_at = closed_time
+                            session.save(update_fields=['created_at', 'closed_at'])
+                            
+                            sessions_created += 1
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.WARNING(f'Error creating closed session for {staff_user.full_name}: {str(e)}')
+                        )
+                        continue
+            
+            # Summary: Show closed session counts per staff
+            self.stdout.write(self.style.SUCCESS(f'\nCreated {sessions_created} closed sessions for leaderboard'))
+            self.stdout.write('\nClosed sessions per staff member:')
+            for staff_user in staff_users:
+                closed_count = staff_user.assigned_sessions.filter(status='closed', is_deleted=False).count()
+                self.stdout.write(f'  - {staff_user.full_name}: {closed_count} closed sessions')
+            
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Error creating leaderboard test data: {str(e)}')
+            )
+
+    def create_unassigned_sessions_with_messages(self, citizen_users, staff_users):
+        """Create 10 unassigned sessions for Aziza Karimova's department with messages."""
+        try:
+            # Find Aziza Karimova
+            aziza_user = None
+            for staff_user in staff_users:
+                if staff_user.email == "aziza.staff@example.com" or staff_user.full_name == "Aziza Karimova":
+                    aziza_user = staff_user
+                    break
+            
+            if not aziza_user or not hasattr(aziza_user, 'staff_profile'):
+                self.stdout.write(self.style.WARNING('Aziza Karimova not found. Skipping unassigned sessions creation.'))
+                return
+            
+            aziza_profile = aziza_user.staff_profile
+            department = aziza_profile.department
+            
+            if not department:
+                self.stdout.write(self.style.WARNING('Aziza Karimova has no department. Skipping unassigned sessions creation.'))
+                return
+            
+            # Sample messages in Uzbek
+            citizen_messages = [
+                "Salom, men ko'cha chirog'i buzilganligi haqida xabar bermoqchiman.",
+                "Mening uyim yonidagi kanalizatsiya to'silib qolgan.",
+                "Avtobus bekatida o'qish uchun stol yo'q.",
+                "Parkda bolalar maydonchasi buzilgan.",
+                "Ko'chada axloqsizlik bor, tozalash kerak.",
+                "Mening mahallamda suv muammosi bor.",
+                "Elektrik energiya uzilishi tez-tez bo'lib turadi.",
+                "Maktab yonida xavfsizlik muammosi bor.",
+                "Sog'liqni saqlash markaziga borish qiyin.",
+                "Yashash sharoitlari yomonlashmoqda.",
+            ]
+            
+            now = timezone.now()
+            sessions_created = 0
+            messages_created = 0
+            
+            # Create 10 unassigned sessions for today
+            for i in range(10):
+                # Random time during today
+                hour = random.randint(8, 20)
+                minute = random.randint(0, 59)
+                second = random.randint(0, 59)
+                session_time = now.replace(hour=hour, minute=minute, second=second, microsecond=0)
+                
+                citizen = random.choice(citizen_users)
+                origin = random.choice(["web", "telegram"])
+                
+                # Create unassigned session
+                session = Session.objects.create(
+                    citizen=citizen,
+                    assigned_department=department,
+                    assigned_staff=None,  # Unassigned
+                    status='unassigned',
+                    origin=origin,
+                )
+                
+                # Manually set created_at
+                session.created_at = session_time
+                session.save(update_fields=['created_at'])
+                sessions_created += 1
+                
+                # Create 2-5 messages for each session
+                num_messages = random.randint(2, 5)
+                message_time = session_time
+                
+                for j in range(num_messages):
+                    # All messages from citizen for unassigned sessions
+                    message = Message.objects.create(
+                        session=session,
+                        sender=citizen,
+                        is_staff_message=False,
+                        sender_platform=origin,
+                    )
+                    
+                    message.created_at = message_time
+                    message.save(update_fields=['created_at'])
+                    
+                    # Create message content
+                    if j == 0:
+                        # First message uses predefined text
+                        text = citizen_messages[i % len(citizen_messages)]
+                    else:
+                        # Subsequent messages are variations
+                        text = f"{citizen_messages[i % len(citizen_messages)]} (xabar {j + 1})"
+                    
+                    MessageContent.objects.create(
+                        message=message,
+                        content_type='text',
+                        text=text,
+                    )
+                    
+                    messages_created += 1
+                    
+                    # Next message 5-30 minutes later
+                    message_time = message_time + timedelta(minutes=random.randint(5, 30))
+            
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Created {sessions_created} unassigned sessions with {messages_created} messages '
+                    f'for Aziza Karimova\'s department ({department.name_uz})'
+                )
+            )
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Error creating unassigned sessions: {str(e)}')
+            )
+
+    def create_unassigned_sessions_with_messages(self, citizen_users, staff_users):
+        """Create 10 unassigned sessions for Aziza Karimova's department with messages."""
+        try:
+            # Find Aziza Karimova
+            aziza_user = None
+            for staff_user in staff_users:
+                if staff_user.email == "aziza.staff@example.com" or staff_user.full_name == "Aziza Karimova":
+                    aziza_user = staff_user
+                    break
+            
+            if not aziza_user or not hasattr(aziza_user, 'staff_profile'):
+                self.stdout.write(self.style.WARNING('Aziza Karimova not found. Skipping unassigned sessions creation.'))
+                return
+            
+            aziza_profile = aziza_user.staff_profile
+            department = aziza_profile.department
+            
+            if not department:
+                self.stdout.write(self.style.WARNING('Aziza Karimova has no department. Skipping unassigned sessions creation.'))
+                return
+            
+            # Sample messages in Uzbek
+            citizen_messages = [
+                "Salom, men ko'cha chirog'i buzilganligi haqida xabar bermoqchiman.",
+                "Mening uyim yonidagi kanalizatsiya to'silib qolgan.",
+                "Avtobus bekatida o'qish uchun stol yo'q.",
+                "Parkda bolalar maydonchasi buzilgan.",
+                "Ko'chada axloqsizlik bor, tozalash kerak.",
+                "Mening mahallamda suv muammosi bor.",
+                "Elektrik energiya uzilishi tez-tez bo'lib turadi.",
+                "Maktab yonida xavfsizlik muammosi bor.",
+                "Sog'liqni saqlash markaziga borish qiyin.",
+                "Yashash sharoitlari yomonlashmoqda.",
+            ]
+            
+            now = timezone.now()
+            sessions_created = 0
+            messages_created = 0
+            
+            # Create 10 unassigned sessions for today
+            for i in range(10):
+                # Random time during today
+                hour = random.randint(8, 20)
+                minute = random.randint(0, 59)
+                second = random.randint(0, 59)
+                session_time = now.replace(hour=hour, minute=minute, second=second, microsecond=0)
+                
+                citizen = random.choice(citizen_users)
+                origin = random.choice(["web", "telegram"])
+                
+                # Create unassigned session
+                session = Session.objects.create(
+                    citizen=citizen,
+                    assigned_department=department,
+                    assigned_staff=None,  # Unassigned
+                    status='unassigned',
+                    origin=origin,
+                )
+                
+                # Manually set created_at
+                session.created_at = session_time
+                session.save(update_fields=['created_at'])
+                sessions_created += 1
+                
+                # Create 2-5 messages for each session
+                num_messages = random.randint(2, 5)
+                message_time = session_time
+                
+                for j in range(num_messages):
+                    # First message is from citizen, rest can be from citizen or staff (but staff won't exist for unassigned)
+                    is_citizen = True  # All messages from citizen for unassigned sessions
+                    
+                    message = Message.objects.create(
+                        session=session,
+                        sender=citizen,
+                        is_staff_message=False,
+                        sender_platform=origin,
+                    )
+                    
+                    message.created_at = message_time
+                    message.save(update_fields=['created_at'])
+                    
+                    # Create message content
+                    if j == 0:
+                        # First message uses predefined text
+                        text = citizen_messages[i % len(citizen_messages)]
+                    else:
+                        # Subsequent messages are variations
+                        text = f"{citizen_messages[i % len(citizen_messages)]} (xabar {j + 1})"
+                    
+                    MessageContent.objects.create(
+                        message=message,
+                        content_type='text',
+                        text=text,
+                    )
+                    
+                    messages_created += 1
+                    
+                    # Next message 5-30 minutes later
+                    message_time = message_time + timedelta(minutes=random.randint(5, 30))
+            
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Created {sessions_created} unassigned sessions with {messages_created} messages '
+                    f'for Aziza Karimova\'s department ({department.name_uz})'
+                )
+            )
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Error creating unassigned sessions: {str(e)}')
             )
 

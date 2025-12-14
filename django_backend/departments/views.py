@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 from django.utils import timezone
 from .models import StaffDailyPerformance
 from message_app.models import Session
@@ -8,6 +9,9 @@ from datetime import timedelta, datetime
 from django.db.models import Sum, Count, Q
 from django.contrib.auth import get_user_model
 from django.db.models.functions import TruncDate
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -37,19 +41,22 @@ def dashboard_stats(request):
     else:
         selected_date = timezone.now().date()
 
-    # 3. unassigned_count (for today)
+    # 3. unassigned_count (for today, excluding escalated)
     unassigned_count = Session.objects.filter(
         status='unassigned', 
         assigned_department=department,
         created_at__date=selected_date
-    ).count()
+    ).exclude(status='escalated').count()
 
-    # 4. active_count (for today, assigned to this user)
+    # 4. active_count (for today, assigned to this user, excluding escalated)
+    # assigned status must have assigned_staff set
     active_count = Session.objects.filter(
         status='assigned', 
         assigned_staff=user,
+        assigned_staff__isnull=False,  # Integrity check: ensure assigned_staff exists
+        assigned_department=department,
         created_at__date=selected_date
-    ).count()
+    ).exclude(status='escalated').count()
 
     # 5. solved_today (for selected date)
     daily_perf = StaffDailyPerformance.objects.filter(
@@ -86,82 +93,139 @@ def dashboard_stats(request):
 @permission_classes([IsAuthenticated])
 def dashboard_leaderboard(request):
     User = get_user_model()
-    user = request.user
-
-    # --- 1. Language Logic ---
-    accept_lang = request.headers.get('Accept-Language', '').lower()
-    lang_code = 'ru' if accept_lang.startswith('ru') else 'uz'
-
-    def get_dept_name(user_obj):
-        """Helper to safely get the localized department name"""
-        try:
-            dept = user_obj.staff_profile.department
-            if not dept:
-                return "No Dept"
-            # Dynamic attribute lookup: name_ru or name_uz
-            return getattr(dept, f'name_{lang_code}', dept.name_uz) or "Unknown"
-        except AttributeError:
-            return "No Dept"
-
-    # --- 2. Aggregate Scores (Last 7 Days) ---
-    start_date = timezone.now().date() - timedelta(days=7)
-
-    # Returns list of dicts: [{'staff': 1, 'total_score': 150}, ...]
-    queryset = StaffDailyPerformance.objects.filter(
-        date__gte=start_date
-    ).values('staff').annotate(
-        total_score=Sum('tickets_solved')
-    ).order_by('-total_score')
-
-    # Convert to list immediately to iterate multiple times without hitting DB twice
-    leaderboard_data = list(queryset)
-
-    # --- 3. Find current user's rank and score ---
-    user_total_score = 0
-    user_rank = None
     
-    # Find user's score in the full list
-    for idx, entry in enumerate(leaderboard_data, start=1):
-        if entry['staff'] == user.id:
-            user_total_score = entry['total_score']
-            # Calculate rank: count how many have higher score
-            better_scores_count = sum(1 for e in leaderboard_data if e['total_score'] > user_total_score)
-            user_rank = better_scores_count + 1
-            break
+    try:
+        # Get all staff profiles across all departments
+        from .models import StaffProfile
+        all_staff_profiles = StaffProfile.objects.select_related('user', 'department').all()
 
-    # --- 4. Build Top 5 List (excluding current user if not in top 5) ---
-    leaderboard_response = []
-    top_5_data = leaderboard_data[:5]
-    user_in_top_5 = user_rank is not None and user_rank <= 5
-    
-    for entry in top_5_data:
-        staff_id = entry['staff']
-        score = entry['total_score']
+        # Build leaderboard data with solved counts
+        leaderboard_data = []
         
-        # Skip current user if they're not in top 5
-        if staff_id == user.id and not user_in_top_5:
-            continue
+        print(f"\n{'='*80}")
+        print(f"LEADERBOARD DEBUG: Processing {all_staff_profiles.count()} staff profiles")
+        print(f"{'='*80}\n")
         
-        try:
-            # Fetch user + department in one go
-            staff_user = User.objects.select_related('staff_profile__department').get(id=staff_id)
-            
-            # Handle name
-            name = getattr(staff_user, 'full_name', staff_user.get_full_name())
-            if not name: 
-                name = staff_user.username # Fallback if name is empty
+        for staff_profile in all_staff_profiles:
+            try:
+                staff_user = staff_profile.user
+                
+                # Debug: Print staff info
+                print(f"Processing staff: {staff_user.full_name} (UUID: {staff_user.user_uuid})")
+                
+                # Count all-time closed sessions for this staff member
+                # Use the related_name 'assigned_sessions' for better performance
+                closed_sessions_query = staff_user.assigned_sessions.filter(
+                    status='closed',
+                    is_deleted=False
+                )
+                closed_count = closed_sessions_query.count()
+                
+                # Debug: Print query details
+                print(f"  - Query: assigned_sessions.filter(status='closed', is_deleted=False)")
+                print(f"  - Closed sessions count: {closed_count}")
+                
+                # Debug: Show actual session IDs if any
+                if closed_count > 0:
+                    session_ids = list(closed_sessions_query.values_list('id', flat=True)[:5])
+                    print(f"  - Sample session IDs: {session_ids}")
+                else:
+                    # Check if staff has any assigned sessions at all
+                    all_assigned = staff_user.assigned_sessions.count()
+                    print(f"  - Total assigned sessions (any status): {all_assigned}")
+                    if all_assigned > 0:
+                        status_counts = staff_user.assigned_sessions.values('status').annotate(
+                            count=Count('id')
+                        )
+                        print(f"  - Status breakdown: {list(status_counts)}")
+                
+                print()  # Empty line for readability
+                
+                # Debug logging (remove in production)
+                if closed_count > 0:
+                    logger.info(f"Staff {staff_user.full_name} has {closed_count} closed sessions")
+                
+                # Get full name
+                full_name = getattr(staff_user, 'full_name', None)
+                if not full_name:
+                    # Try to get username from staff profile or user
+                    if staff_profile.username:
+                        full_name = staff_profile.username
+                    elif hasattr(staff_user, 'username') and staff_user.username:
+                        full_name = staff_user.username
+                    else:
+                        full_name = str(staff_user.user_uuid)  # Last resort fallback
 
-            leaderboard_response.append({
-                "name": name,
-                "department": get_dept_name(staff_user),
-                "score": score
-            })
-        except User.DoesNotExist:
-            continue
+                # Get department name
+                department_name = "Unknown"
+                if staff_profile.department:
+                    department_name = staff_profile.department.name_uz if staff_profile.department.name_uz else "Unknown"
 
-    return Response({
-        "leaderboard": leaderboard_response
-    })
+                # Get avatar URL
+                avatar_url = None
+                if hasattr(staff_user, 'avatar') and staff_user.avatar:
+                    try:
+                        avatar_url = request.build_absolute_uri(staff_user.avatar.url)
+                    except Exception as e:
+                        logger.warning(f"Failed to get avatar URL for user {staff_user.user_uuid}: {e}")
+                        avatar_url = None
+
+                leaderboard_data.append({
+                    "full_name": full_name,
+                    "rank": 0,  # Will be set after sorting
+                    "department_name": department_name,
+                    "solved_total": closed_count,
+                    "avatar_url": avatar_url
+                })
+            except Exception as e:
+                logger.error(f"Error processing leaderboard entry for staff profile {staff_profile.id}: {e}", exc_info=True)
+                continue
+
+        # Sort by solved_total descending
+        leaderboard_data.sort(key=lambda x: x['solved_total'], reverse=True)
+        
+        # Debug: Print sorted leaderboard data
+        print(f"\n{'='*80}")
+        print(f"LEADERBOARD DEBUG: Sorted leaderboard data (before taking top 5)")
+        print(f"{'='*80}")
+        for i, entry in enumerate(leaderboard_data[:10], 1):  # Show top 10 for debugging
+            print(f"{i}. {entry['full_name']}: {entry['solved_total']} closed sessions")
+        print(f"{'='*80}\n")
+        
+        # Take top 5 and assign ranks
+        top_5 = leaderboard_data[:5]
+        
+        # Assign ranks (handle ties - same rank for same score)
+        # Only assign ranks to entries with solved_total > 0, or if all are 0, assign sequential ranks
+        current_rank = 1
+        for i, entry in enumerate(top_5):
+            if i > 0:
+                # If current entry has a different (lower) score than previous, increment rank
+                if entry['solved_total'] < top_5[i-1]['solved_total']:
+                    current_rank = i + 1
+                # If same score, keep same rank (ties)
+                elif entry['solved_total'] == top_5[i-1]['solved_total']:
+                    # Keep current_rank (ties get same rank)
+                    pass
+            entry['rank'] = current_rank
+
+        # Debug: Print final top 5
+        print(f"\n{'='*80}")
+        print(f"LEADERBOARD DEBUG: Final top 5 results")
+        print(f"{'='*80}")
+        for entry in top_5:
+            print(f"Rank {entry['rank']}: {entry['full_name']} ({entry['department_name']}) - {entry['solved_total']} solved")
+        print(f"{'='*80}\n")
+
+        return Response({
+            "leaderboard": top_5
+        })
+    except Exception as e:
+        logger.error(f"Error in dashboard_leaderboard: {e}", exc_info=True)
+        return Response(
+            {"error": "An error occurred while fetching leaderboard data"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
@@ -238,9 +302,16 @@ def dashboard_sessions_chart(request):
             )
             
             # Return single day data
+            # Integrity checks: assigned and closed statuses should have assigned_staff
             unassigned = base_queryset.filter(status='unassigned').count()
-            assigned = base_queryset.filter(status='assigned').count()
-            closed = base_queryset.filter(status='closed').count()
+            assigned = base_queryset.filter(
+                status='assigned',
+                assigned_staff__isnull=False  # Integrity check: assigned must have staff
+            ).count()
+            closed = base_queryset.filter(
+                status='closed',
+                assigned_staff__isnull=False  # Integrity check: closed must have staff
+            ).count()
             
             return Response([{
                 "date": selected_date.isoformat(),
@@ -281,22 +352,58 @@ def dashboard_sessions_chart(request):
         end_date_obj = now.date()
     
     # Group by date and status
-    # Annotate with date (truncated to day)
-    queryset = base_queryset.annotate(
+    # Integrity: Filter out assigned/closed sessions without assigned_staff before grouping
+    # Unassigned sessions don't need assigned_staff, but assigned and closed must have it
+    base_queryset_unassigned = base_queryset.filter(status='unassigned')
+    base_queryset_assigned = base_queryset.filter(
+        status='assigned',
+        assigned_staff__isnull=False  # Integrity check: assigned must have staff
+    )
+    base_queryset_closed = base_queryset.filter(
+        status='closed',
+        assigned_staff__isnull=False  # Integrity check: closed must have staff
+    )
+    
+    # Group unassigned by date
+    unassigned_queryset = base_queryset_unassigned.annotate(
         date_trunc=TruncDate('created_at')
-    ).values('date_trunc', 'status').annotate(
+    ).values('date_trunc').annotate(
         count=Count('id')
-    ).order_by('date_trunc')
+    )
+    
+    # Group assigned by date
+    assigned_queryset = base_queryset_assigned.annotate(
+        date_trunc=TruncDate('created_at')
+    ).values('date_trunc').annotate(
+        count=Count('id')
+    )
+    
+    # Group closed by date
+    closed_queryset = base_queryset_closed.annotate(
+        date_trunc=TruncDate('created_at')
+    ).values('date_trunc').annotate(
+        count=Count('id')
+    )
     
     # Build a dictionary of date -> status -> count
     data_by_date = {}
-    for item in queryset:
+    for item in unassigned_queryset:
         date = item['date_trunc']
         if date not in data_by_date:
             data_by_date[date] = {'unassigned': 0, 'assigned': 0, 'closed': 0}
-        status = item['status']
-        if status in ['unassigned', 'assigned', 'closed']:
-            data_by_date[date][status] = item['count']
+        data_by_date[date]['unassigned'] = item['count']
+    
+    for item in assigned_queryset:
+        date = item['date_trunc']
+        if date not in data_by_date:
+            data_by_date[date] = {'unassigned': 0, 'assigned': 0, 'closed': 0}
+        data_by_date[date]['assigned'] = item['count']
+    
+    for item in closed_queryset:
+        date = item['date_trunc']
+        if date not in data_by_date:
+            data_by_date[date] = {'unassigned': 0, 'assigned': 0, 'closed': 0}
+        data_by_date[date]['closed'] = item['count']
     
     # Generate all dates in the range and fill with data
     result = []

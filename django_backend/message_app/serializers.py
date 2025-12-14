@@ -11,6 +11,7 @@ User = get_user_model()
 class TicketListSerializer(serializers.ModelSerializer):
     session_id = serializers.CharField(source='session_uuid')
     citizen_name = serializers.CharField(source='citizen.full_name')
+    phone_number = serializers.CharField(source='citizen.phone_number')
     location = serializers.CharField(source='citizen.location')
     preview_text = serializers.SerializerMethodField()
     neighborhood = serializers.SerializerMethodField()
@@ -32,7 +33,7 @@ class TicketListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Session
-        fields = ['session_id', 'location', 'citizen_name', 'created_at', 'neighborhood', 'preview_text']
+        fields = ['session_id', 'location', 'citizen_name', 'phone_number', 'created_at', 'neighborhood', 'preview_text']
 
 
 
