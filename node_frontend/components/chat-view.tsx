@@ -24,6 +24,7 @@ interface ChatViewProps {
   onClose: () => void
   mode: "unassigned" | "assigned" | "archive"
   onAssign?: (sessionId: string) => void
+  onEscalate?: (sessionId: string) => void
   onAnimationComplete?: () => void
 }
 
@@ -33,6 +34,7 @@ export function ChatView({
   onClose,
   mode,
   onAssign,
+  onEscalate,
   onAnimationComplete,
 }: ChatViewProps) {
   const [history, setHistory] = React.useState<TicketHistoryResponse | null>(null)
@@ -277,8 +279,13 @@ export function ChatView({
         description: "Ticket escalated successfully",
       })
 
-      // Refresh history
-      await fetchHistory()
+      // Close chat immediately
+      onClose()
+      
+      // Notify parent to refresh table and remove session
+      if (onEscalate) {
+        onEscalate(sessionId)
+      }
     } catch (error) {
       console.error("Failed to escalate ticket:", error)
       toast({
@@ -407,7 +414,7 @@ export function ChatView({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 flex flex-col p-0 overflow-hidden" style={{ padding: 0 }}>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">Loading messages...</p>

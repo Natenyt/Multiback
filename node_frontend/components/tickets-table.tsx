@@ -21,10 +21,11 @@ import { getTickets, type TicketListItem } from "@/dash_department/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
 interface TicketsTableProps {
-  status: "unassigned" | "assigned" | "closed"
+  status: "unassigned" | "assigned" | "closed" | "archive"
   onPreviewClick: (sessionId: string) => void
   onAssign: (sessionId: string) => void
   onEscalate: (sessionId: string) => void
+  onClose?: (sessionId: string) => void
   refreshTrigger?: number // External trigger to refresh
 }
 
@@ -33,6 +34,7 @@ export function TicketsTable({
   onPreviewClick,
   onAssign,
   onEscalate,
+  onClose,
   refreshTrigger,
 }: TicketsTableProps) {
   const { toast } = useToast()
@@ -168,7 +170,7 @@ export function TicketsTable({
       <div className="flex items-center gap-4">
         <input
           type="text"
-          placeholder="Search by ID or name..."
+          placeholder="ID yoki ism bo'yicha qidirish..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 px-3 py-2 border rounded-md"
@@ -198,15 +200,15 @@ export function TicketsTable({
                   className="h-8 -ml-3"
                   onClick={() => handleSort("created_at")}
                 >
-                  Created At
+                  Sana
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead>Citizen Full Name</TableHead>
-              <TableHead>Phone Number</TableHead>
-              <TableHead>Neighborhood</TableHead>
+              <TableHead>Ism Familiya</TableHead>
+              <TableHead>Telefon Raqam</TableHead>
+              <TableHead>Mahalla</TableHead>
               <TableHead>Preview</TableHead>
-              <TableHead>Action</TableHead>
+              {status !== "closed" && status !== "archive" && <TableHead>Action</TableHead>}
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -264,17 +266,36 @@ export function TicketsTable({
                       Preview
                     </Button>
                   </TableCell>
-                  <TableCell>
-                    {status === "unassigned" && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => onAssign(ticket.session_id)}
-                      >
-                        Tayinlash
-                      </Button>
-                    )}
-                  </TableCell>
+                  {status !== "closed" && status !== "archive" && (
+                    <TableCell>
+                      {status === "unassigned" && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            onAssign(ticket.session_id)
+                          }}
+                        >
+                          Tayinlash
+                        </Button>
+                      )}
+                      {status === "assigned" && onClose && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            onClose(ticket.session_id)
+                          }}
+                        >
+                          Tugallash
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

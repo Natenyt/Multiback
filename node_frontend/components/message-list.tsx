@@ -25,13 +25,54 @@ interface GroupedMessage extends Message {
 
 export function MessageList({ messages, currentUserId }: MessageListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [topPadding, setTopPadding] = React.useState(0)
+
+  const calculatePadding = React.useCallback(() => {
+    const scrollContainer = scrollRef.current?.closest('[data-radix-scroll-area-viewport]') as HTMLElement
+    const contentContainer = containerRef.current
+    
+    if (scrollContainer && contentContainer) {
+      const viewportHeight = scrollContainer.clientHeight
+      const contentHeight = contentContainer.scrollHeight
+      const basePadding = 32 // 16px top + 16px bottom
+      
+      // If content is shorter than viewport (minus base padding), add extra top padding to push it to bottom
+      const availableSpace = viewportHeight - basePadding
+      if (contentHeight < availableSpace) {
+        setTopPadding(availableSpace - contentHeight)
+      } else {
+        setTopPadding(0)
+      }
+    }
+  }, [])
+
+  const scrollToBottom = React.useCallback(() => {
+    // Find the ScrollArea viewport (the actual scrollable container)
+    const scrollContainer = scrollRef.current?.closest('[data-radix-scroll-area-viewport]') as HTMLElement
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight
+    }
+  }, [])
 
   React.useEffect(() => {
-    // Scroll to bottom when messages change
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    // Calculate padding and scroll to bottom when messages change
+    calculatePadding()
+    scrollToBottom()
+    
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      calculatePadding()
+      scrollToBottom()
+    })
+
+    // Also recalculate on window resize
+    const handleResize = () => {
+      calculatePadding()
     }
-  }, [messages])
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [messages, scrollToBottom, calculatePadding])
 
   // Group messages by 2-minute intervals
   const groupMessages = (messages: Message[]): GroupedMessage[] => {
@@ -78,6 +119,39 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
   }
 
   const groupedMessages = React.useMemo(() => groupMessages(messages), [messages])
+
+  // Format date for day marker
+  const formatDateMarker = (date: Date): string => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const messageDate = new Date(date)
+    messageDate.setHours(0, 0, 0, 0)
+    
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    if (messageDate.getTime() === today.getTime()) {
+      return "Today"
+    } else if (messageDate.getTime() === yesterday.getTime()) {
+      return "Yesterday"
+    } else {
+      return messageDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })
+    }
+  }
+
+  // Check if we need to show a date marker before this message
+  const shouldShowDateMarker = (currentMessage: GroupedMessage, previousMessage: GroupedMessage | null): boolean => {
+    if (!previousMessage) return true
+    
+    const currentDate = new Date(currentMessage.created_at)
+    const previousDate = new Date(previousMessage.created_at)
+    
+    currentDate.setHours(0, 0, 0, 0)
+    previousDate.setHours(0, 0, 0, 0)
+    
+    return currentDate.getTime() !== previousDate.getTime()
+  }
 
   const renderContent = (content: Message["contents"][0]) => {
     switch (content.content_type) {
@@ -451,19 +525,37 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
   }
 
   return (
-    <ScrollArea className="flex-1" style={{ padding: '16px 18px' }}>
-      <div ref={scrollRef} className="space-y-[6px]">
-        {groupedMessages.map((message) => {
+    <ScrollArea className="flex-1">
+      <div 
+        ref={scrollRef} 
+        className="p-[16px_18px]"
+        style={{ paddingTop: `calc(16px + ${topPadding}px)` }}
+      >
+        <div ref={containerRef} className="space-y-[6px]">
+          {groupedMessages.map((message, index) => {
           const isMe = Boolean(message.is_me || (currentUserId && message.sender.user_uuid === currentUserId))
           const isStaff = Boolean(message.is_staff_message)
           const showAvatar = !isMe && message.isLastInGroup
+          const previousMessage = index > 0 ? groupedMessages[index - 1] : null
+          const showDateMarker = shouldShowDateMarker(message, previousMessage)
 
           return (
-            <div
-              key={message.message_uuid}
-              className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} items-end`}
-              style={{ alignItems: 'flex-end', paddingBottom: '2px' }}
-            >
+            <React.Fragment key={message.message_uuid}>
+              {showDateMarker && (
+                <div className="flex items-center justify-center my-4">
+                  <div className="flex items-center gap-3 w-full max-w-[80%]">
+                    <div className="flex-1 h-px bg-border"></div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatDateMarker(new Date(message.created_at))}
+                    </span>
+                    <div className="flex-1 h-px bg-border"></div>
+                  </div>
+                </div>
+              )}
+              <div
+                className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} items-end`}
+                style={{ alignItems: 'flex-end', paddingBottom: '2px' }}
+              >
               {/* Avatar - only show for last message in group from citizen */}
               <div className="flex-shrink-0" style={{ width: showAvatar ? '36px' : '0px', height: '36px', paddingBottom: '2px' }}>
                 {showAvatar && (
@@ -493,8 +585,10 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
                 renderContent={renderContent}
               />
             </div>
+            </React.Fragment>
           )
-        })}
+          })}
+        </div>
       </div>
     </ScrollArea>
   )

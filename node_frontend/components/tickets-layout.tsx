@@ -3,6 +3,8 @@
 import * as React from "react"
 import { TicketsTable } from "./tickets-table"
 import { ChatView } from "./chat-view"
+import { assignTicket, closeTicket } from "@/dash_department/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
 interface TicketsLayoutProps {
   status: "unassigned" | "assigned" | "archive"
@@ -13,6 +15,7 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
   const [isChatOpen, setIsChatOpen] = React.useState(false)
   const [shouldRenderChat, setShouldRenderChat] = React.useState(false)
   const [refreshTrigger, setRefreshTrigger] = React.useState(0)
+  const { toast } = useToast()
 
   const handlePreviewClick = (sessionId: string) => {
     // Prevent any scroll behavior
@@ -37,19 +40,55 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
     setShouldRenderChat(false)
   }
 
-  const handleAssign = (sessionId: string) => {
-    // Trigger refresh of tickets table
-    setRefreshTrigger((prev) => prev + 1)
-    // Chat stays open, user can select another session or close
+  const handleAssign = async (sessionId: string) => {
+    try {
+      await assignTicket(sessionId)
+      toast({
+        title: "Success",
+        description: "Bu Murojaat sizga tayinlandi, iltimos Tayinlangan bo'limiga o'ting",
+      })
+      // Trigger refresh of tickets table to remove assigned session
+      setRefreshTrigger((prev) => prev + 1)
+      // Chat stays open, user can select another session or close
+    } catch (error) {
+      console.error("Failed to assign ticket:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to assign ticket",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleEscalate = (sessionId: string) => {
-    // Trigger refresh of tickets table
+    // Close chat immediately
+    setIsChatOpen(false)
+    setSelectedSessionId(null)
+    // Trigger refresh of tickets table to remove escalated session
     setRefreshTrigger((prev) => prev + 1)
-    // Close chat if this was the selected session
-    if (selectedSessionId === sessionId) {
-      setIsChatOpen(false)
-      setSelectedSessionId(null)
+  }
+
+  const handleClose = async (sessionId: string) => {
+    try {
+      await closeTicket(sessionId)
+      toast({
+        title: "Success",
+        description: "Murojaat tugallandi",
+      })
+      // Close chat if this was the selected session
+      if (selectedSessionId === sessionId) {
+        setIsChatOpen(false)
+        setSelectedSessionId(null)
+      }
+      // Trigger refresh of tickets table to remove closed session
+      setRefreshTrigger((prev) => prev + 1)
+    } catch (error) {
+      console.error("Failed to close ticket:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to close ticket",
+        variant: "destructive",
+      })
     }
   }
 
@@ -96,10 +135,11 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
         } : {}}
       >
         <TicketsTable
-          status={status}
+          status={status === "archive" ? "closed" : status}
           onPreviewClick={handlePreviewClick}
           onAssign={handleAssign}
           onEscalate={handleEscalate}
+          onClose={status === "assigned" ? handleClose : undefined}
           refreshTrigger={refreshTrigger}
         />
       </div>
@@ -112,6 +152,7 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
           onClose={handleCloseChat}
           mode={status === "unassigned" ? "unassigned" : status === "assigned" ? "assigned" : "archive"}
           onAssign={handleAssign}
+          onEscalate={handleEscalate}
           onAnimationComplete={handleAnimationComplete}
         />
       )}

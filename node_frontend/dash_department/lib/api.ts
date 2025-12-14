@@ -503,6 +503,36 @@ export async function escalateTicket(sessionUuid: string): Promise<{ status: str
   return data;
 }
 
+export async function closeTicket(sessionUuid: string): Promise<{ status: string; session: SessionData; message: string }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/close/`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      detail: 'Failed to close ticket',
+    }));
+    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to close ticket';
+    if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
+      clearAuthTokens();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data: { status: string; session: SessionData; message: string } = await response.json();
+  return data;
+}
+
 export async function sendMessage(
   sessionUuid: string,
   options?: {
