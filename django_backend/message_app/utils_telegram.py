@@ -4,16 +4,19 @@ from django.conf import settings
 
 TELEGRAM_API_BASE = "https://api.telegram.org"
 
-def send_text_to_telegram(chat_id: int, text: str):
+def send_text_to_telegram(chat_id: int, text: str, remove_keyboard: bool = False):
     bot_token = getattr(settings, "TOKEN_BOT", None) or getattr(settings, "TELEGRAM_BOT_TOKEN", None)
     if not bot_token:
         raise RuntimeError("TELEGRAM BOT TOKEN not configured")
     url = f"{TELEGRAM_API_BASE}/bot{bot_token}/sendMessage"
-    resp = requests.post(url, json={
+    payload = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML"
-    }, timeout=15)
+    }
+    if remove_keyboard:
+        payload["reply_markup"] = {"remove_keyboard": True}
+    resp = requests.post(url, json=payload, timeout=15)
     return resp.json()
 
 def send_file_to_telegram(chat_id: int, file_field, file_type: str):

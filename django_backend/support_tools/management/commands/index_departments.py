@@ -22,12 +22,39 @@ class Command(BaseCommand):
 
         genai.configure(api_key=gemini_api_key)
 
-        # Determine Qdrant host based on DEBUG setting
-        qdrant_host = "localhost" if settings.DEBUG else "qdrant"
-        qdrant_port = 6333
+        # Determine Qdrant host - try environment variable first, then fallback logic
+        qdrant_host = os.getenv("QDRANT_HOST", None)
+        if not qdrant_host:
+            # Smart fallback: try localhost first (for local dev), then qdrant (for Docker)
+            qdrant_host = "localhost" if settings.DEBUG else "qdrant"
+        qdrant_port = int(os.getenv("QDRANT_PORT", "6333"))
         
         self.stdout.write(f"Connecting to Qdrant at {qdrant_host}:{qdrant_port}...")
-        client = QdrantClient(host=qdrant_host, port=qdrant_port)
+        
+        # Try connecting with smart fallback
+        client = None
+        try:
+            client = QdrantClient(host=qdrant_host, port=qdrant_port)
+            # Test connection by getting collections
+            client.get_collections()
+            self.stdout.write(self.style.SUCCESS(f"✅ Connected to Qdrant at {qdrant_host}:{qdrant_port}"))
+        except Exception as e:
+            # If failed and we're not already on localhost, try localhost fallback
+            if qdrant_host != "localhost" and qdrant_host != "127.0.0.1":
+                self.stdout.write(self.style.WARNING(f"⚠️  Failed to connect to {qdrant_host}: {e}"))
+                self.stdout.write("🔄 Attempting fallback to 'localhost'...")
+                try:
+                    client = QdrantClient(host="localhost", port=qdrant_port)
+                    client.get_collections()
+                    self.stdout.write(self.style.SUCCESS(f"✅ Connected to Qdrant at localhost:{qdrant_port}"))
+                except Exception as e2:
+                    self.stdout.write(self.style.ERROR(f"❌ CRITICAL: Qdrant connection failed on both {qdrant_host} and localhost: {e2}"))
+                    self.stdout.write(self.style.ERROR("Make sure Qdrant is running (via Docker or locally)!"))
+                    return
+            else:
+                self.stdout.write(self.style.ERROR(f"❌ CRITICAL: Qdrant connection failed: {e}"))
+                self.stdout.write(self.style.ERROR("Make sure Qdrant is running (via Docker or locally)!"))
+                return
 
         collection_name = "departments"
         vector_size = 768 # text-embedding-004 size

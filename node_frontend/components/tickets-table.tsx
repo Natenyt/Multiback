@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -16,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Eye, ArrowUpDown } from "lucide-react"
+import { MoreVertical, ArrowUpDown } from "lucide-react"
 import { getTickets, type TicketListItem } from "@/dash_department/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
@@ -37,6 +38,7 @@ export function TicketsTable({
   onClose,
   refreshTrigger,
 }: TicketsTableProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [tickets, setTickets] = React.useState<TicketListItem[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
@@ -48,13 +50,16 @@ export function TicketsTable({
   const fetchTickets = async () => {
     try {
       setIsLoading(true)
-      const data = await getTickets(status, {
+      // Map 'archive' to 'closed' for API call
+      const apiStatus = status === 'archive' ? 'closed' : status
+      const data = await getTickets(apiStatus as 'unassigned' | 'assigned' | 'closed', {
         search: search || undefined,
         neighborhood_id: neighborhoodId,
         page: 1,
         page_size: 50,
         lang: "uz",
       })
+      // Backend now properly filters by status, so no need for client-side filtering
       setTickets(data)
     } catch (error) {
       console.error("Failed to fetch tickets:", error)
@@ -65,17 +70,20 @@ export function TicketsTable({
 
   const fetchNewTickets = React.useCallback(async () => {
     try {
-      const data = await getTickets(status, {
+      // Map 'archive' to 'closed' for API call
+      const apiStatus = status === 'archive' ? 'closed' : status
+      const data = await getTickets(apiStatus as 'unassigned' | 'assigned' | 'closed', {
         page: 1,
         page_size: 50,
         lang: "uz",
       })
 
+      // Backend now properly filters by status, so no need for client-side filtering
       // Use functional update to get current tickets and compare
       setTickets(currentTickets => {
         // Only process if we have existing tickets
         if (currentTickets.length === 0) {
-          return currentTickets
+          return data
         }
 
         // Find tickets that are new (not in existing list)
@@ -207,16 +215,38 @@ export function TicketsTable({
               <TableHead>Ism Familiya</TableHead>
               <TableHead>Telefon Raqam</TableHead>
               <TableHead>Mahalla</TableHead>
-              <TableHead>Preview</TableHead>
               {status !== "closed" && status !== "archive" && <TableHead>Action</TableHead>}
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedTickets.map((ticket) => (
-                <TableRow key={ticket.session_id} className="hover:bg-muted/50">
+                <TableRow 
+                  key={ticket.session_id} 
+                  className="hover:bg-muted/50 cursor-pointer"
+                  onClick={(e) => {
+                    // Don't navigate if clicking on buttons or interactive elements
+                    const target = e.target as HTMLElement
+                    if (
+                      target.closest('button') ||
+                      target.closest('[role="menuitem"]') ||
+                      target.closest('[data-radix-dropdown-menu-trigger]')
+                    ) {
+                      return
+                    }
+                    let route: string
+                    if (status === "unassigned") {
+                      route = `/dashboard/unassigned/${ticket.session_id}`
+                    } else if (status === "closed" || status === "archive") {
+                      route = `/dashboard/closed/${ticket.session_id}`
+                    } else {
+                      route = `/dashboard/assigned/${ticket.session_id}`
+                    }
+                    router.push(route)
+                  }}
+                >
                   <TableCell 
-                    className="font-mono text-sm cursor-pointer hover:text-foreground transition-colors"
+                    className="cursor-pointer hover:text-foreground transition-colors"
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(ticket.session_id)
@@ -251,21 +281,7 @@ export function TicketsTable({
                   >
                     {ticket.phone_number || "N/A"}
                   </TableCell>
-                  <TableCell>{ticket.neighborhood || "N/A"}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        onPreviewClick(ticket.session_id)
-                      }}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Preview
-                    </Button>
-                  </TableCell>
+                  <TableCell>{ticket.neighborhood?.name || ticket.neighborhood || "N/A"}</TableCell>
                   {status !== "closed" && status !== "archive" && (
                     <TableCell>
                       {status === "unassigned" && (
@@ -278,7 +294,7 @@ export function TicketsTable({
                             onAssign(ticket.session_id)
                           }}
                         >
-                          Tayinlash
+                          Biriktirish
                         </Button>
                       )}
                       {status === "assigned" && onClose && (

@@ -29,11 +29,15 @@ export default function DashboardLayout({
     }
   }, [router]);
 
+  // Check if current route is a case detail page (assigned, unassigned, or closed)
+  const isCaseDetailPage = pathname?.match(/^\/dashboard\/(assigned|unassigned|closed)\/[^/]+$/) !== null;
+
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        {!isCaseDetailPage && (
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="relative flex-1 max-w-[428px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -47,6 +51,7 @@ export default function DashboardLayout({
             <HeaderActions />
           </div>
         </header>
+        )}
         <div className="flex flex-1 flex-col">
           {children}
         </div>

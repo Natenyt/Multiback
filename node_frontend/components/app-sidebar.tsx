@@ -49,12 +49,12 @@ const menuItems = [
     href: "/dashboard/dashboard",
   },
   {
-    title: "Tayinlanmagan",
+    title: "Yangi Murojatlar",
     icon: Inbox,
     href: "/dashboard/unassigned",
   },
   {
-    title: "Tayinlangan",
+    title: "Faol Murojaatlar",
     icon: CheckCircle2,
     href: "/dashboard/assigned",
   },
@@ -62,11 +62,6 @@ const menuItems = [
     title: "Arxiv",
     icon: Archive,
     href: "/dashboard/archive",
-  },
-  {
-    title: "Global qidiruv",
-    icon: Search,
-    href: "/dashboard/search",
   },
   {
     title: "Asadbek AI",
@@ -133,7 +128,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   alt="Logo"
                   width={14}
                   height={14}
-                  className="object-contain"
+                  className="object-contain dark:invert-0"
+                  style={{ filter: 'brightness(0) invert(1)' }}
                 />
               </div>
               <div className="flex flex-1 items-center gap-2 group-data-[collapsible=icon]:hidden">
@@ -158,13 +154,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="cursor-pointer"
             >
               <div className="flex items-center gap-2 w-full">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-primary">
                   <Image
                     src="/logo.svg"
                     alt="Dashboard"
                     width={14}
                     height={14}
-                    className="object-contain"
+                    className="object-contain dark:invert-0"
+                    style={{ filter: 'brightness(0) invert(1)' }}
                   />
                 </div>
                 <span className="flex-1">Dashboard</span>
@@ -202,6 +199,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           isCollapsed
                             ? "justify-center px-2"
                             : "gap-2 px-2"
+                        } ${
+                          isActive 
+                            ? "bg-sidebar-accent/80 dark:bg-sidebar-accent/80 text-sidebar-accent-foreground font-semibold shadow-md border-l-4 border-sidebar-primary" 
+                            : ""
                         }`}
                       >
                       <span className="shrink-0 !transition-none">
@@ -212,6 +213,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             width={18}
                             height={18}
                             className="object-contain"
+                            style={{ filter: 'brightness(0) invert(1)' }}
                           />
                         ) : item.icon ? (
                           <item.icon className="h-[18px] w-[18px]" />

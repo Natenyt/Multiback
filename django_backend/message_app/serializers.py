@@ -15,6 +15,10 @@ class TicketListSerializer(serializers.ModelSerializer):
     location = serializers.CharField(source='citizen.location')
     preview_text = serializers.SerializerMethodField()
     neighborhood = serializers.SerializerMethodField()
+    intent_label = serializers.CharField(read_only=True)
+    assigned_staff = serializers.SerializerMethodField()
+    department_name = serializers.SerializerMethodField()
+    origin = serializers.CharField(read_only=True)
 
     def get_preview_text(self, obj):
         # Take the first MessageContent text if available
@@ -28,12 +32,44 @@ class TicketListSerializer(serializers.ModelSerializer):
         lang = self.context.get('lang', 'uz')
         neighborhood = obj.citizen.neighborhood
         if neighborhood and neighborhood.is_active:
-            return neighborhood.name_uz if lang == 'uz' else neighborhood.name_ru
+            return {
+                "id": neighborhood.id,
+                "name_uz": neighborhood.name_uz,
+                "name_ru": neighborhood.name_ru,
+                "name": neighborhood.name_uz if lang == 'uz' else neighborhood.name_ru
+            }
+        return None
+
+    def get_assigned_staff(self, obj):
+        if obj.assigned_staff:
+            return {
+                "user_uuid": str(obj.assigned_staff.user_uuid),
+                "full_name": obj.assigned_staff.full_name,
+                "avatar_url": None  # Can be added if needed
+            }
+        return None
+
+    def get_department_name(self, obj):
+        if obj.assigned_department:
+            lang = self.context.get('lang', 'uz')
+            return obj.assigned_department.name_uz if lang == 'uz' else obj.assigned_department.name_ru
         return None
 
     class Meta:
         model = Session
-        fields = ['session_id', 'location', 'citizen_name', 'phone_number', 'created_at', 'neighborhood', 'preview_text']
+        fields = [
+            'session_id', 
+            'location', 
+            'citizen_name', 
+            'phone_number', 
+            'created_at', 
+            'neighborhood', 
+            'preview_text',
+            'intent_label',
+            'assigned_staff',
+            'department_name',
+            'origin'
+        ]
 
 
 
@@ -133,6 +169,10 @@ class MessageSerializer(serializers.ModelSerializer):
 class SessionSerializer(serializers.ModelSerializer):
     assigned_staff = serializers.SerializerMethodField()
     citizen = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    neighborhood = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    department_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Session
@@ -147,6 +187,12 @@ class SessionSerializer(serializers.ModelSerializer):
             "sla_deadline",
             "sla_breached",
             "is_hold",
+            "intent_label",
+            "description",
+            "phone_number",
+            "neighborhood",
+            "location",
+            "department_name",
         ]
 
     def get_assigned_staff(self, obj):
@@ -178,5 +224,36 @@ class SessionSerializer(serializers.ModelSerializer):
         return {
             "user_uuid": str(u.user_uuid),
             "full_name": u.full_name,
-            "avatar_url": avatar_url
+            "avatar_url": avatar_url,
+            "phone_number": getattr(u, 'phone_number', None),
+            "location": getattr(u, 'location', None),
+            "neighborhood": self._get_neighborhood(u.neighborhood) if hasattr(u, 'neighborhood') and u.neighborhood else None
         }
+    
+    def _get_neighborhood(self, neighborhood):
+        if not neighborhood or not neighborhood.is_active:
+            return None
+        lang = self.context.get('lang', 'uz')
+        return {
+            "id": neighborhood.id,
+            "name_uz": neighborhood.name_uz,
+            "name_ru": neighborhood.name_ru,
+            "name": neighborhood.name_uz if lang == 'uz' else neighborhood.name_ru
+        }
+    
+    def get_phone_number(self, obj):
+        return getattr(obj.citizen, 'phone_number', None) if obj.citizen else None
+    
+    def get_neighborhood(self, obj):
+        if obj.citizen and hasattr(obj.citizen, 'neighborhood') and obj.citizen.neighborhood:
+            return self._get_neighborhood(obj.citizen.neighborhood)
+        return None
+    
+    def get_location(self, obj):
+        return getattr(obj.citizen, 'location', None) if obj.citizen else None
+    
+    def get_department_name(self, obj):
+        if obj.assigned_department:
+            lang = self.context.get('lang', 'uz')
+            return obj.assigned_department.name_uz if lang == 'uz' else obj.assigned_department.name_ru
+        return None

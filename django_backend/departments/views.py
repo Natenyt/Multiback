@@ -31,59 +31,41 @@ def dashboard_stats(request):
     if department is None:
         return Response({"error": "Staff member is not assigned to a department."}, status=400)
 
-    # 2. Check for date parameter
-    date_param = request.query_params.get('date', None)
-    if date_param:
-        try:
-            selected_date = datetime.strptime(date_param, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
-    else:
-        selected_date = timezone.now().date()
-
-    # 3. unassigned_count (for today, excluding escalated)
+    # 2. unassigned_count (all time, excluding escalated)
     unassigned_count = Session.objects.filter(
         status='unassigned', 
-        assigned_department=department,
-        created_at__date=selected_date
+        assigned_department=department
     ).exclude(status='escalated').count()
 
-    # 4. active_count (for today, assigned to this user, excluding escalated)
+    # 3. active_count (all time, assigned to this user, excluding escalated)
     # assigned status must have assigned_staff set
     active_count = Session.objects.filter(
         status='assigned', 
         assigned_staff=user,
         assigned_staff__isnull=False,  # Integrity check: ensure assigned_staff exists
-        assigned_department=department,
-        created_at__date=selected_date
+        assigned_department=department
     ).exclude(status='escalated').count()
 
-    # 5. solved_today (for selected date)
-    daily_perf = StaffDailyPerformance.objects.filter(
-        staff=user, 
-        date=selected_date
-    ).first()
+    # 4. solved_all_time (sum of all tickets_solved from StaffDailyPerformance for all time)
+    solved_all_time = StaffDailyPerformance.objects.filter(
+        staff=user
+    ).aggregate(total=Sum('tickets_solved'))['total'] or 0
 
-    if daily_perf:
-        solved_today = daily_perf.tickets_solved
-    else:
-        solved_today = 0
-
-    # 6. personal_best_record
+    # 5. personal_best_record
     personal_best_record = profile.personal_best_record
 
-    # 7. completion_rate
-    # (solved_today / (solved_today + active_count)) * 100
-    total_active_and_solved = solved_today + active_count
+    # 6. completion_rate (all time)
+    # (solved_all_time / (solved_all_time + active_count)) * 100
+    total_active_and_solved = solved_all_time + active_count
     if total_active_and_solved > 0:
-        completion_rate = (solved_today / total_active_and_solved) * 100
+        completion_rate = (solved_all_time / total_active_and_solved) * 100
     else:
         completion_rate = 0
 
     return Response({
         "unassigned_count": unassigned_count,
         "active_count": active_count,
-        "solved_today": solved_today,
+        "solved_today": solved_all_time,  # Keep field name for backward compatibility, but now contains all-time data
         "personal_best_record": personal_best_record,
         "completion_rate": completion_rate,
     })
@@ -266,6 +248,7 @@ def staff_profile(request):
         "department": department_name,
         "phone_number": user.phone_number,
         "joined_at": profile.joined_at.isoformat() if profile.joined_at else None,
+        "staff_uuid": str(user.user_uuid),
     })
 
 
@@ -297,20 +280,28 @@ def dashboard_sessions_chart(request):
     if date_param:
         try:
             selected_date = datetime.strptime(date_param, '%Y-%m-%d').date()
-            base_queryset = base_queryset.filter(
-                created_at__date=selected_date
-            )
             
-            # Return single day data
-            # Integrity checks: assigned and closed statuses should have assigned_staff
-            unassigned = base_queryset.filter(status='unassigned').count()
+            # Return single day data using correct date fields
+            # Unassigned: filter by created_at and status='unassigned'
+            unassigned = base_queryset.filter(
+                status='unassigned',
+                created_at__date=selected_date
+            ).count()
+            
+            # Assigned: filter by assigned_at and status='assigned'
             assigned = base_queryset.filter(
                 status='assigned',
-                assigned_staff__isnull=False  # Integrity check: assigned must have staff
+                assigned_staff__isnull=False,
+                assigned_at__isnull=False,
+                assigned_at__date=selected_date
             ).count()
+            
+            # Closed: filter by closed_at and status='closed'
             closed = base_queryset.filter(
                 status='closed',
-                assigned_staff__isnull=False  # Integrity check: closed must have staff
+                assigned_staff__isnull=False,
+                closed_at__isnull=False,
+                closed_at__date=selected_date
             ).count()
             
             return Response([{
@@ -364,23 +355,27 @@ def dashboard_sessions_chart(request):
         assigned_staff__isnull=False  # Integrity check: closed must have staff
     )
     
-    # Group unassigned by date
+    # Group unassigned by date (using created_at)
     unassigned_queryset = base_queryset_unassigned.annotate(
         date_trunc=TruncDate('created_at')
     ).values('date_trunc').annotate(
         count=Count('id')
     )
     
-    # Group assigned by date
-    assigned_queryset = base_queryset_assigned.annotate(
-        date_trunc=TruncDate('created_at')
+    # Group assigned by date (using assigned_at)
+    assigned_queryset = base_queryset_assigned.filter(
+        assigned_at__isnull=False  # Only count sessions with assigned_at timestamp
+    ).annotate(
+        date_trunc=TruncDate('assigned_at')
     ).values('date_trunc').annotate(
         count=Count('id')
     )
     
-    # Group closed by date
-    closed_queryset = base_queryset_closed.annotate(
-        date_trunc=TruncDate('created_at')
+    # Group closed by date (using closed_at)
+    closed_queryset = base_queryset_closed.filter(
+        closed_at__isnull=False  # Only count sessions with closed_at timestamp
+    ).annotate(
+        date_trunc=TruncDate('closed_at')
     ).values('date_trunc').annotate(
         count=Count('id')
     )

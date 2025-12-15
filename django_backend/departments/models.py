@@ -71,7 +71,10 @@ class StaffProfile(models.Model):
     updated_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.full_name} [{self.role}] - {self.department.name if self.department else 'No Dept'}"
+        if self.department:
+            dept_name = self.department.name_uz or self.department.name_ru or 'No Name'
+            return f"{self.user.full_name} [{self.role}] - {dept_name}"
+        return f"{self.user.full_name} [{self.role}] - No Dept"
 
     @property
     def is_manager(self):

@@ -42,7 +42,21 @@ export function clearAuthTokens(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('staff_uuid');
   }
+}
+
+export function storeStaffUuid(staffUuid: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('staff_uuid', staffUuid);
+  }
+}
+
+export function getStaffUuid(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('staff_uuid');
+  }
+  return null;
 }
 
 export interface StaffProfileResponse {
@@ -53,6 +67,7 @@ export interface StaffProfileResponse {
   department: string;
   phone_number: string;
   joined_at: string | null;
+  staff_uuid: string;
 }
 
 export async function getStaffProfile(): Promise<StaffProfileResponse> {
@@ -83,6 +98,10 @@ export async function getStaffProfile(): Promise<StaffProfileResponse> {
   }
 
   const data: StaffProfileResponse = await response.json();
+  // Store staff_uuid for later use
+  if (data.staff_uuid) {
+    storeStaffUuid(data.staff_uuid);
+  }
   return data;
 }
 
@@ -287,9 +306,23 @@ export interface TicketListItem {
   session_id: string;
   citizen_name: string;
   phone_number: string;
+  intent_label?: string | null;
+  assigned_staff?: {
+    user_uuid: string;
+    full_name: string;
+    avatar_url: string | null;
+  } | null;
+  department_name?: string | null;
+  origin?: string;
   location: string;
   created_at: string;
-  neighborhood: string | null;
+  status?: string;
+  neighborhood: {
+    id: number;
+    name_uz: string;
+    name_ru: string;
+    name: string;
+  } | null;
   preview_text: string;
 }
 
@@ -341,11 +374,30 @@ export interface SessionData {
     user_uuid: string;
     full_name: string;
     avatar_url: string | null;
+    phone_number?: string | null;
+    location?: string | null;
+    neighborhood?: {
+      id: number;
+      name_uz: string;
+      name_ru: string;
+      name: string;
+    } | null;
   };
   last_messaged: string | null;
   sla_deadline: string | null;
   sla_breached: boolean;
   is_hold: boolean;
+  intent_label?: string | null;
+  description?: string | null;
+  phone_number?: string | null;
+  neighborhood?: {
+    id: number;
+    name_uz: string;
+    name_ru: string;
+    name: string;
+  } | null;
+  location?: string | null;
+  department_name?: string | null;
 }
 
 export interface TicketHistoryResponse {
@@ -372,6 +424,14 @@ export async function getTickets(
 
   const url = new URL(`${API_BASE_URL}/tickets/`);
   url.searchParams.append('status', status);
+  
+  // For assigned and closed status, send staff_uuid (required by backend)
+  if (status === 'assigned' || status === 'closed') {
+    const staffUuid = getStaffUuid();
+    if (staffUuid) {
+      url.searchParams.append('staff_uuid', staffUuid);
+    }
+  }
   
   if (options?.search) {
     url.searchParams.append('search', options.search);
@@ -413,13 +473,19 @@ export async function getTickets(
   return data;
 }
 
-export async function getTicketHistory(sessionUuid: string): Promise<TicketHistoryResponse> {
+export async function getTicketHistory(sessionUuid: string, cursor?: string, lang: string = 'uz'): Promise<TicketHistoryResponse> {
   const token = getAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
 
-  const response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/history/`, {
+  const url = new URL(`${API_BASE_URL}/tickets/${sessionUuid}/history/`);
+  if (cursor) {
+    url.searchParams.append('cursor', cursor);
+  }
+  url.searchParams.append('lang', lang);
+
+  const response = await fetch(url.toString(), {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -522,6 +588,67 @@ export async function closeTicket(sessionUuid: string): Promise<{ status: string
       detail: 'Failed to close ticket',
     }));
     const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to close ticket';
+    if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
+      clearAuthTokens();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data: { status: string; session: SessionData; message: string } = await response.json();
+  return data;
+}
+
+export async function updateTicketDescription(sessionUuid: string, description: string): Promise<{ status: string; session: SessionData; message: string }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/description/`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ description }),
+  });
+
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      detail: 'Failed to update description',
+    }));
+    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to update description';
+    if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
+      clearAuthTokens();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data: { status: string; session: SessionData; message: string } = await response.json();
+  return data;
+}
+
+export async function holdTicket(sessionUuid: string): Promise<{ status: string; session: SessionData; message: string }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/hold/`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      detail: 'Failed to hold ticket',
+    }));
+    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to hold ticket';
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');

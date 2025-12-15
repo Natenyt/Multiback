@@ -38,8 +38,9 @@ class TicketListAPIView(APIView):
         status = request.query_params.get('status', 'unassigned')
         search = request.query_params.get('search', '')
         neighborhood_id = request.query_params.get('neighborhood_id')
+        staff_uuid_param = request.query_params.get('staff_uuid')
 
-        queryset = Session.objects.select_related('citizen', 'citizen__neighborhood')
+        queryset = Session.objects.select_related('citizen', 'citizen__neighborhood', 'assigned_staff', 'assigned_department')
 
         # Status-based filtering
         # Always exclude escalated sessions from staff views (they go to superuser)
@@ -47,11 +48,38 @@ class TicketListAPIView(APIView):
         
         if status == 'unassigned':
             # Filter unassigned sessions that belong to the staff's department
-            queryset = queryset.filter(assigned_staff__isnull=True, assigned_department=department)
+            # CRITICAL: Also filter by status='unassigned' to ensure we only get unassigned sessions
+            queryset = queryset.filter(assigned_staff__isnull=True, assigned_department=department, status='unassigned')
         elif status == 'assigned':
-            queryset = queryset.filter(assigned_staff=staff)
+            # Require staff_uuid parameter for assigned status
+            if not staff_uuid_param:
+                return Response({"error": "staff_uuid parameter is required when status is 'assigned'."}, status=400)
+            
+            try:
+                # Normalize UUID format: Python's UUID() constructor handles both formats
+                # (with and without hyphens). Django ORM will convert to database format.
+                # Note: For MySQL raw SQL queries, you may need to remove hyphens,
+                # but Django ORM handles the conversion automatically.
+                uuid_obj = uuid.UUID(staff_uuid_param.replace('-', '') if len(staff_uuid_param) == 32 else staff_uuid_param)
+                # CRITICAL: Filter by both assigned_staff AND status='assigned'
+                queryset = queryset.filter(assigned_staff__user_uuid=uuid_obj, status='assigned')
+            except (ValueError, Exception) as e:
+                # If UUID parsing fails, return error
+                return Response({"error": f"Invalid staff_uuid format: {str(e)}"}, status=400)
         elif status == 'closed':
-            queryset = queryset.filter(assigned_staff=staff, status='closed')
+            # Require staff_uuid parameter for closed status
+            if not staff_uuid_param:
+                return Response({"error": "staff_uuid parameter is required when status is 'closed'."}, status=400)
+            
+            try:
+                # Normalize UUID format: Python's UUID() constructor handles both formats
+                # (with and without hyphens). Django ORM will convert to database format.
+                uuid_obj = uuid.UUID(staff_uuid_param.replace('-', '') if len(staff_uuid_param) == 32 else staff_uuid_param)
+                # CRITICAL: Filter by both assigned_staff AND status='closed'
+                queryset = queryset.filter(assigned_staff__user_uuid=uuid_obj, status='closed')
+            except (ValueError, Exception) as e:
+                # If UUID parsing fails, return error
+                return Response({"error": f"Invalid staff_uuid format: {str(e)}"}, status=400)
 
         # Search by ID or User Full Name (partial match)
         if search:

@@ -68,6 +68,9 @@ class SendMessageAPIView(APIView):
                     "note": "Duplicate message skipped"
                 }, status=status.HTTP_200_OK)
 
+        files = request.FILES.getlist('files') or request.FILES.getlist('file') or [file for _, file in request.FILES.items()]
+        has_files = len(files) > 0
+        
         try:
             with transaction.atomic():
                 msg = Message.objects.create(
@@ -81,7 +84,6 @@ class SendMessageAPIView(APIView):
                 if text:
                     MessageContent.objects.create(message=msg, content_type='text', text=text)
 
-                files = request.FILES.getlist('files') or request.FILES.getlist('file') or [file for _, file in request.FILES.items()]
                 for uploaded in files:
                     ctype = 'file'
                     mime = getattr(uploaded, 'content_type', '')
@@ -118,12 +120,44 @@ class SendMessageAPIView(APIView):
             except Exception:
                 broadcasted = False
 
-        # Offload Telegram uploads to background worker
-        if session.origin == 'telegram' and is_staff:
+        # Send staff messages to Telegram if session originated from Telegram
+        if session.origin == 'telegram' and is_staff_message:
             telegram_profile = getattr(session.citizen, 'telegram_profile', None)
             if telegram_profile and telegram_profile.telegram_chat_id:
                 chat_id = telegram_profile.telegram_chat_id
-                upload_message_to_telegram.delay(msg.id, chat_id)
+                
+                # Check if this is the first staff message in this session
+                staff_message_count = Message.objects.filter(
+                    session=session,
+                    is_staff_message=True
+                ).count()
+                
+                if staff_message_count == 1:
+                    # Send notification that staff has connected and remove keyboard
+                    try:
+                        notification_text = (
+                            "<b>✅ Javobgar xodim bilan bog'laningiz</b>\n\n"
+                            "<b>Xodim sizning murojaatingizga javob berishni boshladi. Endi siz bevosita xabar yuborishingiz mumkin, qo'shimcha tugmalarni bosmang!</b>"
+                        )
+                        # Remove keyboard when sending notification
+                        send_text_to_telegram(chat_id, notification_text, remove_keyboard=True)
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to send staff connection notification: {e}")
+                
+                # Send the actual message content to Telegram
+                # For files, use the existing task
+                if has_files:
+                    upload_message_to_telegram.delay(msg.id, chat_id)
+                # For text messages, send directly
+                elif text:
+                    try:
+                        send_text_to_telegram(chat_id, text)
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to send staff message to Telegram: {e}")
 
         out = MessageSerializer(msg, context={'request': request}).data
         return Response({

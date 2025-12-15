@@ -23,11 +23,11 @@ import type { SessionsChartDataPoint } from "@/dash_department/lib/api"
 
 const chartConfig = {
   unassigned: {
-    label: "Tayinlanmagan",
+    label: "Yangi Murojatlar",
     color: "hsl(210, 70%, 60%)", // Light blue
   },
   assigned: {
-    label: "Tayinlangan",
+    label: "Faol Murojaatlar",
     color: "hsl(220, 75%, 55%)", // Medium blue
   },
   closed: {

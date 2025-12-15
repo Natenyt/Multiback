@@ -87,16 +87,29 @@ def routing_result(request):
             processing_time_ms=data.get('processing_time_ms', 0)
         )
         
-        # Call routing function
+        # Save intent_label to session
+        intent_label = data.get('intent_label')
+        if intent_label and session_obj:
+            session_obj.intent_label = intent_label
+            session_obj.save(update_fields=['intent_label'])
+            logger.info(f"Saved intent_label '{intent_label}' to session {session_uuid}")
+        
+        # Call routing function to assign session to department
         if dept_id:
             route_payload = {
                 "department_id": dept_id,
-                "session_uuid": session_uuid,
-                "message_uuid": message_uuid,
+                "session_uuid": str(session_uuid),
+                "message_uuid": str(message_uuid),
+                "intent_label": intent_label,  # Pass intent_label to webhook
             }
             webhook_url = request.build_absolute_uri(reverse('ai_webhook'))
             try:
-                requests.post(webhook_url, json=route_payload, timeout=5)
+                logger.info(f"Calling routing webhook: {webhook_url} with payload: {route_payload}")
+                response = requests.post(webhook_url, json=route_payload, timeout=5)
+                if response.status_code == 200:
+                    logger.info(f"Successfully routed session {session_uuid} to department {dept_id}")
+                else:
+                    logger.error(f"Routing webhook returned error {response.status_code}: {response.text}")
             except requests.RequestException as req_err:
                 logger.error(f"Failed to call AI webhook: {req_err}")
         

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,12 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Force dark theme on login page - locked to dark theme
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+    // Keep dark theme locked - don't remove on unmount
+  }, []);
+
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -99,11 +105,11 @@ export default function LoginPage() {
   const showPasswordTooltip = isSubmitted && !!passwordError && !identifierError;
 
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: 'lab(2.75381% 0 0)' }}>
-      <Card className="w-full max-w-md bg-card text-card-foreground">
+    <div className="dark flex min-h-screen items-center justify-center" style={{ backgroundColor: 'oklch(0.145_0_0)' }}>
+      <Card className="w-full max-w-md bg-[oklch(0.205_0_0)] text-[oklch(0.985_0_0)] border-[oklch(1_0_0_/_10%)]">
         <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
+          <CardTitle className="text-[oklch(0.985_0_0)]">Login</CardTitle>
+          <CardDescription className="text-[oklch(0.708_0_0)]">Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -157,14 +163,14 @@ export default function LoginPage() {
                 </a>
               </div>
               {error && (
-                <div className="text-sm text-destructive">{error}</div>
+                <div className="text-sm text-[oklch(0.704_0.191_22.216)]">{error}</div>
               )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
           </Form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-sm text-[oklch(0.708_0_0)]">
             Don't have an account?{' '}
             <a
               href="https://t.me/nathan_2net"

@@ -95,7 +95,7 @@ async def enter_location(message: types.Message, state: FSMContext):
     # Save everything
     fullname = data.get("fullname")
     phone = data.get("phone")
-    neighborhood = data.get("neighborhood")
+    neighborhood_name = data.get("neighborhood")  # This is the text name, not the instance
     language = data.get("language")
     
     telegram_id = message.from_user.id
@@ -107,18 +107,32 @@ async def enter_location(message: types.Message, state: FSMContext):
     
     @sync_to_async
     def create_user_and_connection():
+        # Look up the Neighborhood instance by name (try name_uz first, then name_ru)
+        neighborhood_obj = None
+        if neighborhood_name:
+            try:
+                # Try to find by name_uz first
+                neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_uz=neighborhood_name)
+            except Neighborhood.DoesNotExist:
+                try:
+                    # Fallback to name_ru
+                    neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_ru=neighborhood_name)
+                except Neighborhood.DoesNotExist:
+                    # If not found, just log and continue without neighborhood
+                    pass
+        
         user, created = User.objects.get_or_create(
             phone_number=phone,
             defaults={
                 'full_name': fullname,
-                'neighborhood': neighborhood,
+                'neighborhood': neighborhood_obj,
                 'location': location
             }
         )
         if not created:
             # Update info if needed
             user.full_name = fullname
-            user.neighborhood = neighborhood
+            user.neighborhood = neighborhood_obj
             user.location = location
             user.save()
             

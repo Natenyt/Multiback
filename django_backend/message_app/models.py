@@ -53,6 +53,7 @@ class Session(models.Model):
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="unassigned")
 
     created_at = models.DateTimeField(auto_now_add=True)
+    assigned_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when session was assigned to staff")
     closed_at = models.DateTimeField(null=True, blank=True)
     
     is_deleted = models.BooleanField(default=False) # Fixed typo (BooleanFiled -> BooleanField)
@@ -63,6 +64,10 @@ class Session(models.Model):
     sla_deadline = models.DateTimeField(null=True, blank=True, help_text="Effective SLA deadline (base + hold extension)")
     sla_breached = models.BooleanField(default=False, help_text="Flag indicating SLA breach")
     is_hold = models.BooleanField(default=False, help_text="Flag indicating hold has been used")
+    
+    # Additional Fields
+    intent_label = models.CharField(max_length=255, null=True, blank=True, help_text="AI-detected intent label")
+    description = models.TextField(null=True, blank=True, help_text="Staff description/notes for the session")
 
     def check_sla_breach(self):
         """Check if SLA deadline has been breached and update flag."""

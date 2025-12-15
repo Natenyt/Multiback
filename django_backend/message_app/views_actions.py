@@ -87,6 +87,7 @@ class TicketAssignAPIView(APIView):
             with transaction.atomic():
                 session.assigned_staff = user
                 session.status = 'assigned'
+                session.assigned_at = timezone.now()
                 
                 # Initialize SLA deadline ONLY when staff assigns themselves (HARD RULE)
                 if session.sla_deadline is None:
@@ -173,10 +174,12 @@ class TicketHoldAPIView(APIView):
                     )
 
                 # 7. Extend SLA deadline and set hold flag
+                # IMPORTANT: Do NOT change session status - only update hold-related fields
                 session.sla_deadline = session.sla_deadline + timedelta(days=settings.HOLD_EXTENSION_DAYS)
                 session.is_hold = True
-                # Do NOT change session status - keep existing status
-                session.save()
+                # Explicitly update only the fields we want to change
+                # Using update_fields prevents any accidental status changes
+                session.save(update_fields=['sla_deadline', 'is_hold'])
 
                 # 8. Optional: Broadcast hold event to department dashboard
                 if session.assigned_department:
@@ -393,6 +396,67 @@ class TicketCloseAPIView(APIView):
         except Exception as e:
             return Response(
                 {"detail": "Failed to close ticket", "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TicketDescriptionUpdateAPIView(APIView):
+    """
+    PATCH /api/tickets/{session_uuid}/description/
+    
+    Updates the description field of a session.
+    Only assigned staff can update description.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, session_uuid):
+        user = request.user
+
+        # 1. Verify user is staff
+        if not hasattr(user, 'staff_profile') or not user.staff_profile:
+            return Response(
+                {"detail": "Only staff members can update description"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 2. Load session
+        session = get_object_or_404(
+            Session.objects.select_related('citizen', 'assigned_staff', 'assigned_department'),
+            session_uuid=session_uuid
+        )
+
+        # 3. Verify staff has access (assigned staff or department member)
+        has_access = False
+        if session.assigned_staff == user:
+            has_access = True
+        elif session.assigned_department:
+            staff_dept = getattr(user.staff_profile, 'department', None)
+            if staff_dept and session.assigned_department == staff_dept:
+                has_access = True
+        
+        if not has_access:
+            return Response(
+                {"detail": "You can only update description for tickets from your department or tickets assigned to you"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 4. Update description
+        description = request.data.get('description', '')
+        try:
+            session.description = description
+            session.save(update_fields=['description'])
+
+            # 5. Return updated session data
+            serializer = SessionSerializer(session, context={'request': request})
+            return Response({
+                "status": "updated",
+                "session": serializer.data,
+                "message": "Description updated successfully"
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"detail": "Failed to update description", "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

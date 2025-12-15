@@ -66,19 +66,19 @@ export function DashboardStats() {
     {
       icon: Inbox,
       value: stats.unassigned_count,
-      label: "Tayinlanmagan",
+      label: "Yangi Murojatlar",
       iconColor: "text-blue-500", // Same blue for all icons
     },
     {
       icon: CheckCircle2,
       value: stats.active_count,
-      label: "Tayinlangan",
+      label: "Faol Murojaatlar",
       iconColor: "text-blue-500", // Same blue for all icons
     },
     {
       icon: Trophy,
       value: stats.solved_today,
-      label: "Bugun yechildi",
+      label: "Yakunlangan",
       iconColor: "text-blue-500", // Same blue for all icons
     },
     {

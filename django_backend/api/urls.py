@@ -16,7 +16,7 @@ from message_app.views_history import TicketHistoryAPIView, MarkReadAPIView
 from message_app.views_media import telegram_media_proxy, thumbnail_proxy
 from message_app.views_send import SendMessageAPIView
 from message_app.views_ai_webhook import AIWebhookView
-from message_app.views_actions import TicketAssignAPIView, TicketHoldAPIView, TicketEscalateAPIView, TicketCloseAPIView
+from message_app.views_actions import TicketAssignAPIView, TicketHoldAPIView, TicketEscalateAPIView, TicketCloseAPIView, TicketDescriptionUpdateAPIView
 from support_tools.views import QuickReplyListAPIView
 
 urlpatterns = [
@@ -57,6 +57,7 @@ urlpatterns = [
     path('tickets/<uuid:session_uuid>/hold/', TicketHoldAPIView.as_view(), name='ticket-hold'),
     path('tickets/<uuid:session_uuid>/escalate/', TicketEscalateAPIView.as_view(), name='ticket-escalate'),
     path('tickets/<uuid:session_uuid>/close/', TicketCloseAPIView.as_view(), name='ticket-close'),
+    path('tickets/<uuid:session_uuid>/description/', TicketDescriptionUpdateAPIView.as_view(), name='ticket-description'),
     
     # Quick Replies
     path('quick-replies/', QuickReplyListAPIView.as_view(), name='quick-replies'),

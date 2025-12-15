@@ -55,7 +55,8 @@ class TicketHistoryAPIView(APIView):
             session.save(update_fields=['sla_breached'])
 
         # 8) Session metadata
-        session_data = SessionSerializer(session, context={'request': request}).data
+        lang = request.query_params.get('lang', 'uz')
+        session_data = SessionSerializer(session, context={'request': request, 'lang': lang}).data
 
         # 9) Build response
         response = {

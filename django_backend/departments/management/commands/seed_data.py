@@ -284,7 +284,7 @@ class Command(BaseCommand):
                 
                 # Manually set created_at to override auto_now_add
                 session.created_at = session_time
-                
+
                 # Set closed_at if status is closed
                 update_fields = ['created_at']
                 if status == "closed":

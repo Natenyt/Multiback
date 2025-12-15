@@ -163,46 +163,138 @@ async def process_message_pipeline(request: AnalyzeRequest):
         try:
             logger.info(f"Step 4 [Search]: Querying Qdrant (Collection: 'departments')...")
             
-            q_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="language",
-                        match=MatchValue(value=language)
-                    )
-                ]
-            )
-            logger.info(f"Step 4 [Search]: Filter: language == '{language}'")
-
-            # --- QDRANT V1.16 FIX ---
-            # .search() is removed. Using .query_points()
-            search_response = await asyncio.to_thread(
-                qdrant_client.query_points,
-                collection_name="departments",
-                query=vector,  # Renamed from query_vector
-                query_filter=q_filter,
-                limit=3,
-                with_payload=True 
-            )
-            
-            # Retrieve points from response object
-            hits = search_response.points
-            
-            logger.info(f"Step 4 [Search]: Found {len(hits)} hits.")
-            
-            for i, hit in enumerate(hits):
-                payload = hit.payload
-                dept_id = payload.get("department_id")
-                name = payload.get("name")
-                logger.info(f"   Hit #{i+1}: Score={hit.score:.4f}, ID={dept_id}, Name={name}")
+            # First check if collection exists and has points
+            try:
+                collection_info = await asyncio.to_thread(
+                    qdrant_client.get_collection,
+                    collection_name="departments"
+                )
                 
-                candidates.append(Candidate(
-                    id=str(dept_id),
-                    name=name,
-                    description=payload.get("description", ""),
-                    score=hit.score
-                ))
+                if collection_info.points_count == 0:
+                    logger.warning(f"Step 4 [Search]: Collection 'departments' is empty. Please index departments first.")
+                    # Skip the query if collection is empty
+                else:
+                    logger.info(f"Step 4 [Search]: Collection has {collection_info.points_count} points.")
+                    
+                    # Debug: Try to check what language values exist in the collection
+                    # First try without filter to see sample payloads
+                    try:
+                        sample_response = await asyncio.to_thread(
+                            qdrant_client.scroll,
+                            collection_name="departments",
+                            limit=5,
+                            with_payload=True,
+                            with_vectors=False
+                        )
+                        sample_points = sample_response[0]  # Returns (points, next_page_offset)
+                        if sample_points:
+                            sample_languages = [p.payload.get("language") for p in sample_points if hasattr(p, 'payload')]
+                            logger.info(f"Step 4 [Search]: Sample language values in collection: {set(sample_languages)}")
+                    except Exception as debug_error:
+                        logger.warning(f"Step 4 [Search]: Could not get sample data for debugging: {debug_error}")
+                    
+                    q_filter = Filter(
+                        must=[
+                            FieldCondition(
+                                key="language",
+                                match=MatchValue(value=language)
+                            )
+                        ]
+                    )
+                    logger.info(f"Step 4 [Search]: Filter: language == '{language}'")
+
+                    # --- QDRANT V1.16+ FIX ---
+                    # The "OutputTooSmall" error occurs when filter returns fewer results than limit
+                    # Try with progressively smaller limits, then fallback to no filter
+                    search_response = None
+                    hits = []
+                    
+                    # Try filtered query with decreasing limits
+                    for limit in [3, 2, 1]:
+                        try:
+                            logger.info(f"Step 4 [Search]: Attempting query with limit={limit} and language filter...")
+                            search_response = await asyncio.to_thread(
+                                qdrant_client.query_points,
+                                collection_name="departments",
+                                query=vector,
+                                query_filter=q_filter,
+                                limit=limit,
+                                with_payload=True,
+                                with_vectors=False
+                            )
+                            hits = search_response.points if hasattr(search_response, 'points') else []
+                            if hits:
+                                logger.info(f"Step 4 [Search]: Query succeeded with limit={limit}, found {len(hits)} hits.")
+                                break
+                        except Exception as query_error:
+                            error_str = str(query_error)
+                            if "OutputTooSmall" in error_str or "500" in error_str:
+                                logger.warning(f"Step 4 [Search]: Query failed with limit={limit}: {error_str[:100]}")
+                                if limit > 1:
+                                    continue  # Try with smaller limit
+                                else:
+                                    # Last attempt failed, try without filter as fallback
+                                    logger.warning("Step 4 [Search]: Filtered query failed, trying without language filter...")
+                                    try:
+                                        search_response = await asyncio.to_thread(
+                                            qdrant_client.query_points,
+                                            collection_name="departments",
+                                            query=vector,
+                                            limit=5,  # Get more results when no filter
+                                            with_payload=True,
+                                            with_vectors=False
+                                        )
+                                        all_hits = search_response.points if hasattr(search_response, 'points') else []
+                                        # Filter results by language in Python instead
+                                        filtered_hits = [h for h in all_hits if h.payload.get("language") == language]
+                                        if filtered_hits:
+                                            hits = filtered_hits[:3]  # Take top 3 matching language
+                                            logger.info(f"Step 4 [Search]: Query without filter succeeded, filtered to {len(hits)} {language} results.")
+                                        else:
+                                            # No matching language, use all results
+                                            hits = all_hits[:3]
+                                            logger.warning(f"Step 4 [Search]: No {language} results found, using top 3 results regardless of language.")
+                                        break
+                                    except Exception as fallback_error:
+                                        logger.error(f"Step 4 [Search]: Fallback query also failed: {fallback_error}")
+                                        raise query_error
+                            else:
+                                raise
+                    
+                    logger.info(f"Step 4 [Search]: Found {len(hits)} hits.")
+                    
+                    for i, hit in enumerate(hits):
+                        payload = hit.payload
+                        dept_id = payload.get("department_id")
+                        name = payload.get("name")
+                        score = hit.score if hasattr(hit, 'score') else 0.0
+                        logger.info(f"   Hit #{i+1}: Score={score:.4f}, ID={dept_id}, Name={name}")
+                        
+                        candidates.append(Candidate(
+                            id=str(dept_id),
+                            name=name,
+                            description=payload.get("description", ""),
+                            score=score
+                        ))
+            except Exception as coll_error:
+                # Collection might not exist or be inaccessible
+                logger.error(f"Step 4 [Search]: Failed to access collection: {coll_error}")
+                # Check if collection exists
+                try:
+                    collections = await asyncio.to_thread(qdrant_client.get_collections)
+                    collection_names = [c.name for c in collections.collections]
+                    if "departments" not in collection_names:
+                        logger.warning("Step 4 [Search]: Collection 'departments' does not exist. Please run 'python manage.py index_departments' first.")
+                    else:
+                        logger.error(f"Step 4 [Search]: Collection exists but query failed: {coll_error}")
+                except:
+                    pass
+                    
         except Exception as e:
              logger.error(f"Step 4 [Search] FAILED: {e}")
+             # Log full error details for debugging
+             import traceback
+             logger.error(f"Full traceback: {traceback.format_exc()}")
     else:
         logger.error("Step 4 [Search] SKIPPED: Qdrant client is not connected.")
 
@@ -275,8 +367,25 @@ async def process_message_pipeline(request: AnalyzeRequest):
             logger.info(f"Step 5 [LLM]: Parsed successfully. Suggested Dept: {processing_data['suggested_department_id']}")
 
         except Exception as e:
-            logger.error(f"Step 5 [LLM] FAILED: {e}")
-            processing_data["reason"] = f"LLM Error: {e}"
+            error_str = str(e)
+            # Check if it's a quota/rate limit error
+            if "429" in error_str or "quota" in error_str.lower() or "rate limit" in error_str.lower():
+                logger.warning(f"Step 5 [LLM]: Quota/Rate limit exceeded. Using top vector search result as fallback.")
+                
+                # Fallback: Use the top candidate from vector search
+                if candidates:
+                    top_candidate = candidates[0]
+                    processing_data["intent_label"] = "Auto-detected"
+                    processing_data["suggested_department_id"] = top_candidate.id
+                    processing_data["confidence_score"] = int(top_candidate.score * 100)  # Convert 0-1 to 0-100
+                    processing_data["suggested_department_name"] = top_candidate.name
+                    processing_data["reason"] = f"LLM unavailable (quota exceeded). Using top vector search result with {top_candidate.score:.2%} similarity."
+                    logger.info(f"Step 5 [LLM]: Fallback applied. Using Dept ID={top_candidate.id}, Name={top_candidate.name}, Score={top_candidate.score:.2%}")
+                else:
+                    processing_data["reason"] = "LLM quota exceeded and no vector search results available."
+            else:
+                logger.error(f"Step 5 [LLM] FAILED: {e}")
+                processing_data["reason"] = f"LLM Error: {e}"
 
     # Step 6: Completion
     processing_data["processing_time_ms"] = int((time.time() - start_time) * 1000)

@@ -72,6 +72,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = "User"
         verbose_name_plural = "Users"
 
+    @property
+    def is_staff(self):
+        """
+        Required by Django Admin to determine if user can access admin site.
+        Only superusers can access admin.
+        """
+        return self.is_superuser
+
     def __str__(self):
         role = "User"
         if self.is_superuser: role = "System Owner"
