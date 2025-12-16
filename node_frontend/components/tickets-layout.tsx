@@ -46,11 +46,11 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
       )) {
         setAuthError(error)
       } else {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to assign ticket",
-        variant: "destructive",
-      })
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to assign ticket",
+          variant: "destructive",
+        })
       }
     }
   }
@@ -84,11 +84,11 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
       )) {
         setAuthError(error)
       } else {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to close ticket",
-        variant: "destructive",
-      })
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to close ticket",
+          variant: "destructive",
+        })
       }
     }
   }

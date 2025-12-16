@@ -236,9 +236,19 @@ class DepartmentConsumer(AsyncJsonWebsocketConsumer):
             "session": event.get("session")
         })
 
-    async def session_assignment(self, event):
+    async def session_assigned(self, event):
         await self.send_json({
             "type": "session.assigned",
+            "session": event.get("session")
+        })
+
+    async def session_hold(self, event):
+        """
+        Handler for session hold event.
+        Notifies department dashboard that a session has been put on hold.
+        """
+        await self.send_json({
+            "type": "session.hold",
             "session": event.get("session")
         })
 
