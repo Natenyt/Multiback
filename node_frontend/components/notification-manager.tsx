@@ -25,23 +25,48 @@ const getWsBaseUrl = (): string => {
   return wsUrl
 }
 
+const SHOWN_TOAST_SESSIONS_KEY = 'shown_toast_sessions'
+
 export const NotificationManager: React.FC = () => {
   const pathname = usePathname()
   const { notifications, addNotification } = useNotifications()
   const { toast } = useToast()
-  const previousNotificationsRef = React.useRef<Set<string>>(new Set())
   const wsRef = React.useRef<WebSocket | null>(null)
   const departmentIdRef = React.useRef<number | null>(null)
+  const shownToastSessionsRef = React.useRef<Set<string>>(new Set())
 
-  // Track which notifications we've already shown as toasts
+  // Load shown toast sessions from localStorage on mount
   React.useEffect(() => {
-    const currentIds = new Set(notifications.map((n) => n.id))
+    try {
+      const stored = localStorage.getItem(SHOWN_TOAST_SESSIONS_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[]
+        shownToastSessionsRef.current = new Set(parsed)
+      }
+    } catch (error) {
+      console.error("Failed to load shown toast sessions from localStorage:", error)
+    }
+  }, [])
+
+  // Track which notifications we've already shown as toasts (one toast per session_uuid)
+  React.useEffect(() => {
+    // Find notifications that haven't shown a toast yet
     const newNotifications = notifications.filter(
-      (n) => !n.read && !previousNotificationsRef.current.has(n.id)
+      (n) => !shownToastSessionsRef.current.has(n.session_uuid)
     )
 
-    // Show toast for each new unread notification
+    // Show toast for each new notification (only once per session_uuid)
     newNotifications.forEach((notification) => {
+      // Mark this session_uuid as having shown a toast
+      shownToastSessionsRef.current.add(notification.session_uuid)
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem(SHOWN_TOAST_SESSIONS_KEY, JSON.stringify(Array.from(shownToastSessionsRef.current)))
+      } catch (error) {
+        console.error("Failed to save shown toast sessions to localStorage:", error)
+      }
+      
       toast({
         title: "Yangi Murojaat",
         description: `Fuqoro: ${notification.citizen_name}\n${formatTimeAgo(notification.created_at)}`,
@@ -49,9 +74,6 @@ export const NotificationManager: React.FC = () => {
         duration: 5000,
       })
     })
-
-    // Update ref to track shown notifications
-    previousNotificationsRef.current = currentIds
   }, [notifications, toast])
 
   // WebSocket connection for real-time notifications

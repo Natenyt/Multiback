@@ -25,7 +25,7 @@ async def news_handler(message: types.Message):
 @dp.message(lambda message: message.text in ["⚙️ Tilni o'zgartirish", "⚙️ Изменить язык"])
 async def change_language_handler(message: types.Message, state):
     lang = await get_user_lang(message.from_user.id)
-    await message.answer("Please select your language / Iltimos, tilni tanlang", reply_markup=language_keyboard)
+    await message.answer(get_text("select_language", "uz"), reply_markup=language_keyboard)
     # We can reuse the registration state or just update it directly via callback
     # Let's reuse RegistrationFSM.language but handle it slightly differently if needed
     # Actually, let's just use a callback handler that updates the DB directly if the user is already registered.
@@ -55,7 +55,7 @@ async def language_callback(call: types.CallbackQuery, state):
         await sync_to_async(connection.save)()
         
         await call.message.delete()
-        await call.message.answer(get_text("main_menu", lang), reply_markup=get_main_menu_keyboard(lang))
+        await call.message.answer(get_text("language_changed", lang), reply_markup=get_main_menu_keyboard(lang))
     else:
         # User doesn't exist, proceed with registration
         # This should be handled by registration.py if state is RegistrationFSM.language
@@ -97,12 +97,7 @@ async def new_message_handler(message: types.Message, state):
         
         has_active = await check_active_session(connection.user)
         if has_active:
-            error_message = (
-                "⚠️ Sizda hozirgi vaqtda hal qilinmagan murojaat mavjud. "
-                "Yangi murojaat yuborish uchun avval birinchi murojaatingizning javobini kutishingiz kerak. "
-                "Iltimos, xodimning javobini kuting."
-            )
-            await message.answer(error_message)
+            await message.answer(get_text("existing_active_session", lang))
             return
     
     await message.answer(get_text("write_ticket", lang), reply_markup=get_ticket_keyboard(lang))

@@ -17,7 +17,11 @@ async def bot_start(message: types.Message, state):
     
     if connection:
         lang = connection.language_preference
-        await message.answer(f"Welcome back, {connection.user.full_name}!", reply_markup=get_main_menu_keyboard(lang))
+        welcome_text = get_text("welcome_back", lang).format(name=connection.user.full_name)
+        await message.answer(welcome_text, reply_markup=get_main_menu_keyboard(lang))
     else:
-        await message.answer("Please select your language / Iltimos, tilni tanlang", reply_markup=language_keyboard)
+        # Show welcome message first, then language selection
+        welcome_text = get_text("welcome", "uz")  # Show welcome in Uzbek for new users
+        await message.answer(welcome_text)
+        await message.answer(get_text("select_language", "uz"), reply_markup=language_keyboard)
         await state.set_state(RegistrationFSM.language)

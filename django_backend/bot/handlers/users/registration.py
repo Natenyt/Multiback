@@ -24,8 +24,13 @@ async def enter_fullname(message: types.Message, state: FSMContext):
     
     if message.text == get_text("back_btn", lang):
         from bot.keyboards.inline.language import language_keyboard
-        await message.answer("Please select your language / Iltimos, tilni tanlang", reply_markup=language_keyboard)
+        await message.answer(get_text("select_language", "uz"), reply_markup=language_keyboard)
         await state.set_state(RegistrationFSM.language)
+        return
+
+    # Validate full name length (minimum 9 characters)
+    if len(message.text.strip()) < 9:
+        await message.answer(get_text("invalid_fullname", lang), reply_markup=get_back_keyboard(lang))
         return
 
     await state.update_data(fullname=message.text)
@@ -73,8 +78,26 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.phone)
         return
 
-    # Validate neighborhood? For now just save the text.
-    # Ideally we should match it against the DB, but for simplicity let's assume valid input from keyboard.
+    # Validate that user selected from the menu, not typed
+    @sync_to_async
+    def validate_neighborhood(neighborhood_text):
+        # Check if the text matches any active neighborhood name (name_uz or name_ru)
+        neighborhoods = Neighborhood.objects.filter(is_active=True)
+        for n in neighborhoods:
+            if n.name_uz == neighborhood_text:
+                return True
+            if n.name_ru and n.name_ru == neighborhood_text:
+                return True
+        return False
+    
+    is_valid = await validate_neighborhood(message.text)
+    
+    if not is_valid:
+        # Re-fetch neighborhoods to show the keyboard again
+        neighborhoods = await sync_to_async(list)(Neighborhood.objects.filter(is_active=True))
+        await message.answer(get_text("invalid_neighborhood", lang), reply_markup=get_neighborhood_keyboard(neighborhoods, lang))
+        return
+    
     await state.update_data(neighborhood=message.text)
     
     await message.answer(get_text("enter_location", lang), reply_markup=get_location_keyboard(lang))

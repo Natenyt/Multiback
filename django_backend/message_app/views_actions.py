@@ -103,7 +103,7 @@ class TicketAssignAPIView(APIView):
                             from message_app.utils_telegram import send_text_to_telegram
                             staff_full_name = user.full_name or "Xodim"
                             notification_text = (
-                                f"<b>✅ Javobgar xodim {staff_full_name} bilan bog'laningiz!</b>\n\n"
+                                f"<b>✅ Javobgar xodim {staff_full_name} siz bilan bog'landi!</b>\n\n"
                                 "<b>Xodim sizning murojaatingizga javob berishni boshladi. Endi siz bevosita xabar yuborishingiz mumkin, qo'shimcha tugmalarni bosmang!</b>"
                             )
                             send_text_to_telegram(
