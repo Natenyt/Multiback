@@ -85,11 +85,11 @@ export function CaseMessageBubble({
     // Toggle timestamp on click
     setShowTimestamp((prev) => {
       const newValue = !prev
-      
+
       // If showing timestamp, set auto-hide after 3 seconds
       if (newValue) {
         timeoutRef.current = window.setTimeout(() => {
-          setShowTimestamp(false)
+      setShowTimestamp(false)
         }, 3000)
       }
       

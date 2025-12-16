@@ -7,10 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 // Get WS URL from API URL (replace /api with empty, and http with ws)
 const getWsBaseUrl = (): string => {
-  if (typeof window === 'undefined') {
-    return 'ws://localhost:8000'
-  }
-  
+  // WebSockets are client-side only, but we derive from env var for consistency
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
   // Convert http://localhost:8000/api -> ws://localhost:8000
   // Convert https://example.com/api -> wss://example.com

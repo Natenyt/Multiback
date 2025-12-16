@@ -41,30 +41,30 @@ export default function DashboardLayout({
       <NotificationProvider>
         <NotificationManager />
         <AuthErrorHandler />
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset>
-            {!isCaseDetailPage && (
-              <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-              <SidebarTrigger className="-ml-1" />
-              <div className="relative flex-1 max-w-[428px]">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search..."
-                  className="pl-9 w-full"
-                />
-              </div>
-              <div className="ml-auto">
-                <HeaderActions />
-              </div>
-            </header>
-            )}
-            <div className="flex flex-1 flex-col">
-              {children}
-            </div>
-          </SidebarInset>
-        </SidebarProvider>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        {!isCaseDetailPage && (
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <div className="relative flex-1 max-w-[428px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="pl-9 w-full"
+            />
+          </div>
+          <div className="ml-auto">
+            <HeaderActions />
+          </div>
+        </header>
+        )}
+        <div className="flex flex-1 flex-col">
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
       </NotificationProvider>
     </AuthErrorProvider>
   );
