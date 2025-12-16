@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,8 +21,8 @@ import {
 import { staffLogin, storeAuthTokens } from '../../dash_department/lib/api';
 
 const loginSchema = z.object({
-  identifier: z.string().min(1, 'Please fill out this field.'),
-  password: z.string().min(1, 'Please fill out this field.'),
+  identifier: z.string().min(1, 'Iltimos, maydonni to\'ldiring.'),
+  password: z.string().min(1, 'Iltimos, maydonni to\'ldiring.'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -54,7 +55,7 @@ function CustomFormMessage({
           <div className="w-4 h-4 bg-[#ff9500] rounded flex items-center justify-center flex-shrink-0">
             <AlertCircle className="w-3 h-3 text-white" />
           </div>
-          <span>{error.message || 'Please fill out this field.'}</span>
+          <span>{error.message || 'Iltimos, maydonni to\'ldiring.'}</span>
         </div>
       </div>
     </div>
@@ -108,8 +109,17 @@ export default function LoginPage() {
     <div className="dark flex min-h-screen items-center justify-center" style={{ backgroundColor: 'oklch(0.145_0_0)' }}>
       <Card className="w-full max-w-md bg-[oklch(0.205_0_0)] text-[oklch(0.985_0_0)] border-[oklch(1_0_0_/_10%)]">
         <CardHeader>
-          <CardTitle className="text-[oklch(0.985_0_0)]">Login</CardTitle>
-          <CardDescription className="text-[oklch(0.708_0_0)]">Enter your credentials to access your account</CardDescription>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={80}
+              height={80}
+              className="object-contain"
+            />
+          </div>
+          <CardTitle className="text-[oklch(0.985_0_0)] text-center">Kirish</CardTitle>
+          <CardDescription className="text-[oklch(0.708_0_0)] text-center">Accountigizga kirish uchun ma'lumotlaringizni kiriting</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -119,11 +129,11 @@ export default function LoginPage() {
                 name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username or Email</FormLabel>
+                    <FormLabel>Foydalanuvchi nomi yoki Email</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder="Enter username or email"
+                        placeholder="Foydalanuvchi nomi yoki email kiriting"
                         {...field}
                         disabled={isLoading}
                         autoComplete="username"
@@ -138,11 +148,11 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Parol</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="Enter your password"
+                        placeholder="Parolingizni kiriting"
                         {...field}
                         disabled={isLoading}
                         autoComplete="current-password"
@@ -159,26 +169,26 @@ export default function LoginPage() {
                   rel="noopener noreferrer"
                   className="text-sm text-white hover:underline"
                 >
-                  Forgot password?
+                  Parolni unutdingizmi?
                 </a>
               </div>
               {error && (
                 <div className="text-sm text-[oklch(0.704_0.191_22.216)]">{error}</div>
               )}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? 'Kirilmoqda...' : 'Kirish'}
               </Button>
             </form>
           </Form>
           <p className="mt-4 text-center text-sm text-[oklch(0.708_0_0)]">
-            Don't have an account?{' '}
+            Account yo'qmi?{' '}
             <a
               href="https://t.me/nathan_2net"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white hover:underline"
             >
-              Contact Superuser
+              Superuser bilan bog'lanish
             </a>
           </p>
         </CardContent>

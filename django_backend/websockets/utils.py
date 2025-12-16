@@ -3,7 +3,9 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from message_app.serializers import MessageSerializer, SessionSerializer
 from django.conf import settings
+import logging
 
+logger = logging.getLogger(__name__)
 channel_layer = get_channel_layer()
 
 def broadcast_message_created(session_uuid, message_obj, request=None):
@@ -11,15 +13,22 @@ def broadcast_message_created(session_uuid, message_obj, request=None):
     message_obj: Django Message instance (not serialized).
     We'll serialize it to dict and send group event to chat_{session_uuid}.
     """
-    serializer = MessageSerializer(message_obj, context={'request': request})
-    data = serializer.data
-    async_to_sync(channel_layer.group_send)(
-        f"chat_{session_uuid}",
-        {
-            "type": "chat.message",
-            "message": data
-        }
-    )
+    try:
+        serializer = MessageSerializer(message_obj, context={'request': request})
+        data = serializer.data
+        group_name = f"chat_{session_uuid}"
+        logger.debug(f"Broadcasting message {message_obj.message_uuid} to group {group_name}")
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                "type": "chat.message",
+                "message": data
+            }
+        )
+        logger.debug(f"Successfully broadcasted message {message_obj.message_uuid} to group {group_name}")
+    except Exception as e:
+        logger.error(f"Failed to broadcast message {message_obj.message_uuid if message_obj else 'unknown'} to chat_{session_uuid}: {e}", exc_info=True)
+        raise
 
 def broadcast_message_update(session_uuid, message_obj, update_payload=None, request=None):
     """

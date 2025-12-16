@@ -4,7 +4,38 @@ from django.conf import settings
 
 TELEGRAM_API_BASE = "https://api.telegram.org"
 
-def send_text_to_telegram(chat_id: int, text: str, remove_keyboard: bool = False):
+def get_main_menu_keyboard_json(lang='uz'):
+    """
+    Returns the main menu keyboard as JSON dict format for Telegram Bot API.
+    This is used when sending messages from Django backend (not from bot handlers).
+    """
+    # Button texts in Uzbek
+    if lang == 'ru':
+        keyboard = {
+            "keyboard": [
+                [{"text": "📝 Отправить новое сообщение"}, {"text": "🌐 Веб-сайт"}],
+                [{"text": "📰 Новости"}, {"text": "⚙️ Изменить язык"}]
+            ],
+            "resize_keyboard": True
+        }
+    else:  # Default to Uzbek
+        keyboard = {
+            "keyboard": [
+                [{"text": "📝 Yangi xabar yuborish"}, {"text": "🌐 Veb-sayt"}],
+                [{"text": "📰 Yangiliklar"}, {"text": "⚙️ Tilni o'zgartirish"}]
+            ],
+            "resize_keyboard": True
+        }
+    return keyboard
+
+def send_text_to_telegram(chat_id: int, text: str, remove_keyboard: bool = False, keyboard_markup: dict = None):
+    """
+    Send text message to Telegram.
+    :param chat_id: Telegram chat ID
+    :param text: Message text (HTML supported)
+    :param remove_keyboard: If True, removes keyboard
+    :param keyboard_markup: If provided, sends this keyboard markup (dict format)
+    """
     bot_token = getattr(settings, "TOKEN_BOT", None) or getattr(settings, "TELEGRAM_BOT_TOKEN", None)
     if not bot_token:
         raise RuntimeError("TELEGRAM BOT TOKEN not configured")
@@ -16,6 +47,8 @@ def send_text_to_telegram(chat_id: int, text: str, remove_keyboard: bool = False
     }
     if remove_keyboard:
         payload["reply_markup"] = {"remove_keyboard": True}
+    elif keyboard_markup:
+        payload["reply_markup"] = keyboard_markup
     resp = requests.post(url, json=payload, timeout=15)
     return resp.json()
 

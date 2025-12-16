@@ -40,14 +40,28 @@ export default function DashboardPage() {
         <p className={`${poppins.className} font-medium`} style={{ fontSize: '30px' }}>
           Xush kelibsiz!
         </p>
-        <Button 
-          variant="outline" 
-          className="cursor-default hover:bg-accent hover:text-accent-foreground"
-          onClick={(e) => e.preventDefault()}
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          {staffProfile?.job_title || '...'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            className="cursor-default hover:bg-accent hover:text-accent-foreground"
+            onClick={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            {staffProfile?.job_title || '...'}
+          </Button>
+          {staffProfile?.department_name_uz && (
+            <Button 
+              variant="outline" 
+              className="cursor-default hover:bg-accent hover:text-accent-foreground"
+              onClick={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {staffProfile.department_name_uz.length > 60 
+                ? `${staffProfile.department_name_uz.substring(0, 60)}...` 
+                : staffProfile.department_name_uz}
+            </Button>
+          )}
+        </div>
       </div>
       <div className="py-4">
         <DashboardStats />

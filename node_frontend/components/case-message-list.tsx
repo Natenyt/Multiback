@@ -220,6 +220,7 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
 
     ws.onopen = () => {
       console.log("WebSocket connected for session:", sessionUuid)
+      console.log("WebSocket readyState:", ws.readyState)
     }
 
     ws.onmessage = (event) => {
@@ -230,36 +231,59 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
         // Handle message.created events
         if (data.type === "message.created" && data.message) {
           const newMessage: Message = data.message
+          console.log("Processing message.created event:", {
+            message_uuid: newMessage.message_uuid,
+            is_staff_message: newMessage.is_staff_message,
+            sender: newMessage.sender
+          })
           
           // Check if message already exists to avoid duplicates
           setMessages((prev) => {
             const exists = prev.some((m) => m.message_uuid === newMessage.message_uuid)
             if (exists) {
+              console.log("Message already exists in list, skipping:", newMessage.message_uuid)
               return prev
             }
+            console.log("Adding new message to list:", newMessage.message_uuid)
             return [...prev, newMessage]
           })
           
           // Auto-scroll to bottom for new messages
           setTimeout(() => scrollToBottomIfNeeded(), 100)
+        } else {
+          console.log("Received WebSocket message with type:", data.type, "Full data:", data)
         }
       } catch (error) {
-        console.error("Error parsing websocket message:", error)
+        console.error("Error parsing websocket message:", error, "Raw data:", event.data)
       }
     }
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error)
+      console.error("WebSocket error details:", {
+        type: error.type,
+        target: error.target,
+        currentTarget: error.currentTarget,
+        readyState: ws.readyState,
+        url: ws.url?.replace(/\?token=[^&]*/, '?token=***')
+      })
     }
 
     ws.onclose = (event) => {
-      console.log("WebSocket closed:", event.code, event.reason)
+      console.log("WebSocket closed:", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        sessionUuid: sessionUuid
+      })
       // Attempt to reconnect after 3 seconds if not a normal closure
       if (event.code !== 1000) {
+        console.log("WebSocket closed abnormally, will attempt reconnect...")
         setTimeout(() => {
           if (wsRef.current?.readyState === WebSocket.CLOSED) {
             // Trigger reconnect by re-running the effect
             // This is handled by the useEffect dependency on sessionUuid
+            console.log("Attempting to reconnect WebSocket...")
           }
         }, 3000)
       }

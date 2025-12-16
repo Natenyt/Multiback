@@ -152,8 +152,17 @@ class AIWebhookView(APIView):
                     # DO NOT update session - just broadcast the message
                     logger.info(f"Session {session_uuid} already has department {department.id} - routing message only, not updating session")
             
-            # Refresh message from DB to ensure we have latest relationships
-            message.refresh_from_db()
+            # Reload message with all relationships to ensure proper serialization
+            # We need to reload it because session might have been updated
+            message = Message.objects.select_related(
+                'session',
+                'sender',
+                'session__citizen',
+                'session__assigned_staff',
+                'session__assigned_department'
+            ).prefetch_related(
+                'contents'
+            ).get(message_uuid=message_uuid)
 
             # Notify department dashboard only if department changed
             if department_changed:
@@ -166,7 +175,8 @@ class AIWebhookView(APIView):
             # ALWAYS broadcast the message to chat group (so staff can see citizen messages)
             # This is critical for citizen messages from Telegram to appear in staff dashboard
             try:
-                broadcast_message_created(str(session_uuid), message)
+                # Broadcast with request=None (we're in a webhook, no request context)
+                broadcast_message_created(str(session_uuid), message, request=None)
                 logger.info(f"Successfully broadcasted message {message_uuid} to chat_{str(session_uuid)} group")
             except Exception as broadcast_error:
                 logger.error(f"Failed to broadcast message: {broadcast_error}", exc_info=True)

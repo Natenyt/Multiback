@@ -63,6 +63,8 @@ class TicketListSerializer(serializers.ModelSerializer):
             'citizen_name', 
             'phone_number', 
             'created_at', 
+            'assigned_at',
+            'closed_at',
             'neighborhood', 
             'preview_text',
             'intent_label',

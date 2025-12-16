@@ -226,8 +226,10 @@ def staff_profile(request):
     lang_code = 'ru' if accept_lang.startswith('ru') else 'uz'
     
     department_name = None
+    department_name_uz = None
     if profile.department:
         department_name = getattr(profile.department, f'name_{lang_code}', profile.department.name_uz) or "Unknown"
+        department_name_uz = profile.department.name_uz or "Unknown"
     
     # Get avatar URL
     avatar_url = None
@@ -246,6 +248,8 @@ def staff_profile(request):
         "avatar_url": avatar_url,
         "job_title": profile.job_title or "",
         "department": department_name,
+        "department_name_uz": department_name_uz,
+        "department_id": profile.department.id if profile.department else None,
         "phone_number": user.phone_number,
         "joined_at": profile.joined_at.isoformat() if profile.joined_at else None,
         "staff_uuid": str(user.user_uuid),

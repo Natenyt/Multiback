@@ -95,11 +95,32 @@ class TicketAssignAPIView(APIView):
                 
                 session.save()
 
-                # 8. Broadcast update to department dashboard
+                # 8. Remove keyboard from Telegram if session originated from Telegram
+                if session.origin == 'telegram':
+                    try:
+                        telegram_profile = getattr(session.citizen, 'telegram_profile', None)
+                        if telegram_profile and telegram_profile.telegram_chat_id:
+                            from message_app.utils_telegram import send_text_to_telegram
+                            staff_full_name = user.full_name or "Xodim"
+                            notification_text = (
+                                f"<b>✅ Javobgar xodim {staff_full_name} bilan bog'laningiz!</b>\n\n"
+                                "<b>Xodim sizning murojaatingizga javob berishni boshladi. Endi siz bevosita xabar yuborishingiz mumkin, qo'shimcha tugmalarni bosmang!</b>"
+                            )
+                            send_text_to_telegram(
+                                telegram_profile.telegram_chat_id,
+                                notification_text,
+                                remove_keyboard=True
+                            )
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to remove keyboard when session assigned: {e}")
+
+                # 9. Broadcast update to department dashboard
                 if session.assigned_department:
                     broadcast_session_assigned(session.assigned_department.id, session, request=request)
 
-                # 9. Return updated session data
+                # 10. Return updated session data
                 serializer = SessionSerializer(session, context={'request': request})
                 return Response({
                     "status": "assigned",
@@ -385,7 +406,30 @@ class TicketCloseAPIView(APIView):
                     request=request
                 )
 
-                # 10. Return updated session data
+                # 10. Restore keyboard in Telegram if session originated from Telegram
+                if session.origin == 'telegram':
+                    try:
+                        telegram_profile = getattr(session.citizen, 'telegram_profile', None)
+                        if telegram_profile and telegram_profile.telegram_chat_id:
+                            from message_app.utils_telegram import send_text_to_telegram, get_main_menu_keyboard_json
+                            lang = telegram_profile.language_preference or 'uz'
+                            keyboard = get_main_menu_keyboard_json(lang)
+                            notification_text = (
+                                "<b>✅ Murojaatingiz yakunlandi.</b>\n\n"
+                                "Xodim sizning murojaatingizni yopdi. Yangi murojaat yuborish uchun 'Yangi xabar yuborish' tugmasini bosing.\n\n"
+                                "Agar tugmalar ko'rinmasa, /start buyrug'ini yuboring."
+                            )
+                            send_text_to_telegram(
+                                telegram_profile.telegram_chat_id,
+                                notification_text,
+                                keyboard_markup=keyboard
+                            )
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to restore keyboard when session closed: {e}")
+
+                # 11. Return updated session data
                 serializer = SessionSerializer(session, context={'request': request})
                 return Response({
                     "status": "closed",

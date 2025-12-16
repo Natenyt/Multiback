@@ -65,6 +65,8 @@ export interface StaffProfileResponse {
   avatar_url: string | null;
   job_title: string;
   department: string;
+  department_name_uz: string | null;
+  department_id: number | null;
   phone_number: string;
   joined_at: string | null;
   staff_uuid: string;
@@ -316,6 +318,8 @@ export interface TicketListItem {
   origin?: string;
   location: string;
   created_at: string;
+  assigned_at?: string | null;
+  closed_at?: string | null;
   status?: string;
   neighborhood: {
     id: number;

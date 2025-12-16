@@ -20,13 +20,11 @@ export function CaseMessageBubble({
   const formatTimestamp = (dateString: string) => {
     try {
       const date = new Date(dateString)
-      return date.toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+      const month = date.toLocaleDateString("en-US", { month: "short" })
+      const day = date.getDate()
+      const hours = date.getHours().toString().padStart(2, "0")
+      const minutes = date.getMinutes().toString().padStart(2, "0")
+      return `${month} ${day} ${hours}:${minutes}`
     } catch {
       return dateString
     }
@@ -81,14 +79,22 @@ export function CaseMessageBubble({
     // Clear any existing timeout
     if (timeoutRef.current) {
       window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
 
-    setShowTimestamp(true)
-
-    // Hide after 4 seconds
-    timeoutRef.current = window.setTimeout(() => {
-      setShowTimestamp(false)
-    }, 4000)
+    // Toggle timestamp on click
+    setShowTimestamp((prev) => {
+      const newValue = !prev
+      
+      // If showing timestamp, set auto-hide after 3 seconds
+      if (newValue) {
+        timeoutRef.current = window.setTimeout(() => {
+          setShowTimestamp(false)
+        }, 3000)
+      }
+      
+      return newValue
+    })
   }
 
   React.useEffect(() => {

@@ -31,32 +31,50 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
       - staff if they are assigned_staff OR session.assigned_department == staff_profile.department
     """
     async def connect(self):
-        self.user = self.scope.get("user", None)
-        self.session_uuid = self.scope['url_route']['kwargs'].get('session_uuid')
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            self.user = self.scope.get("user", None)
+            self.session_uuid = self.scope['url_route']['kwargs'].get('session_uuid')
+            
+            logger.info(f"WebSocket connection attempt for session {self.session_uuid}, user: {self.user}")
 
-        if not self.user or not self.user.is_authenticated:
-            await self.close(code=4401)
-            return
+            if not self.user or not self.user.is_authenticated:
+                logger.warning(f"WebSocket connection rejected: user not authenticated (session: {self.session_uuid})")
+                await self.close(code=4401)
+                return
 
-        session = await get_session(self.session_uuid)
-        if not session:
-            await self.close(code=4404)
-            return
+            session = await get_session(self.session_uuid)
+            if not session:
+                logger.warning(f"WebSocket connection rejected: session not found (session: {self.session_uuid})")
+                await self.close(code=4404)
+                return
 
-        allowed = await sync_to_async(self._has_access_sync)(self.user, session)
-        if not allowed:
-            await self.close(code=4403)
-            return
+            allowed = await sync_to_async(self._has_access_sync)(self.user, session)
+            if not allowed:
+                logger.warning(f"WebSocket connection rejected: access denied (session: {self.session_uuid}, user: {self.user})")
+                await self.close(code=4403)
+                return
 
-        self.group_name = f"chat_{self.session_uuid}"
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+            self.group_name = f"chat_{self.session_uuid}"
+            await self.channel_layer.group_add(self.group_name, self.channel_name)
+            await self.accept()
 
-        # Optionally: send session info on connect
-        await self.send_json({
-            "type": "session.joined",
-            "session_uuid": str(self.session_uuid)
-        })
+            # Optionally: send session info on connect
+            await self.send_json({
+                "type": "session.joined",
+                "session_uuid": str(self.session_uuid)
+            })
+            
+            logger.info(f"WebSocket connected successfully for session {self.session_uuid}")
+        except Exception as e:
+            logger.error(f"Error during WebSocket connection: {e}", exc_info=True)
+            try:
+                await self.close(code=1011)  # Internal error
+            except:
+                pass
+            raise
 
     async def disconnect(self, code):
         try:
@@ -87,11 +105,22 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         """
         event expected to contain: {"message": <serialized message dict>}
         """
-        message = event.get("message")
-        await self.send_json({
-            "type": "message.created",
-            "message": message
-        })
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            message = event.get("message")
+            if not message:
+                logger.warning(f"Received chat_message event without message data: {event}")
+                return
+            
+            await self.send_json({
+                "type": "message.created",
+                "message": message
+            })
+            logger.debug(f"Sent message.created event to WebSocket client for session {self.session_uuid}")
+        except Exception as e:
+            logger.error(f"Error sending chat message to WebSocket client: {e}", exc_info=True)
 
     async def chat_typing(self, event):
         await self.send_json({

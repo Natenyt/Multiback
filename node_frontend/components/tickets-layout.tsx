@@ -4,6 +4,8 @@ import * as React from "react"
 import { TicketsTable } from "./tickets-table"
 import { assignTicket, closeTicket } from "@/dash_department/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { useNotifications } from "@/contexts/notification-context"
+import { useAuthError } from "@/contexts/auth-error-context"
 
 interface TicketsLayoutProps {
   status: "unassigned" | "assigned" | "archive"
@@ -12,6 +14,8 @@ interface TicketsLayoutProps {
 export function TicketsLayout({ status }: TicketsLayoutProps) {
   const [refreshTrigger, setRefreshTrigger] = React.useState(0)
   const { toast } = useToast()
+  const { addAssignedSession, addClosedSession } = useNotifications()
+  const { setAuthError } = useAuthError()
 
   const handlePreviewClick = (sessionId: string) => {
     // TODO: Implement new preview design
@@ -21,19 +25,33 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
   const handleAssign = async (sessionId: string) => {
     try {
       await assignTicket(sessionId)
+      // Track the assigned session
+      addAssignedSession(sessionId)
       toast({
-        title: "Success",
+        title: "Murojaat biriktirildi",
         description: "Bu Murojaat sizga biriktirildi, iltimos Faol Murojaatlar bo'limiga o'ting",
+        playSound: true,
+        duration: 5000,
       })
       // Trigger refresh of tickets table to remove assigned session
       setRefreshTrigger((prev) => prev + 1)
     } catch (error) {
       console.error("Failed to assign ticket:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to assign ticket",
-        variant: "destructive",
-      })
+      // If authentication error, set error in context
+      if (error instanceof Error && (
+        error.message.includes('token') ||
+        error.message.includes('authentication') ||
+        error.message.includes('not valid') ||
+        error.message.includes('Authentication failed')
+      )) {
+        setAuthError(error)
+      } else {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to assign ticket",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -45,19 +63,33 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
   const handleClose = async (sessionId: string) => {
     try {
       await closeTicket(sessionId)
+      // Track the closed session
+      addClosedSession(sessionId)
       toast({
-        title: "Success",
-        description: "Murojaat tugallandi",
+        title: "Murojaat tugallandi",
+        description: "Murojaat muvaffaqiyatli yopildi",
+        playSound: true,
+        duration: 5000,
       })
       // Trigger refresh of tickets table to remove closed session
       setRefreshTrigger((prev) => prev + 1)
     } catch (error) {
       console.error("Failed to close ticket:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to close ticket",
-        variant: "destructive",
-      })
+      // If authentication error, set error in context
+      if (error instanceof Error && (
+        error.message.includes('token') ||
+        error.message.includes('authentication') ||
+        error.message.includes('not valid') ||
+        error.message.includes('Authentication failed')
+      )) {
+        setAuthError(error)
+      } else {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to close ticket",
+          variant: "destructive",
+        })
+      }
     }
   }
 

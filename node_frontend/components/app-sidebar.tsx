@@ -37,9 +37,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getStaffProfile, clearAuthTokens } from "@/dash_department/lib/api"
 import type { StaffProfileResponse } from "@/dash_department/lib/api"
+import { useNotifications } from "@/contexts/notification-context"
+import { useAuthError } from "@/contexts/auth-error-context"
 
 // Menu items with Lucide icons
 const menuItems = [
@@ -78,6 +86,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [staffProfile, setStaffProfile] = React.useState<StaffProfileResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [currentWorkspace, setCurrentWorkspace] = React.useState("Dashboard")
+  const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions } = useNotifications()
+  const { setAuthError } = useAuthError()
+  const unreadCount = getUnreadCount()
+  const hasAssigned = hasAssignedSessions()
+  const hasClosed = hasClosedSessions()
+  const isOnUnassignedPage = pathname === '/dashboard/unassigned'
+  const isOnAssignedPage = pathname === '/dashboard/assigned' || pathname?.startsWith('/dashboard/assigned/')
+  const isOnArchivePage = pathname === '/dashboard/archive' || pathname?.startsWith('/dashboard/archive/') || pathname?.startsWith('/dashboard/closed/')
+
+  // Clear assigned sessions when viewing assigned page
+  React.useEffect(() => {
+    if (isOnAssignedPage) {
+      clearAssignedSessions()
+    }
+  }, [isOnAssignedPage, clearAssignedSessions])
+
+  // Clear closed sessions when viewing archive/closed page
+  React.useEffect(() => {
+    if (isOnArchivePage) {
+      clearClosedSessions()
+    }
+  }, [isOnArchivePage, clearClosedSessions])
 
   React.useEffect(() => {
     async function fetchProfile() {
@@ -86,14 +116,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         setStaffProfile(profile)
       } catch (error) {
         console.error("Failed to fetch staff profile:", error)
-        // If authentication error, clear tokens and redirect to login
+        // If authentication error, set error in context to show error handler
         if (error instanceof Error && (
           error.message.includes('token') ||
           error.message.includes('authentication') ||
-          error.message.includes('not valid')
+          error.message.includes('not valid') ||
+          error.message.includes('Authentication failed')
         )) {
-          clearAuthTokens()
-          router.push("/login")
+          setAuthError(error)
         }
       } finally {
         setIsLoading(false)
@@ -190,12 +220,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenu className="gap-[5px]">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href))
+                const showGreenCircle = item.href === "/dashboard/unassigned" && unreadCount > 0 && !isOnUnassignedPage
+                const showBlueCircle = item.href === "/dashboard/assigned" && hasAssigned && !isOnAssignedPage
+                const showGrayCircle = item.href === "/dashboard/archive" && hasClosed && !isOnArchivePage
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive} className="!transition-none">
                       <a
                         href={item.href}
-                        className={`flex items-center !transition-none ${
+                        className={`flex items-center !transition-none relative ${
                           isCollapsed
                             ? "justify-center px-2"
                             : "gap-2 px-2"
@@ -212,8 +245,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             alt="AI"
                             width={18}
                             height={18}
-                            className="object-contain"
-                            style={{ filter: 'brightness(0) invert(1)' }}
+                            className="object-contain [filter:brightness(0)] dark:[filter:brightness(0)_invert(1)]"
                           />
                         ) : item.icon ? (
                           <item.icon className="h-[18px] w-[18px]" />
@@ -222,6 +254,33 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <span className="group-data-[collapsible=icon]:hidden">
                           {item.title}
                         </span>
+                        {showGreenCircle && (
+                          <span 
+                            className="absolute right-2 h-4 w-4 rounded-full bg-green-500"
+                            style={{ 
+                              top: '50%',
+                              transform: 'translateY(-50%)'
+                            }}
+                          />
+                        )}
+                        {showBlueCircle && (
+                          <span 
+                            className="absolute right-2 h-4 w-4 rounded-full bg-blue-500"
+                            style={{ 
+                              top: '50%',
+                              transform: 'translateY(-50%)'
+                            }}
+                          />
+                        )}
+                        {showGrayCircle && (
+                          <span 
+                            className="absolute right-2 h-4 w-4 rounded-full bg-gray-500"
+                            style={{ 
+                              top: '50%',
+                              transform: 'translateY(-50%)'
+                            }}
+                          />
+                        )}
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -291,14 +350,62 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/dashboard/account")}>
-                <User className="mr-2 h-4 w-4" />
-                <span>Account</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/dashboard/notifications")}>
-                <Bell className="mr-2 h-4 w-4" />
-                <span>Notifications</span>
-              </DropdownMenuItem>
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-full block">
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onSelect={(e) => {
+                          e.preventDefault()
+                        }}
+                        className="w-full cursor-pointer"
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Account</span>
+                      </DropdownMenuItem>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="left" 
+                    align="center"
+                    className="bg-popover dark:bg-popover text-popover-foreground dark:text-popover-foreground border border-border dark:border-border shadow-lg z-[9999]"
+                  >
+                    <p>Bu xususiyat hozir ishlab chiqilmoqda</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-full block">
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onSelect={(e) => {
+                          e.preventDefault()
+                        }}
+                        className="w-full cursor-pointer"
+                      >
+                        <Bell className="mr-2 h-4 w-4" />
+                        <span>Notifications</span>
+                      </DropdownMenuItem>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="left" 
+                    align="center"
+                    className="bg-popover dark:bg-popover text-popover-foreground dark:text-popover-foreground border border-border dark:border-border shadow-lg z-[9999]"
+                  >
+                    <p>Bu xususiyat hozir ishlab chiqilmoqda</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />

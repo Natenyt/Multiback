@@ -95,6 +95,14 @@ export function NeighborhoodsChart() {
     )
   }
 
+  // Calculate max domain value to prevent bars from stretching too wide or too long
+  const maxValue = chartData.length > 0 
+    ? Math.max(...chartData.map(d => d.visitors))
+    : 1
+  // Set domain max to 1.2x the max value for padding, with a minimum of 5 to prevent small values from stretching too wide
+  // For very large values, this ensures the max bar uses ~83% of the width, keeping it within the container
+  const domainMax = Math.max(maxValue * 1.2, 5)
+
   return (
     <Card>
       <CardHeader>
@@ -109,7 +117,7 @@ export function NeighborhoodsChart() {
             layout="vertical"
             margin={{
               left: 18,
-              right: 0,
+              right: 20,
             }}
           >
             <YAxis
@@ -126,7 +134,12 @@ export function NeighborhoodsChart() {
                 return configEntry ? configEntry[1].label : value
               }}
             />
-            <XAxis dataKey="visitors" type="number" hide />
+            <XAxis 
+              dataKey="visitors" 
+              type="number" 
+              hide 
+              domain={[0, domainMax]}
+            />
             <ChartTooltip
               cursor={false}
               content={
@@ -157,13 +170,18 @@ export function NeighborhoodsChart() {
                 />
               }
             />
-            <Bar dataKey="visitors" layout="vertical" radius={5} />
+            <Bar 
+              dataKey="visitors" 
+              layout="vertical" 
+              radius={5}
+              maxBarSize={80}
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="text-muted-foreground leading-none">
-          Eng ko'p murojaatlar bo'lgan 6 ta mahalla
+          Eng ko'p murojaatlar yuborgan mahallalar
         </div>
       </CardFooter>
     </Card>

@@ -1,0 +1,148 @@
+"use client"
+
+import * as React from "react"
+import { usePathname } from "next/navigation"
+import { useNotifications } from "@/contexts/notification-context"
+import { useToast } from "@/hooks/use-toast"
+import { formatTimeAgo } from "@/lib/time-utils"
+import { getAuthToken } from "@/dash_department/lib/api"
+import { getStaffProfile } from "@/dash_department/lib/api"
+
+// Get WS URL from API URL (replace /api with empty, and http with ws)
+const getWsBaseUrl = (): string => {
+  if (typeof window === 'undefined') {
+    return 'ws://localhost:8000'
+  }
+  
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+  // Convert http://localhost:8000/api -> ws://localhost:8000
+  // Convert https://example.com/api -> wss://example.com
+  const wsUrl = apiUrl
+    .replace('/api', '')
+    .replace('http://', 'ws://')
+    .replace('https://', 'wss://')
+  
+  return wsUrl
+}
+
+export const NotificationManager: React.FC = () => {
+  const pathname = usePathname()
+  const { notifications, addNotification } = useNotifications()
+  const { toast } = useToast()
+  const previousNotificationsRef = React.useRef<Set<string>>(new Set())
+  const wsRef = React.useRef<WebSocket | null>(null)
+  const departmentIdRef = React.useRef<number | null>(null)
+
+  // Track which notifications we've already shown as toasts
+  React.useEffect(() => {
+    const currentIds = new Set(notifications.map((n) => n.id))
+    const newNotifications = notifications.filter(
+      (n) => !n.read && !previousNotificationsRef.current.has(n.id)
+    )
+
+    // Show toast for each new unread notification
+    newNotifications.forEach((notification) => {
+      toast({
+        title: "Yangi Murojaat",
+        description: `Fuqoro: ${notification.citizen_name}\n${formatTimeAgo(notification.created_at)}`,
+        playSound: true,
+        duration: 5000,
+      })
+    })
+
+    // Update ref to track shown notifications
+    previousNotificationsRef.current = currentIds
+  }, [notifications, toast])
+
+  // WebSocket connection for real-time notifications
+  React.useEffect(() => {
+    let mounted = true
+
+    async function setupWebSocket() {
+      try {
+        // Get department ID
+        if (!departmentIdRef.current) {
+          const profile = await getStaffProfile()
+          departmentIdRef.current = profile.department_id
+        }
+
+        const token = getAuthToken()
+        const departmentId = departmentIdRef.current
+
+        if (!token || !departmentId || !mounted) {
+          return
+        }
+
+        // Construct websocket URL with token in query string
+        const wsBaseUrl = getWsBaseUrl()
+        const wsUrl = `${wsBaseUrl}/ws/department/${departmentId}/?token=${encodeURIComponent(token)}`
+        
+        console.log("NotificationManager: Connecting to department WebSocket:", wsUrl.replace(token, "***"))
+        const ws = new WebSocket(wsUrl)
+        wsRef.current = ws
+
+        ws.onopen = () => {
+          console.log("NotificationManager: Department WebSocket connected for department:", departmentId)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log("NotificationManager: WebSocket message received:", data)
+
+            // Handle session.created events (new unassigned sessions)
+            if (data.type === "session.created" && data.session) {
+              const newSession = data.session
+              // Only add if the session is unassigned
+              if (newSession.status === 'unassigned') {
+                // Only add notification if staff is NOT currently on the unassigned page
+                const isOnUnassignedPage = pathname === '/dashboard/unassigned'
+                if (!isOnUnassignedPage && mounted) {
+                  addNotification({
+                    session_uuid: newSession.session_uuid,
+                    citizen_name: newSession.citizen?.full_name || newSession.citizen?.phone_number || 'Unknown',
+                    created_at: newSession.created_at,
+                  })
+                }
+              }
+            }
+          } catch (error) {
+            console.error("NotificationManager: Error parsing websocket message:", error)
+          }
+        }
+
+        ws.onerror = (error) => {
+          console.error("NotificationManager: WebSocket error:", error)
+        }
+
+        ws.onclose = (event) => {
+          console.log("NotificationManager: WebSocket closed:", event.code, event.reason)
+          // Attempt to reconnect after a delay if not intentionally closed
+          if (event.code !== 1000 && mounted) {
+            setTimeout(() => {
+              if (mounted && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
+                setupWebSocket()
+              }
+            }, 3000)
+          }
+        }
+      } catch (error) {
+        console.error("NotificationManager: Failed to setup WebSocket:", error)
+      }
+    }
+
+    setupWebSocket()
+
+    return () => {
+      mounted = false
+      if (wsRef.current) {
+        if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+          wsRef.current.close(1000, "Component unmounting")
+        }
+        wsRef.current = null
+      }
+    }
+  }, [pathname, addNotification])
+
+  return null
+}

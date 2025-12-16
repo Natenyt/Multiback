@@ -61,7 +61,7 @@ export function LeaderboardTable() {
     return (
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Reyting</CardTitle>
+          <CardTitle>Hamkasblaringiz</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -78,7 +78,7 @@ export function LeaderboardTable() {
     return (
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Reyting</CardTitle>
+          <CardTitle>Hamkasblaringiz</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
@@ -92,7 +92,7 @@ export function LeaderboardTable() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Reyting</CardTitle>
+        <CardTitle>Hamkasblaringiz</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -100,7 +100,7 @@ export function LeaderboardTable() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left py-4 pl-6 text-sm font-medium text-muted-foreground">
-                  O'rin
+                  Index
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
                   To'liq ism
@@ -111,7 +111,7 @@ export function LeaderboardTable() {
                 <th className="py-4 pr-6 text-sm font-medium text-muted-foreground">
                   <div className="flex justify-end">
                     <div className="text-right" style={{ minWidth: '120px' }}>
-                      Yechilganlar soni
+                      Yechilgan murojaatlar soni
                     </div>
                   </div>
                 </th>
@@ -145,7 +145,9 @@ export function LeaderboardTable() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="text-sm text-foreground">{entry.department_name}</span>
+                      <span className="text-sm text-foreground break-words whitespace-normal inline-block" style={{ maxWidth: '700px' }}>
+                        {entry.department_name}
+                      </span>
                     </td>
                     <td className="py-4 pr-6">
                       <div className="flex justify-end">
