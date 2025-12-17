@@ -145,11 +145,11 @@ input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   /* 1. Force the text to be your theme's foreground color (White) */
-  -webkit-text-fill-color: hsl(var(--foreground));
+  -webkit-text-fill-color: var(--foreground);
 
   /* 2. The "Hack": Use a massive inset shadow to cover the white background */
   /* This pulls your --background color (dark) and paints over the white */
-  -webkit-box-shadow: 0 0 0px 1000px hsl(var(--background)) inset;
+  -webkit-box-shadow: 0 0 0px 1000px var(--background) inset;
 
   /* 3. Keep the border radius consistent (optional but good for shadcn) */
 }
