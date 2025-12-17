@@ -470,7 +470,7 @@ export function TicketsTable({
                   >
                     {ticket.phone_number || "N/A"}
                   </TableCell>
-                  <TableCell>{ticket.neighborhood?.name || ticket.neighborhood || "N/A"}</TableCell>
+                  <TableCell>{ticket.neighborhood?.name || "N/A"}</TableCell>
                   {status !== "closed" && status !== "archive" && (
                     <TableCell>
                       {status === "unassigned" && (
