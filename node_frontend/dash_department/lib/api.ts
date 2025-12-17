@@ -162,12 +162,15 @@ export async function getSessionsChart(period?: string): Promise<SessionsChartDa
     throw new Error('No authentication token found');
   }
 
-  const url = new URL(`${API_BASE_URL}/dashboard/sessions-chart/`);
+  // Build URL with query params (works with relative URLs)
+  const params = new URLSearchParams();
   if (period) {
-    url.searchParams.append('period', period);
+    params.append('period', period);
   }
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/dashboard/sessions-chart/${queryString ? '?' + queryString : ''}`;
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -430,34 +433,38 @@ export async function getTickets(
     throw new Error('No authentication token found');
   }
 
-  const url = new URL(`${API_BASE_URL}/tickets/`);
-  url.searchParams.append('status', status);
+  // Build URL with query params (works with relative URLs)
+  const params = new URLSearchParams();
+  params.append('status', status);
   
   // For assigned and closed status, send staff_uuid (required by backend)
   if (status === 'assigned' || status === 'closed') {
     const staffUuid = getStaffUuid();
     if (staffUuid) {
-      url.searchParams.append('staff_uuid', staffUuid);
+      params.append('staff_uuid', staffUuid);
     }
   }
   
   if (options?.search) {
-    url.searchParams.append('search', options.search);
+    params.append('search', options.search);
   }
   if (options?.neighborhood_id) {
-    url.searchParams.append('neighborhood_id', String(options.neighborhood_id));
+    params.append('neighborhood_id', String(options.neighborhood_id));
   }
   if (options?.page) {
-    url.searchParams.append('page', String(options.page));
+    params.append('page', String(options.page));
   }
   if (options?.page_size) {
-    url.searchParams.append('page_size', String(options.page_size));
+    params.append('page_size', String(options.page_size));
   }
   if (options?.lang) {
-    url.searchParams.append('lang', options.lang);
+    params.append('lang', options.lang);
   }
 
-  const response = await fetch(url.toString(), {
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/tickets/${queryString ? '?' + queryString : ''}`;
+
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -487,13 +494,17 @@ export async function getTicketHistory(sessionUuid: string, cursor?: string, lan
     throw new Error('No authentication token found');
   }
 
-  const url = new URL(`${API_BASE_URL}/tickets/${sessionUuid}/history/`);
+  // Build URL with query params (works with relative URLs)
+  const params = new URLSearchParams();
   if (cursor) {
-    url.searchParams.append('cursor', cursor);
+    params.append('cursor', cursor);
   }
-  url.searchParams.append('lang', lang);
+  params.append('lang', lang);
 
-  const response = await fetch(url.toString(), {
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/tickets/${sessionUuid}/history/${queryString ? '?' + queryString : ''}`;
+
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -732,15 +743,19 @@ export async function getNeighborhoods(options?: { search?: string; lang?: strin
     throw new Error('No authentication token found');
   }
 
-  const url = new URL(`${API_BASE_URL}/neighborhoods/`);
+  // Build URL with query params (works with relative URLs)
+  const params = new URLSearchParams();
   if (options?.search) {
-    url.searchParams.append('search', options.search);
+    params.append('search', options.search);
   }
   if (options?.lang) {
-    url.searchParams.append('lang', options.lang);
+    params.append('lang', options.lang);
   }
 
-  const response = await fetch(url.toString(), {
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/neighborhoods/${queryString ? '?' + queryString : ''}`;
+
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,

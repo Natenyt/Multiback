@@ -4,37 +4,42 @@ const BACKEND_URL = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/ap
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, 'GET');
+  const { path } = await params;
+  return proxyRequest(request, path, 'GET');
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, 'POST');
+  const { path } = await params;
+  return proxyRequest(request, path, 'POST');
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, 'PATCH');
+  const { path } = await params;
+  return proxyRequest(request, path, 'PATCH');
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, 'PUT');
+  const { path } = await params;
+  return proxyRequest(request, path, 'PUT');
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, params.path, 'DELETE');
+  const { path } = await params;
+  return proxyRequest(request, path, 'DELETE');
 }
 
 async function proxyRequest(
@@ -44,12 +49,31 @@ async function proxyRequest(
 ) {
   try {
     // Reconstruct the backend path
-    const backendPath = pathSegments.join('/');
+    // Filter out empty segments
+    const filteredPath = pathSegments.filter(segment => segment.length > 0);
     const url = new URL(request.url);
     const queryString = url.search;
     
+    // Check if original URL had trailing slash (Django requires it for POST)
+    // Next.js might strip it, so we check the original request URL
+    const originalPath = url.pathname;
+    const hasTrailingSlash = originalPath.endsWith('/');
+    
+    // Build backend path - always add trailing slash for POST/PATCH/PUT requests to Django
+    // Django requires trailing slashes for these methods
+    let backendPath = filteredPath.join('/');
+    if (hasTrailingSlash || (method !== 'GET' && method !== 'DELETE')) {
+      // Add trailing slash if original had it OR if it's a POST/PATCH/PUT request
+      backendPath = backendPath + '/';
+    }
+    
     // Build the full backend URL
-    const backendUrl = `${BACKEND_URL}/${backendPath}${queryString}`;
+    // Remove trailing slash from BACKEND_URL if present
+    const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
+    const backendUrl = `${cleanBackendUrl}/${backendPath}${queryString}`;
+    
+    // Debug logging (remove in production if needed)
+    console.log(`[Proxy] ${method} ${backendUrl} (original: ${originalPath}, hasTrailing: ${hasTrailingSlash})`);
 
     // Get headers from the request
     const headers: HeadersInit = {};
@@ -66,9 +90,9 @@ async function proxyRequest(
       headers['Content-Type'] = requestContentType;
     }
 
-    // Prepare request options
+    // Prepare request options - ensure method is explicitly set
     const requestOptions: RequestInit = {
-      method,
+      method: method.toUpperCase(), // Ensure uppercase
       headers,
     };
 
@@ -91,6 +115,8 @@ async function proxyRequest(
     }
 
     // Make the request to the backend
+    // Ensure method is explicitly set
+    requestOptions.method = method;
     const response = await fetch(backendUrl, requestOptions);
 
     // Get the response data
