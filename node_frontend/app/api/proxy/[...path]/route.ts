@@ -61,9 +61,9 @@ async function proxyRequest(
     }
     
     // Forward content-type for non-GET requests
-    const contentType = request.headers.get('content-type');
-    if (contentType) {
-      headers['Content-Type'] = contentType;
+    const requestContentType = request.headers.get('content-type');
+    if (requestContentType) {
+      headers['Content-Type'] = requestContentType;
     }
 
     // Prepare request options
@@ -75,8 +75,7 @@ async function proxyRequest(
     // For requests with body (POST, PATCH, PUT)
     if (method !== 'GET' && method !== 'DELETE') {
       // Check if it's FormData (for file uploads)
-      const contentType = request.headers.get('content-type');
-      if (contentType?.includes('multipart/form-data')) {
+      if (requestContentType?.includes('multipart/form-data')) {
         // For FormData, we need to get the body as FormData
         const formData = await request.formData();
         requestOptions.body = formData;
@@ -95,10 +94,10 @@ async function proxyRequest(
     const response = await fetch(backendUrl, requestOptions);
 
     // Get the response data
-    const contentType = response.headers.get('content-type');
+    const responseContentType = response.headers.get('content-type');
     let data;
     
-    if (contentType?.includes('application/json')) {
+    if (responseContentType?.includes('application/json')) {
       data = await response.json();
     } else {
       data = await response.text();
