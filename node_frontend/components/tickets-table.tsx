@@ -24,17 +24,11 @@ import { getTickets, type TicketListItem, getStaffProfile, getAuthToken } from "
 import { useToast } from "@/hooks/use-toast"
 
 // Get WS URL from API URL (replace /api with empty, and http with ws)
+// WebSocket URL - needs to be public since WebSockets require direct connection
+// Set NEXT_PUBLIC_WS_URL in Vercel (e.g., ws://185.247.118.219:8000)
 const getWsBaseUrl = (): string => {
-  // WebSockets are client-side only, but we derive from env var for consistency
-  const apiUrl = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api'
-  // Convert http://localhost:8000/api -> ws://localhost:8000
-  // Convert https://example.com/api -> wss://example.com
-  const wsUrl = apiUrl
-    .replace('/api', '')
-    .replace('http://', 'ws://')
-    .replace('https://', 'wss://')
-  
-  return wsUrl
+  // Use public WebSocket URL (WebSockets can't use HTTP proxy)
+  return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
 }
 
 interface TicketsTableProps {

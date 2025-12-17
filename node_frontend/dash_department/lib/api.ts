@@ -1,6 +1,10 @@
 import { LoginRequest, LoginResponse, ApiError } from './types';
 
-const API_BASE_URL = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api';
+// Use Next.js API proxy route instead of direct backend URL
+// This keeps BACKEND_PRIVATE_URL server-side only
+const API_BASE_URL = typeof window !== 'undefined' 
+  ? '/api/proxy'  // Client-side: use Next.js API route
+  : (process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api'); // Server-side: direct backend
 
 export async function staffLogin(
   credentials: LoginRequest
