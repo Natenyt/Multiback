@@ -10,10 +10,13 @@
 
 ### 2. `NEXT_PUBLIC_WS_URL` (Public - Client-side)
 - **Purpose**: WebSocket URL for real-time connections
-- **Value**: `ws://185.247.118.219:8000`
+- **Value**: `wss://185.247.118.219:8000` (use `wss://` for HTTPS, `ws://` for HTTP)
 - **Visibility**: Public (exposed to browser - required for WebSocket connections)
 - **Usage**: Used by client-side components for WebSocket connections
-- **Note**: WebSockets require direct connection, cannot use HTTP proxy
+- **Note**: 
+  - WebSockets require direct connection, cannot use HTTP proxy
+  - **IMPORTANT**: For HTTPS pages (Vercel), you MUST use `wss://` (secure WebSocket)
+  - If not set, the code will auto-detect and use `wss://` for HTTPS pages
 
 ## How to Set in Vercel
 

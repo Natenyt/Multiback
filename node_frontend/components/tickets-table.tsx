@@ -25,10 +25,23 @@ import { useToast } from "@/hooks/use-toast"
 
 // Get WS URL from API URL (replace /api with empty, and http with ws)
 // WebSocket URL - needs to be public since WebSockets require direct connection
-// Set NEXT_PUBLIC_WS_URL in Vercel (e.g., ws://185.247.118.219:8000)
+// For HTTPS pages, must use wss:// (secure WebSocket)
+// Set NEXT_PUBLIC_WS_URL in Vercel (e.g., wss://185.247.118.219:8000 for HTTPS)
 const getWsBaseUrl = (): string => {
-  // Use public WebSocket URL (WebSockets can't use HTTP proxy)
-  return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+  // Use environment variable if set
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  
+  // Auto-detect: if page is HTTPS, use wss://, otherwise ws://
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    // For HTTPS, use secure WebSocket (wss://)
+    // Default to wss://185.247.118.219:8000 for production
+    return 'wss://185.247.118.219:8000';
+  }
+  
+  // For HTTP (local development), use ws://
+  return 'ws://localhost:8000';
 }
 
 interface TicketsTableProps {
