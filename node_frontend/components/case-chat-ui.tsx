@@ -14,7 +14,7 @@ interface CaseChatUIProps {
   initialMessages: Message[]
   initialNextCursor?: string | null
   sessionUuid: string
-  onSessionAssigned?: () => void
+  onSessionAssigned?: (updatedSession: SessionData) => void
 }
 
 export function CaseChatUI({ session, initialMessages, initialNextCursor, sessionUuid, onSessionAssigned }: CaseChatUIProps) {
