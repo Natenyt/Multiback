@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast"
 // Get WS URL from API URL (replace /api with empty, and http with ws)
 const getWsBaseUrl = (): string => {
   // WebSockets are client-side only, but we derive from env var for consistency
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+  const apiUrl = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api'
   // Convert http://localhost:8000/api -> ws://localhost:8000
   // Convert https://example.com/api -> wss://example.com
   const wsUrl = apiUrl

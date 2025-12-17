@@ -8,6 +8,11 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Debug: Log environment variable (remove after debugging)
+    if (process.env.NODE_ENV === 'development' || typeof window !== 'undefined') {
+      console.log('BACKEND_PRIVATE_URL:', process.env.BACKEND_PRIVATE_URL);
+    }
+    
     const token = getAuthToken();
     if (token) {
       router.push('/dashboard');

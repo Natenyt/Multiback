@@ -1,6 +1,6 @@
 import { LoginRequest, LoginResponse, ApiError } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api';
 
 export async function staffLogin(
   credentials: LoginRequest
