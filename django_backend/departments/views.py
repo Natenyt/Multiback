@@ -74,139 +74,92 @@ def dashboard_stats(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_leaderboard(request):
-    User = get_user_model()
-    
+    """
+    Return a leaderboard of staff ranked by number of closed sessions.
+
+    Optimized to avoid N+1 queries by using queryset annotations instead of
+    per-staff count() calls. This keeps the response shape identical while
+    significantly reducing database load on large datasets.
+    """
     try:
-        # Get all staff profiles across all departments
         from .models import StaffProfile
-        all_staff_profiles = StaffProfile.objects.select_related('user', 'department').all()
 
-        # Build leaderboard data with solved counts
-        leaderboard_data = []
-        
-        print(f"\n{'='*80}")
-        print(f"LEADERBOARD DEBUG: Processing {all_staff_profiles.count()} staff profiles")
-        print(f"{'='*80}\n")
-        
-        for staff_profile in all_staff_profiles:
-            try:
-                staff_user = staff_profile.user
-                
-                # Debug: Print staff info
-                print(f"Processing staff: {staff_user.full_name} (UUID: {staff_user.user_uuid})")
-                
-                # Count all-time closed sessions for this staff member
-                # Use the related_name 'assigned_sessions' for better performance
-                closed_sessions_query = staff_user.assigned_sessions.filter(
-                    status='closed',
-                    is_deleted=False
+        # Annotate each staff profile with total closed sessions using the
+        # 'assigned_sessions' related_name on Session.assigned_staff.
+        staff_qs = (
+            StaffProfile.objects.select_related("user", "department")
+            .annotate(
+                solved_total=Count(
+                    "user__assigned_sessions",
+                    filter=Q(
+                        user__assigned_sessions__status="closed",
+                        user__assigned_sessions__is_deleted=False,
+                    ),
                 )
-                closed_count = closed_sessions_query.count()
-                
-                # Debug: Print query details
-                print(f"  - Query: assigned_sessions.filter(status='closed', is_deleted=False)")
-                print(f"  - Closed sessions count: {closed_count}")
-                
-                # Debug: Show actual session IDs if any
-                if closed_count > 0:
-                    session_ids = list(closed_sessions_query.values_list('id', flat=True)[:5])
-                    print(f"  - Sample session IDs: {session_ids}")
+            )
+        )
+
+        leaderboard_data = []
+
+        for staff_profile in staff_qs:
+            staff_user = staff_profile.user
+            closed_count = staff_profile.solved_total or 0
+
+            # Get full name with same fallbacks as before
+            full_name = getattr(staff_user, "full_name", None)
+            if not full_name:
+                if staff_profile.username:
+                    full_name = staff_profile.username
+                elif getattr(staff_user, "username", None):
+                    full_name = staff_user.username  # type: ignore[attr-defined]
                 else:
-                    # Check if staff has any assigned sessions at all
-                    all_assigned = staff_user.assigned_sessions.count()
-                    print(f"  - Total assigned sessions (any status): {all_assigned}")
-                    if all_assigned > 0:
-                        status_counts = staff_user.assigned_sessions.values('status').annotate(
-                            count=Count('id')
-                        )
-                        print(f"  - Status breakdown: {list(status_counts)}")
-                
-                print()  # Empty line for readability
-                
-                # Debug logging (remove in production)
-                if closed_count > 0:
-                    logger.info(f"Staff {staff_user.full_name} has {closed_count} closed sessions")
-                
-                # Get full name
-                full_name = getattr(staff_user, 'full_name', None)
-                if not full_name:
-                    # Try to get username from staff profile or user
-                    if staff_profile.username:
-                        full_name = staff_profile.username
-                    elif hasattr(staff_user, 'username') and staff_user.username:
-                        full_name = staff_user.username
-                    else:
-                        full_name = str(staff_user.user_uuid)  # Last resort fallback
+                    full_name = str(getattr(staff_user, "user_uuid", "")) or "Unknown"
 
-                # Get department name
-                department_name = "Unknown"
-                if staff_profile.department:
-                    department_name = staff_profile.department.name_uz if staff_profile.department.name_uz else "Unknown"
+            # Get department name
+            department_name = "Unknown"
+            if staff_profile.department:
+                department_name = staff_profile.department.name_uz or "Unknown"
 
-                # Get avatar URL
-                avatar_url = None
-                if hasattr(staff_user, 'avatar') and staff_user.avatar:
-                    try:
-                        avatar_url = request.build_absolute_uri(staff_user.avatar.url)
-                    except Exception as e:
-                        logger.warning(f"Failed to get avatar URL for user {staff_user.user_uuid}: {e}")
-                        avatar_url = None
+            # Get avatar URL (same behavior as before)
+            avatar_url = None
+            if hasattr(staff_user, "avatar") and staff_user.avatar:
+                try:
+                    avatar_url = request.build_absolute_uri(staff_user.avatar.url)
+                except Exception as e:  # pragma: no cover - defensive
+                    logger.warning(
+                        "Failed to get avatar URL for user %s: %s",
+                        getattr(staff_user, "user_uuid", "unknown"),
+                        e,
+                    )
+                    avatar_url = None
 
-                leaderboard_data.append({
+            leaderboard_data.append(
+                {
                     "full_name": full_name,
                     "rank": 0,  # Will be set after sorting
                     "department_name": department_name,
                     "solved_total": closed_count,
-                    "avatar_url": avatar_url
-                })
-            except Exception as e:
-                logger.error(f"Error processing leaderboard entry for staff profile {staff_profile.id}: {e}", exc_info=True)
-                continue
+                    "avatar_url": avatar_url,
+                }
+            )
 
         # Sort by solved_total descending
-        leaderboard_data.sort(key=lambda x: x['solved_total'], reverse=True)
-        
-        # Debug: Print sorted leaderboard data
-        print(f"\n{'='*80}")
-        print(f"LEADERBOARD DEBUG: Sorted leaderboard data (before taking top 5)")
-        print(f"{'='*80}")
-        for i, entry in enumerate(leaderboard_data[:10], 1):  # Show top 10 for debugging
-            print(f"{i}. {entry['full_name']}: {entry['solved_total']} closed sessions")
-        print(f"{'='*80}\n")
-        
-        # Take top 5 and assign ranks
+        leaderboard_data.sort(key=lambda x: x["solved_total"], reverse=True)
+
+        # Take top 5 and assign ranks (handle ties)
         top_5 = leaderboard_data[:5]
-        
-        # Assign ranks (handle ties - same rank for same score)
-        # Only assign ranks to entries with solved_total > 0, or if all are 0, assign sequential ranks
         current_rank = 1
         for i, entry in enumerate(top_5):
-            if i > 0:
-                # If current entry has a different (lower) score than previous, increment rank
-                if entry['solved_total'] < top_5[i-1]['solved_total']:
-                    current_rank = i + 1
-                # If same score, keep same rank (ties)
-                elif entry['solved_total'] == top_5[i-1]['solved_total']:
-                    # Keep current_rank (ties get same rank)
-                    pass
-            entry['rank'] = current_rank
+            if i > 0 and entry["solved_total"] < top_5[i - 1]["solved_total"]:
+                current_rank = i + 1
+            entry["rank"] = current_rank
 
-        # Debug: Print final top 5
-        print(f"\n{'='*80}")
-        print(f"LEADERBOARD DEBUG: Final top 5 results")
-        print(f"{'='*80}")
-        for entry in top_5:
-            print(f"Rank {entry['rank']}: {entry['full_name']} ({entry['department_name']}) - {entry['solved_total']} solved")
-        print(f"{'='*80}\n")
-
-        return Response({
-            "leaderboard": top_5
-        })
+        return Response({"leaderboard": top_5})
     except Exception as e:
-        logger.error(f"Error in dashboard_leaderboard: {e}", exc_info=True)
+        logger.error("Error in dashboard_leaderboard: %s", e, exc_info=True)
         return Response(
             {"error": "An error occurred while fetching leaderboard data"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 

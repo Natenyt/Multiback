@@ -1,5 +1,4 @@
-# Django==5.2.9
-Django>=5.2.9
+Django
 aiogram>=3.0.0
 python-dotenv==1.1.1
 qdrant-client
@@ -16,4 +15,4 @@ python-decouple
 celery
 django-cors-headers
 pillow
-httpx  # For async HTTP requests
+httpx
