@@ -98,10 +98,65 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
         await message.answer(get_text("invalid_neighborhood", lang), reply_markup=get_neighborhood_keyboard(neighborhoods, lang))
         return
     
+    # Store chosen neighborhood and COMPLETE registration without asking for a free-text location
     await state.update_data(neighborhood=message.text)
-    
-    await message.answer(get_text("enter_location", lang), reply_markup=get_location_keyboard(lang))
-    await state.set_state(RegistrationFSM.location)
+
+    # Fetch latest state data
+    data = await state.get_data()
+    fullname = data.get("fullname")
+    phone = data.get("phone")
+    neighborhood_name = data.get("neighborhood")
+    language = data.get("language")
+
+    telegram_id = message.from_user.id
+    telegram_username = message.from_user.username
+
+    # We no longer ask for full-text location; treat it as empty/optional
+    location = ""
+
+    @sync_to_async
+    def create_user_and_connection():
+        # Look up the Neighborhood instance by name (try name_uz first, then name_ru)
+        neighborhood_obj = None
+        if neighborhood_name:
+            try:
+                neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_uz=neighborhood_name)
+            except Neighborhood.DoesNotExist:
+                try:
+                    neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_ru=neighborhood_name)
+                except Neighborhood.DoesNotExist:
+                    # If not found, just continue without neighborhood
+                    pass
+
+        user, created = User.objects.get_or_create(
+            phone_number=phone,
+            defaults={
+                "full_name": fullname,
+                "neighborhood": neighborhood_obj,
+                "location": location,
+            },
+        )
+        if not created:
+            # Update info if needed
+            user.full_name = fullname
+            user.neighborhood = neighborhood_obj
+            user.location = location
+            user.save()
+
+        TelegramConnection.objects.create(
+            user=user,
+            telegram_chat_id=telegram_id,
+            telegram_username=telegram_username,
+            language_preference=language,
+        )
+        return user
+
+    try:
+        await create_user_and_connection()
+        await message.answer(get_text("main_menu", language), reply_markup=get_main_menu_keyboard(language))
+        await state.clear()
+    except Exception as e:
+        await message.answer(f"Error: {e}")
 
 @dp.message(RegistrationFSM.location)
 async def enter_location(message: types.Message, state: FSMContext):
