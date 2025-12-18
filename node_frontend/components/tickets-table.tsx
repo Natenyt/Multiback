@@ -256,15 +256,13 @@ export function TicketsTable({
               return [newTicket, ...prev]
             })
 
-            // Emit notification only if staff is NOT currently on the unassigned page
-            const isOnUnassignedPage = pathname === '/dashboard/unassigned'
-            if (!isOnUnassignedPage) {
-              addNotification({
-                session_uuid: newSession.session_uuid,
-                citizen_name: newSession.citizen?.full_name || 'Unknown',
-                created_at: newSession.created_at,
-              })
-            }
+            // Always add notification so toast appears even when on unassigned page
+            // The NotificationManager will handle showing the toast
+            addNotification({
+              session_uuid: newSession.session_uuid,
+              citizen_name: newSession.citizen?.full_name || 'Unknown',
+              created_at: newSession.created_at,
+            })
           }
         }
 
