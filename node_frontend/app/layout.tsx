@@ -24,11 +24,13 @@ export const metadata: Metadata = {
     apple: "/favicon.svg",
   },
   openGraph: {
+    type: "website",
+    siteName: "Narpay Tuman Murojaatlar Portali",
     title: "Narpay Tuman Murojaatlar Portali",
-    description: "Narpay tumani aholisi uchun murojaatlarni qabul qilish va boshqarish portali.",
+    description: "Narpay tumani aholisi uchun murojaatlarni qabul qilish va boshqarish dashboardi.",
     images: [
       {
-        url: "/link-preview-banner.png",
+        url: "https://yourdomain.com/link-preview-banner.png", // <-- Replace with your deployed URL
         width: 1200,
         height: 630,
         alt: "NTMP - Narpay Tuman Murojaatlar Portali",
