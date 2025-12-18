@@ -121,7 +121,7 @@ MIDDLEWARE = [
 # Allow CORS from environment variable (comma-separated list) or default to localhost
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000',
+    default='https://narpaymurojaat.uz',
     cast=lambda v: [origin.strip() for origin in v.split(',')]
 )
 
@@ -200,6 +200,11 @@ USE_TZ = True
 CSRF_TRUSTED_ORIGINS = [
    "https://blowzily-glossological-geraldine.ngrok-free.dev"
 ]
+
+# When running behind ngrok (or another reverse proxy that terminates TLS),
+# trust the X-Forwarded-Proto header so Django knows the original scheme was HTTPS.
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Static files (CSS, JavaScript, Images)
