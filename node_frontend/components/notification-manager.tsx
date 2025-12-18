@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
 import { useNotifications } from "@/contexts/notification-context"
 import { useToast } from "@/hooks/use-toast"
 import { formatTimeAgo } from "@/lib/time-utils"
@@ -40,7 +39,6 @@ const getWsBaseUrl = (): string => {
 const SHOWN_TOAST_SESSIONS_KEY = 'shown_toast_sessions'
 
 export const NotificationManager: React.FC = () => {
-  const pathname = usePathname()
   const { notifications, addNotification } = useNotifications()
   const { toast } = useToast()
   const wsRef = React.useRef<WebSocket | null>(null)
@@ -128,16 +126,15 @@ export const NotificationManager: React.FC = () => {
             if (data.type === "session.created" && data.session) {
               const newSession = data.session
               // Only add if the session is unassigned
-              if (newSession.status === 'unassigned') {
-                // Only add notification if staff is NOT currently on the unassigned page
-                const isOnUnassignedPage = pathname === '/dashboard/unassigned'
-                if (!isOnUnassignedPage && mounted) {
-                  addNotification({
-                    session_uuid: newSession.session_uuid,
-                    citizen_name: newSession.citizen?.full_name || newSession.citizen?.phone_number || 'Unknown',
-                    created_at: newSession.created_at,
-                  })
-                }
+              if (newSession.status === "unassigned" && mounted) {
+                addNotification({
+                  session_uuid: newSession.session_uuid,
+                  citizen_name:
+                    newSession.citizen?.full_name ||
+                    newSession.citizen?.phone_number ||
+                    "Unknown",
+                  created_at: newSession.created_at,
+                })
               }
             }
           } catch (error) {
@@ -176,7 +173,7 @@ export const NotificationManager: React.FC = () => {
         wsRef.current = null
       }
     }
-  }, [pathname, addNotification])
+  }, [addNotification])
 
   return null
 }
