@@ -39,7 +39,7 @@ if allowed_hosts_str:
 else:
     # In development, allow common localhost variants
     # In production with DEBUG=False, you MUST set ALLOWED_HOSTS in .env
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+    ALLOWED_HOSTS = ['*']
 AUTH_USER_MODEL = 'users.User'
 
 
@@ -196,10 +196,20 @@ USE_I18N = True
 USE_TZ = True
 
 
+
+CSRF_TRUSTED_ORIGINS = [
+   "https://blowzily-glossological-geraldine.ngrok-free.dev"
+]
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

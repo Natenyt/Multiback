@@ -6,7 +6,6 @@ def get_main_menu_keyboard(lang='uz'):
         keyboard=[
             [
                 KeyboardButton(text=get_text("send_new_message_btn", lang)),
-                KeyboardButton(text=get_text("website_btn", lang)),
             ],
             [
                 KeyboardButton(text=get_text("news_btn", lang)),

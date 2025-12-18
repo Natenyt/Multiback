@@ -5,6 +5,7 @@ from bot.keyboards.default.menu import get_main_menu_keyboard, get_ticket_keyboa
 from bot.keyboards.inline.language import language_keyboard
 from bot.utils.i18n import get_text
 from users.models import TelegramConnection
+from departments.models import StaffProfile
 from bot.states.ticket import TicketFSM
 from bot.states.registration import RegistrationFSM
 
@@ -68,13 +69,27 @@ async def language_callback(call: types.CallbackQuery, state):
 async def new_message_handler(message: types.Message, state):
     lang = await get_user_lang(message.from_user.id)
     
-    # Check if user is staff?
-    # The requirement says: "Staff/Admin/Operator: If telegram_id matches a staff account, reply: 'Please use the web dashboard.' (No menu)."
-    # So they shouldn't even see the menu. But if they somehow do:
-    
-    # Check if user has an existing active (unassigned or assigned, but not closed) session
     telegram_id = message.from_user.id
     connection = await sync_to_async(TelegramConnection.objects.filter(telegram_chat_id=telegram_id).select_related('user').first)()
+
+    # 1) Block department staff (users linked to StaffProfile) from creating new tickets
+    if connection and connection.user:
+        @sync_to_async
+        def is_department_staff(user_obj):
+            return StaffProfile.objects.filter(user=user_obj).exists()
+
+        if await is_department_staff(connection.user):
+            # Localized warning message for staff users
+            if lang == "ru":
+                text = "Сотрудникам отдела нельзя пользоваться этой функцией. Пожалуйста, используйте веб-панель отдела."
+            else:
+                # Default to Uzbek
+                text = "Bo‘lim xodimlariga bu funksiyadan foydalanishga ruxsat berilmagan. Iltimos, bo‘lim uchun veb-paneldan foydalaning."
+
+            await message.answer(text)
+            return
+
+    # 2) For regular citizens, check if user has an existing active (unassigned or assigned, but not closed) session
     if connection and connection.user:
         from message_app.models import Session
         import logging
