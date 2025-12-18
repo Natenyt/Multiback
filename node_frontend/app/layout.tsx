@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Narpay Tuman Murojaatlar Portali",
     title: "Narpay Tuman Murojaatlar Portali",
-    description: "Narpay tumani aholisi uchun murojaatlarni qabul qilish va boshqarish portali.",
+    description: "Narpay tumani aholisi uchun murojaatlarni qabul qilish va boshqarish dashboardi.",
     images: [
       {
         url: "https://narpaymurojaat.uz/link-preview-banner.png", // <-- Replace with your deployed URL
