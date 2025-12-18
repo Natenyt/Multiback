@@ -9,9 +9,8 @@ import {
   Target,
   TrendingUp
 } from "lucide-react"
-import { getDashboardStats } from "@/dash_department/lib/api"
-import type { DashboardStatsResponse } from "@/dash_department/lib/api"
 import { Card } from "@/components/ui/card"
+import { useDashboardStats } from "@/hooks/use-dashboard-data"
 
 const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
@@ -28,25 +27,7 @@ interface StatCard {
 }
 
 export function DashboardStats() {
-  const [stats, setStats] = React.useState<DashboardStatsResponse | null>(null)
-  const [isLoading, setIsLoading] = React.useState(true)
-
-  React.useEffect(() => {
-    async function fetchStats() {
-      try {
-        const data = await getDashboardStats()
-        console.log("Dashboard stats fetched successfully:", data)
-        setStats(data)
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats:", error)
-        // Keep loading state false so skeleton doesn't show forever
-        setIsLoading(false)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchStats()
-  }, [])
+  const { stats, isLoading } = useDashboardStats()
 
   if (isLoading || !stats) {
     return (

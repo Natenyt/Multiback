@@ -18,8 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { getSessionsChart } from "@/dash_department/lib/api"
-import type { SessionsChartDataPoint } from "@/dash_department/lib/api"
+import { useSessionsChart } from "@/hooks/use-dashboard-data"
 
 const chartConfig = {
   unassigned: {
@@ -37,38 +36,8 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function SessionsChart() {
-  const [data, setData] = React.useState<SessionsChartDataPoint[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
   const [timeRange, setTimeRange] = React.useState("30d")
-  const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    async function fetchChartData() {
-      try {
-        setIsLoading(true)
-        setError(null)
-        const chartData = await getSessionsChart(timeRange)
-        
-        // Debug logging
-        console.log("Sessions chart data fetched successfully:", chartData)
-        console.log("Data length:", chartData.length)
-        if (chartData.length > 0) {
-          console.log("First data point:", chartData[0])
-          console.log("Data keys in first point:", Object.keys(chartData[0]))
-          console.log("Date format:", chartData[0].date)
-        }
-        
-        setData(chartData)
-      } catch (error) {
-        console.error("Failed to fetch sessions chart data:", error)
-        setError(error instanceof Error ? error.message : "Failed to fetch chart data")
-        setData([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchChartData()
-  }, [timeRange])
+  const { data, isLoading, error } = useSessionsChart(timeRange)
 
   // Helper function to format dates safely
   const formatDate = (value: string | Date): string => {

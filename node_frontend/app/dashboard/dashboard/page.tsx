@@ -9,8 +9,7 @@ import { SessionsChart } from "@/components/sessions-chart";
 import { DemographicsChart } from "@/components/demographics-chart";
 import { NeighborhoodsChart } from "@/components/neighborhoods-chart";
 import { LeaderboardTable } from "@/components/leaderboard-table";
-import { getStaffProfile } from '@/dash_department/lib/api';
-import type { StaffProfileResponse } from '@/dash_department/lib/api';
+import { useStaffProfile } from "@/contexts/staff-profile-context";
 
 const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
@@ -19,20 +18,7 @@ const poppins = Poppins({
 });
 
 export default function DashboardPage() {
-  const [staffProfile, setStaffProfile] = useState<StaffProfileResponse | null>(null);
-
-  useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const profile = await getStaffProfile();
-        setStaffProfile(profile);
-      } catch (error) {
-        console.error("Failed to fetch staff profile:", error);
-      }
-    }
-
-    fetchProfile();
-  }, []);
+  const { staffProfile } = useStaffProfile();
 
   return (
     <>

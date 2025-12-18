@@ -16,8 +16,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { getTopNeighborhoods } from "@/dash_department/lib/api"
-import type { TopNeighborhood } from "@/dash_department/lib/api"
+import { useTopNeighborhoods } from "@/hooks/use-dashboard-data"
 
 // Blue color variants
 const blueColors = [
@@ -30,7 +29,6 @@ const blueColors = [
 ]
 
 export function NeighborhoodsChart() {
-  const [data, setData] = React.useState<TopNeighborhood[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [chartData, setChartData] = React.useState<Array<{ neighborhood: string; visitors: number; fill: string }>>([])
   const [chartConfig, setChartConfig] = React.useState<ChartConfig>({
@@ -39,47 +37,42 @@ export function NeighborhoodsChart() {
     },
   })
 
+  const { data, error } = useTopNeighborhoods()
+
   React.useEffect(() => {
-    async function fetchNeighborhoods() {
-      try {
-        const neighborhoods = await getTopNeighborhoods()
-        setData(neighborhoods)
-        
-        // Create config and data
-        const newConfig: ChartConfig = {
-          visitors: {
-            label: "Murojaatlar",
-          },
-        }
-        
-        const transformed = neighborhoods.map((item, index) => {
-          // Use a sanitized key for the config
-          const configKey = `neighborhood${index + 1}`
-          const color = blueColors[index] || blueColors[0]
-          
-          // Add to config
-          newConfig[configKey] = {
-            label: item.neighborhood_name,
-            color: color,
-          }
-          
-          return {
-            neighborhood: item.neighborhood_name,
-            visitors: item.count,
-            fill: `var(--color-${configKey})`,
-          }
-        })
-        
-        setChartConfig(newConfig)
-        setChartData(transformed)
-      } catch (error) {
-        console.error("Failed to fetch top neighborhoods data:", error)
-      } finally {
-        setIsLoading(false)
-      }
+    if (!data || data.length === 0) {
+      setIsLoading(false)
+      setChartData([])
+      return
     }
-    fetchNeighborhoods()
-  }, [])
+
+    setIsLoading(false)
+
+    const newConfig: ChartConfig = {
+      visitors: {
+        label: "Murojaatlar",
+      },
+    }
+
+    const transformed = data.map((item, index) => {
+      const configKey = `neighborhood${index + 1}`
+      const color = blueColors[index] || blueColors[0]
+
+      newConfig[configKey] = {
+        label: item.neighborhood_name,
+        color: color,
+      }
+
+      return {
+        neighborhood: item.neighborhood_name,
+        visitors: item.count,
+        fill: `var(--color-${configKey})`,
+      }
+    })
+
+    setChartConfig(newConfig)
+    setChartData(transformed)
+  }, [data])
 
   if (isLoading || chartData.length === 0) {
     return (

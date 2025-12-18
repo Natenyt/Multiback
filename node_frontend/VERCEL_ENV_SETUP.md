@@ -50,3 +50,4 @@ NEXT_PUBLIC_API_URL: https://your-backend-url.com/api
 
 If you see `undefined` or `http://localhost:8000/api`, the variable isn't set correctly.
 
+

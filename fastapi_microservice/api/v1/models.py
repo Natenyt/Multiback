@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 class GeminiSettings(BaseModel):
-    model: str = "gemini-2.0-flash"
+    model: str = "gemini-2.0-flash-001"
     temperature: float = 0.2
     max_tokens: int = 500
 

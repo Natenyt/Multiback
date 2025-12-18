@@ -44,10 +44,9 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { getStaffProfile, clearAuthTokens } from "@/dash_department/lib/api"
-import type { StaffProfileResponse } from "@/dash_department/lib/api"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
+import { useStaffProfile } from "@/contexts/staff-profile-context"
 
 // Menu items with Lucide icons
 const menuItems = [
@@ -83,11 +82,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  const [staffProfile, setStaffProfile] = React.useState<StaffProfileResponse | null>(null)
-  const [isLoading, setIsLoading] = React.useState(true)
   const [currentWorkspace, setCurrentWorkspace] = React.useState("Dashboard")
   const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions } = useNotifications()
   const { setAuthError } = useAuthError()
+  const { staffProfile, isLoading, error } = useStaffProfile()
   const unreadCount = getUnreadCount()
   const hasAssigned = hasAssignedSessions()
   const hasClosed = hasClosedSessions()
@@ -110,30 +108,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [isOnArchivePage, clearClosedSessions])
 
   React.useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const profile = await getStaffProfile()
-        setStaffProfile(profile)
-      } catch (error) {
-        console.error("Failed to fetch staff profile:", error)
-        // If authentication error, set error in context to show error handler
-        if (error instanceof Error && (
-          error.message.includes('token') ||
-          error.message.includes('authentication') ||
-          error.message.includes('not valid') ||
-          error.message.includes('Authentication failed')
-        )) {
-          setAuthError(error)
-        }
-      } finally {
-        setIsLoading(false)
-      }
+    // Surface authentication-related errors from the staff profile context to the auth error handler
+    if (error) {
+      setAuthError(error)
     }
-    fetchProfile()
-  }, [router])
+  }, [error, setAuthError])
 
   const handleLogout = () => {
-    clearAuthTokens()
     router.push("/login")
   }
 

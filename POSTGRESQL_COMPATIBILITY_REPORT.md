@@ -96,3 +96,4 @@ Your Django models are fully compatible with PostgreSQL. No code changes are req
 **No code changes needed.** Your models are database-agnostic and will work seamlessly with PostgreSQL after updating the database settings.
 
 
+

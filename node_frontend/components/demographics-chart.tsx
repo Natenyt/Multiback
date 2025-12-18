@@ -16,8 +16,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { getDemographics } from "@/dash_department/lib/api"
-import type { DemographicsResponse } from "@/dash_department/lib/api"
+import { useDemographics } from "@/hooks/use-dashboard-data"
 
 const chartConfig = {
   male: {
@@ -31,23 +30,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function DemographicsChart() {
-  const [data, setData] = React.useState<DemographicsResponse | null>(null)
-  const [isLoading, setIsLoading] = React.useState(true)
-
-  React.useEffect(() => {
-    async function fetchDemographics() {
-      try {
-        const demographics = await getDemographics()
-        console.log("Demographics data fetched:", demographics)
-        setData(demographics)
-      } catch (error) {
-        console.error("Failed to fetch demographics data:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchDemographics()
-  }, [])
+  const { data, isLoading } = useDemographics()
 
   if (isLoading || !data) {
     return (
