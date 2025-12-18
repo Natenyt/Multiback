@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { getStaffProfile, type StaffProfileResponse, clearAuthTokens } from "@/dash_department/lib/api"
+import { getStaffProfile, type StaffProfileResponse, clearAuthTokens, getAuthToken } from "@/dash_department/lib/api"
 
 interface StaffProfileContextType {
   staffProfile: StaffProfileResponse | null
@@ -19,6 +19,15 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
   const [error, setError] = React.useState<Error | null>(null)
 
   const loadProfile = React.useCallback(async () => {
+    // If there is no auth token yet (e.g. user is not logged in), don't treat it as an error.
+    const token = getAuthToken?.() ?? null
+    if (!token) {
+      setStaffProfile(null)
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     try {

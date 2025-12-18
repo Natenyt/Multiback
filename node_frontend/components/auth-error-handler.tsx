@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { clearAuthTokens } from "@/dash_department/lib/api"
 import { useAuthError } from "@/contexts/auth-error-context"
+import { useStaffProfile } from "@/contexts/staff-profile-context"
 
 export function AuthErrorHandler() {
   const router = useRouter()
   const { authError, clearAuthError } = useAuthError()
+  const { clearProfile } = useStaffProfile()
 
   if (!authError) return null
 
@@ -27,8 +29,9 @@ export function AuthErrorHandler() {
   if (!isAuthError) return null
 
   const handleLogin = () => {
-    // Always hide the popup immediately
+    // Always hide the popup and clear any cached staff profile/error
     clearAuthError()
+    clearProfile()
 
     // Best-effort token cleanup (ignore any unexpected errors)
     try {
@@ -37,7 +40,7 @@ export function AuthErrorHandler() {
       console.error("Failed to clear auth tokens:", e)
     }
 
-    router.push('/login')
+    router.push("/login")
   }
 
   return (
