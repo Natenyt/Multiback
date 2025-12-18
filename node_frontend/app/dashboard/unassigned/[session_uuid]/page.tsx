@@ -1,11 +1,11 @@
-\"use client\"
+"use client"
 
-import * as React from \"react\"
-import { useParams, useRouter } from \"next/navigation\"
-import { getTicketHistory, type TicketHistoryResponse, type SessionData } from \"@/dash_department/lib/api\"
-import { CaseDetailSection } from \"@/components/case-detail-section\"
-import { CaseChatUI } from \"@/components/case-chat-ui\"
-import { useNotifications } from \"@/contexts/notification-context\"
+import * as React from "react"
+import { useParams, useRouter } from "next/navigation"
+import { getTicketHistory, type TicketHistoryResponse, type SessionData } from "@/dash_department/lib/api"
+import { CaseDetailSection } from "@/components/case-detail-section"
+import { CaseChatUI } from "@/components/case-chat-ui"
+import { useNotifications } from "@/contexts/notification-context"
 
 export default function UnassignedCaseDetailPage() {
   const params = useParams()
