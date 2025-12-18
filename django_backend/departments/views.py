@@ -151,7 +151,7 @@ def dashboard_leaderboard(request):
         current_rank = 1
         for i, entry in enumerate(top_5):
             if i > 0 and entry["solved_total"] < top_5[i - 1]["solved_total"]:
-                    current_rank = i + 1
+                current_rank = i + 1
             entry["rank"] = current_rank
 
         return Response({"leaderboard": top_5})
