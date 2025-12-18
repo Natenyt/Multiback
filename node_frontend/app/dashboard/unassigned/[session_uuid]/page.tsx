@@ -1,15 +1,17 @@
-"use client"
+\"use client\"
 
-import * as React from "react"
-import { useParams, useRouter } from "next/navigation"
-import { getTicketHistory, type TicketHistoryResponse, type SessionData } from "@/dash_department/lib/api"
-import { CaseDetailSection } from "@/components/case-detail-section"
-import { CaseChatUI } from "@/components/case-chat-ui"
+import * as React from \"react\"
+import { useParams, useRouter } from \"next/navigation\"
+import { getTicketHistory, type TicketHistoryResponse, type SessionData } from \"@/dash_department/lib/api\"
+import { CaseDetailSection } from \"@/components/case-detail-section\"
+import { CaseChatUI } from \"@/components/case-chat-ui\"
+import { useNotifications } from \"@/contexts/notification-context\"
 
 export default function UnassignedCaseDetailPage() {
   const params = useParams()
   const router = useRouter()
   const sessionUuid = params.session_uuid as string
+  const { clearNotifications } = useNotifications()
   
   const [data, setData] = React.useState<TicketHistoryResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -44,6 +46,11 @@ export default function UnassignedCaseDetailPage() {
       setIsLoading(false)
     }
   }, [sessionUuid])
+
+  React.useEffect(() => {
+    // When viewing a specific unassigned case, consider related notifications as seen
+    clearNotifications()
+  }, [clearNotifications])
 
   React.useEffect(() => {
     fetchData()

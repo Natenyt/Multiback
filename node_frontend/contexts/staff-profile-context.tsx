@@ -28,7 +28,6 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
       console.error("Failed to fetch staff profile:", err)
       const error = err instanceof Error ? err : new Error("Failed to fetch staff profile")
       setError(error)
-      // If token is invalid, clear tokens so auth flow can handle it
       if (
         error.message.includes("token") ||
         error.message.includes("authentication") ||
@@ -43,7 +42,6 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
   }, [])
 
   React.useEffect(() => {
-    // Fetch once on mount and keep in memory for the lifetime of the app
     loadProfile()
   }, [loadProfile])
 
