@@ -3,6 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import {
   LayoutDashboard,
   Inbox,
@@ -207,7 +208,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive} className="!transition-none">
-                      <a
+                      <Link
                         href={item.href}
                         className={`flex items-center !transition-none relative ${
                           isCollapsed
@@ -262,7 +263,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             }}
                           />
                         )}
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
