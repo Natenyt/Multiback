@@ -7,7 +7,7 @@ __pycache__
 django_backend\__pycache__
 
 migrations
-
+.env
 # Ignore all Django migration files except package initializer
 django_backend/*/migrations/*.py
 !django_backend/*/migrations/__init__.py

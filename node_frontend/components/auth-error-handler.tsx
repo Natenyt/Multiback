@@ -27,8 +27,16 @@ export function AuthErrorHandler() {
   if (!isAuthError) return null
 
   const handleLogin = () => {
-    clearAuthTokens()
+    // Always hide the popup immediately
     clearAuthError()
+
+    // Best-effort token cleanup (ignore any unexpected errors)
+    try {
+      clearAuthTokens()
+    } catch (e) {
+      console.error("Failed to clear auth tokens:", e)
+    }
+
     router.push('/login')
   }
 
