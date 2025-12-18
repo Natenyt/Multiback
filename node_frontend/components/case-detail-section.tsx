@@ -336,7 +336,7 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
               onClick={handleHold}
                     className="bg-black dark:bg-white dark:text-black text-white hover:bg-black/80 dark:hover:bg-white/90 hover:scale-105 active:scale-95 transition-all duration-200 text-[13px] font-medium h-8 px-3 w-[120px]"
             >
-              Hold
+              Uzaytirish
             </Button>
                 </>
               )}
