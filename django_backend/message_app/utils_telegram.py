@@ -21,7 +21,7 @@ def get_main_menu_keyboard_json(lang='uz'):
     else:  # Default to Uzbek
         keyboard = {
             "keyboard": [
-                [{"text": "📝 Yangi xabar yuborish"}, {"text": "🌐 Veb-sayt"}],
+                [{"text": "📝 Yangi xabar yuborish"}],
                 [{"text": "📰 Yangiliklar"}, {"text": "⚙️ Tilni o'zgartirish"}]
             ],
             "resize_keyboard": True
