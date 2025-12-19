@@ -132,19 +132,19 @@ class SendMessageAPIView(APIView):
                     is_staff_message=True
                 ).count()
                 
-                if staff_message_count == 1:
-                    # Send notification that staff has connected and remove keyboard
-                    try:
-                        notification_text = (
-                            "<b>✅ Javobgar xodim bilan bog'laningiz</b>\n\n"
-                            "<b>Xodim sizning murojaatingizga javob berishni boshladi. Endi siz bevosita xabar yuborishingiz mumkin, qo'shimcha tugmalarni bosmang!</b>"
-                        )
-                        # Remove keyboard when sending notification
-                        send_text_to_telegram(chat_id, notification_text, remove_keyboard=True)
-                    except Exception as e:
-                        import logging
-                        logger = logging.getLogger(__name__)
-                        logger.error(f"Failed to send staff connection notification: {e}")
+                # if staff_message_count == 1:
+                #     # Send notification that staff has connected and remove keyboard
+                #     try:
+                #         notification_text = (
+                #             "<b>✅ Javobgar xodim bilan bog'laningiz</b>\n\n"
+                #             "<b>Xodim sizning murojaatingizga javob berishni boshladi. Endi siz bevosita xabar yuborishingiz mumkin, qo'shimcha tugmalarni bosmang!</b>"
+                #         )
+                #         # Remove keyboard when sending notification
+                #         send_text_to_telegram(chat_id, notification_text, remove_keyboard=True)
+                #     except Exception as e:
+                #         import logging
+                #         logger = logging.getLogger(__name__)
+                #         logger.error(f"Failed to send staff connection notification: {e}")
                 
                 # Send the actual message content to Telegram
                 # For files, use the existing task
