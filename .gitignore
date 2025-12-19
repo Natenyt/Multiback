@@ -16,3 +16,5 @@ django_backend/*/migrations/*.py
 django_backend*/migrations/*.py
 qdrant_storage
 qdrant_storage/raft_state.json
+
+
