@@ -37,33 +37,6 @@ if not logger.handlers:
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# --- DEBUG MODE INSTRUMENTATION (Agent) ---
-DEBUG_LOG_PATH = r"d:\Dev\Multiback\.cursor\debug.log"
-
-
-def _agent_debug_log(hypothesis_id: str, location: str, message: str, data: Optional[Dict[str, Any]] = None, run_id: str = "run1") -> None:
-    """
-    Lightweight NDJSON logger for debug-mode analysis.
-    Writes a single JSON object per line to DEBUG_LOG_PATH.
-    """
-    # region agent log
-    try:
-        entry = {
-            "sessionId": "debug-session",
-            "runId": run_id,
-            "hypothesisId": hypothesis_id,
-            "location": location,
-            "message": message,
-            "data": data or {},
-            "timestamp": int(time.time() * 1000),
-        }
-        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception:
-        # Debug logging must never break pipeline execution
-        pass
-    # endregion
-
 # --- Global Clients (Connection Pooling) ---
 qdrant_client = None
 
@@ -139,21 +112,8 @@ async def process_message_pipeline(request: AnalyzeRequest):
         "confidence_score": 0,
         "reason": "Processing initialized."
     }
-
+    
     text = request.text
-
-    # region agent log
-    _agent_debug_log(
-        hypothesis_id="H1",
-        location="ai_pipeline.process_message_pipeline:entry",
-        message="Entered process_message_pipeline",
-        data={
-            "session_uuid": str(request.session_uuid),
-            "message_uuid": str(request.message_uuid),
-            "text_length": len(text),
-        },
-    )
-    # endregion
     
     # Step 1: Language Detection
     language = "uz"
@@ -188,26 +148,10 @@ async def process_message_pipeline(request: AnalyzeRequest):
     vector = []
     try:
         logger.info(f"Step 3 [Embedding]: Requesting embedding from Gemini ({embedding_model})...")
-        # region agent log
-        _agent_debug_log(
-            hypothesis_id="H1",
-            location="ai_pipeline.process_message_pipeline:before_embed",
-            message="Calling async_embed",
-            data={"embedding_model": embedding_model, "text_length": len(text)},
-        )
-        # endregion
         embedding_result = await async_embed(text, embedding_model)
         vector = embedding_result['embedding']
         processing_data["embedding_tokens"] = len(text) // 4 
         logger.info(f"Step 3 [Embedding]: Success. Vector length: {len(vector)}")
-        # region agent log
-        _agent_debug_log(
-            hypothesis_id="H1",
-            location="ai_pipeline.process_message_pipeline:after_embed",
-            message="Embed call succeeded",
-            data={"vector_length": len(vector)},
-        )
-        # endregion
     except Exception as e:
         logger.error(f"Step 3 [Embedding] FAILED: {e}")
         # We fail gracefully here, stopping pipeline
@@ -394,18 +338,6 @@ async def process_message_pipeline(request: AnalyzeRequest):
         logger.info(f"Step 5 [LLM]: Sending prompt to {model_name}...")
 
         try:
-            # region agent log
-            _agent_debug_log(
-                hypothesis_id="H2",
-                location="ai_pipeline.process_message_pipeline:before_generate",
-                message="Calling async_generate",
-                data={
-                    "model_name": model_name,
-                    "temperature": temperature,
-                    "candidate_count": len(candidates),
-                },
-            )
-            # endregion
             response = await async_generate(
                 model_name, 
                 prompt, 
@@ -436,25 +368,9 @@ async def process_message_pipeline(request: AnalyzeRequest):
 
         except Exception as e:
             error_str = str(e)
-            # region agent log
-            _agent_debug_log(
-                hypothesis_id="H2",
-                location="ai_pipeline.process_message_pipeline:llm_exception",
-                message="Exception during async_generate",
-                data={"error": error_str[:500]},
-            )
-            # endregion
             # Check if it's a quota/rate limit error
             if "429" in error_str or "quota" in error_str.lower() or "rate limit" in error_str.lower():
                 logger.warning(f"Step 5 [LLM]: Quota/Rate limit exceeded. Using top vector search result as fallback.")
-                # region agent log
-                _agent_debug_log(
-                    hypothesis_id="H2",
-                    location="ai_pipeline.process_message_pipeline:llm_rate_limited",
-                    message="Detected LLM quota / rate-limit condition",
-                    data={},
-                )
-                # endregion
                 
                 # Fallback: Use the top candidate from vector search
                 if candidates:
