@@ -95,26 +95,16 @@ export function CaseMessageBubble({
     }
   }, [])
 
-  // Image loader component with proper state management
+  // Image loader component - simplified to just use URLs directly
   function ImageLoader({ content }: { content: { id: number; thumbnail_url?: string | null; file_url?: string | null; caption?: string | null } }) {
     const [imageUrl, setImageUrl] = React.useState<string | null>(null)
     const [isLoading, setIsLoading] = React.useState(true)
     const [hasError, setHasError] = React.useState(false)
-    const [retryCount, setRetryCount] = React.useState(0)
-    const maxRetries = 3
-    const previousSourceUrlRef = React.useRef<string | null | undefined>(null)
     
     // Determine source URL - prefer thumbnail, fallback to file_url
     const sourceUrl = content.thumbnail_url || content.file_url
-    const cacheKey = sourceUrl || `content-${content.id}`
     
     React.useEffect(() => {
-      // Skip if sourceUrl hasn't actually changed
-      if (previousSourceUrlRef.current === sourceUrl && imageUrl !== null) {
-        return
-      }
-      previousSourceUrlRef.current = sourceUrl
-
       if (!sourceUrl) {
         setIsLoading(false)
         setHasError(true)
@@ -122,7 +112,7 @@ export function CaseMessageBubble({
         return
       }
 
-      // Check if it's already a blob URL (optimistic UI) - show immediately
+      // If it's a blob URL, use it directly
       if (sourceUrl.startsWith('blob:')) {
         setImageUrl(sourceUrl)
         setIsLoading(false)
@@ -131,6 +121,7 @@ export function CaseMessageBubble({
       }
 
       // Check cache first
+      const cacheKey = sourceUrl || `content-${content.id}`
       const cached = blobUrlCache.current.get(cacheKey)
       if (cached) {
         setImageUrl(cached)
@@ -139,59 +130,35 @@ export function CaseMessageBubble({
         return
       }
 
-      // Check if it's a truly external URL (not our backend)
-      const isExternalUrl = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://')
+      // For backend URLs, fetch through proxy once and cache
       const isBackendUrl = sourceUrl.includes('/api/') || sourceUrl.includes('/media/')
       
-      // Only use external URLs directly if they're not pointing to our backend
-      if (isExternalUrl && !isBackendUrl) {
+      if (isBackendUrl) {
+        setIsLoading(true)
+        fetchAuthenticatedImage(sourceUrl)
+          .then((blobUrl) => {
+            if (blobUrl) {
+              blobUrlCache.current.set(cacheKey, blobUrl)
+              setImageUrl(blobUrl)
+              setIsLoading(false)
+              setHasError(false)
+            } else {
+              setHasError(true)
+              setIsLoading(false)
+            }
+          })
+          .catch((error) => {
+            console.error('Error loading image:', error)
+            setHasError(true)
+            setIsLoading(false)
+          })
+      } else {
+        // External URL - use directly
         setImageUrl(sourceUrl)
         setIsLoading(false)
         setHasError(false)
-        return
       }
-      
-      // All other URLs (including backend URLs) need to go through authenticated fetch
-      setIsLoading(true)
-      setHasError(false)
-      
-      const loadImage = async () => {
-        try {
-          const blobUrl = await fetchAuthenticatedImage(sourceUrl)
-          if (blobUrl) {
-            blobUrlCache.current.set(cacheKey, blobUrl)
-            setImageUrl(blobUrl)
-            setIsLoading(false)
-            setHasError(false)
-          } else {
-            throw new Error('Failed to fetch image')
-          }
-        } catch (error) {
-          console.error('Error loading image:', error)
-          // Retry logic
-          if (retryCount < maxRetries) {
-            setTimeout(() => {
-              setRetryCount(prev => prev + 1)
-            }, 1000 * (retryCount + 1)) // Exponential backoff
-          } else {
-            setHasError(true)
-            setIsLoading(false)
-          }
-        }
-      }
-
-      loadImage()
-    }, [sourceUrl, cacheKey, retryCount])
-
-    // Cleanup blob URL on unmount
-    React.useEffect(() => {
-      return () => {
-        if (imageUrl && imageUrl.startsWith('blob:') && !sourceUrl?.startsWith('blob:')) {
-          // Only revoke if it's not the original optimistic blob URL
-          URL.revokeObjectURL(imageUrl)
-        }
-      }
-    }, [imageUrl, sourceUrl])
+    }, [sourceUrl, content.id])
 
     return (
       <div
