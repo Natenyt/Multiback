@@ -100,13 +100,13 @@ export default function Intro() {
       >
         <h1 
           className="text-2xl font-semibold mb-2"
-          style={{ color: 'oklch(0.985_0_0)' }} // Foreground color from dark theme
+          style={{ color: '#ffffff' }} // White color
         >
           NTMP
         </h1>
         <p 
           className="text-sm"
-          style={{ color: 'oklch(0.708_0_0)' }} // Muted foreground color
+          style={{ color: '#ffffff' }} // White color
         >
           Raqamli murojaatlar boshqaruv tizimi
         </p>
