@@ -134,13 +134,19 @@ export function CaseMessageBubble({
                   return
                 }
 
-                // Check if it's an external URL (doesn't need auth)
+                // Check if it's a truly external URL (not our backend)
+                // If it contains /api/ or /media/, it's our backend and needs auth through proxy
                 const isExternalUrl = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://')
-                if (isExternalUrl && !sourceUrl.includes('/api/') && !sourceUrl.includes('/media/')) {
+                const isBackendUrl = sourceUrl.includes('/api/') || sourceUrl.includes('/media/')
+                
+                // Only use external URLs directly if they're not pointing to our backend
+                if (isExternalUrl && !isBackendUrl) {
                   setImageUrl(sourceUrl)
                   setIsLoading(false)
                   return
                 }
+                
+                // All other URLs (including backend URLs) need to go through authenticated fetch
 
                 // Fetch with authentication and convert to blob
                 setIsLoading(true)

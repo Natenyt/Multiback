@@ -55,24 +55,50 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
 
   try {
     // Determine the correct fetch URL
+    // Always route through Next.js proxy to avoid CORS issues
     let fetchUrl = url;
     
-    // If it's already a full URL with domain, use it directly
+    // If it's already a full URL with domain
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      fetchUrl = url;
+      // Check if it's pointing to our backend (ngrok or backend domain)
+      // Extract the path and route through proxy
+      try {
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
+        // Route through proxy
+        if (path.startsWith('/api/')) {
+          fetchUrl = `/api/proxy${path.substring(4)}`;
+        } else {
+          fetchUrl = `/api/proxy${path}`;
+        }
+        // Preserve query params if any
+        if (urlObj.search) {
+          fetchUrl += urlObj.search;
+        }
+      } catch (e) {
+        // If URL parsing fails, try to extract path manually
+        const pathMatch = url.match(/https?:\/\/[^\/]+(\/.*)/);
+        if (pathMatch) {
+          const path = pathMatch[1];
+          if (path.startsWith('/api/')) {
+            fetchUrl = `/api/proxy${path.substring(4)}`;
+          } else {
+            fetchUrl = `/api/proxy${path}`;
+          }
+        } else {
+          // Fallback: use as-is (external URL)
+          fetchUrl = url;
+        }
+      }
     } 
-    // If it starts with /api/, it needs to go through Next.js proxy
+    // All relative URLs should go through proxy
     else if (url.startsWith('/api/')) {
-      // Remove /api prefix and add /api/proxy
+      // API endpoints go through proxy
       fetchUrl = `/api/proxy${url.substring(4)}`; // substring(4) removes '/api'
     }
-    // If it starts with /media/, these are typically public static files
-    // But if they're behind authentication, we'll try with auth header
-    // If it fails, the error handler will catch it
     else if (url.startsWith('/media/')) {
-      // Try direct first - /media/ files are usually public
-      // But add auth header in case they need it
-      fetchUrl = url;
+      // Media files also go through proxy to ensure auth headers are sent
+      fetchUrl = `/api/proxy${url}`;
     }
     // Relative URL without leading slash
     else if (!url.startsWith('/')) {
@@ -90,11 +116,13 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
     });
 
     if (!response.ok) {
-      console.error(`Failed to fetch image: ${fetchUrl} - ${response.status} ${response.statusText}`);
+      console.error(`Failed to fetch image: ${fetchUrl} (original: ${url}) - ${response.status} ${response.statusText}`);
       // Try to get error details
       try {
         const errorText = await response.text();
-        console.error('Error response:', errorText);
+        if (errorText) {
+          console.error('Error response:', errorText.substring(0, 200)); // Limit length
+        }
       } catch (e) {
         // Ignore
       }

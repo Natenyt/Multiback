@@ -97,18 +97,12 @@ class MessageContentSerializer(serializers.ModelSerializer):
     def get_file_url(self, obj):
         request = self.context.get('request')
         # Priority: local file (FileField) -> stored file_url -> telegram proxy
+        # Always return relative URLs that go through Next.js proxy to avoid CORS issues
         if obj.file:
             try:
                 url = obj.file.url
-                if request:
-                    # Build absolute URI using request
-                    absolute_url = request.build_absolute_uri(url)
-                    # If frontend uses /api/proxy, we need to convert to proxy path
-                    # Check if the URL contains the backend domain and convert to proxy path
-                    from django.conf import settings
-                    # For now, return absolute URL - frontend can handle it
-                    return absolute_url
-                # If no request, return relative URL - frontend will need to handle
+                # Always return relative URL - frontend will route through /api/proxy
+                # This avoids CORS issues when frontend and backend are on different domains
                 return url
             except Exception as e:
                 # Log error but continue to try other options
@@ -117,35 +111,26 @@ class MessageContentSerializer(serializers.ModelSerializer):
                 logger.warning(f"Failed to get file URL: {e}")
                 pass
         if obj.file_url:
+            # If it's an external URL, return as-is
+            if obj.file_url.startswith('http://') or obj.file_url.startswith('https://'):
+                return obj.file_url
+            # Otherwise, return relative URL
             return obj.file_url
         if obj.telegram_file_id:
             # Proxy endpoint by content id - use this when we have telegram_file_id but no local file
             path = reverse('telegram-proxy', args=[obj.id])
-            if request:
-                absolute_url = request.build_absolute_uri(path)
-                # Convert to proxy path if needed
-                # Extract the path part and prepend /api/proxy
-                from urllib.parse import urlparse
-                parsed = urlparse(absolute_url)
-                proxy_path = f'/api/proxy{parsed.path}'
-                if parsed.query:
-                    proxy_path += f'?{parsed.query}'
-                return proxy_path
-            # If no request context, construct path that frontend can use
-            # Frontend uses /api/proxy, so we need to construct the full path
-            return f'/api/proxy{path}'
+            # Return relative path - frontend will route through /api/proxy
+            return path
         return None
 
     def get_thumbnail_url(self, obj):
         request = self.context.get('request')
         # Return thumbnail endpoint for images and videos (backend will handle generation or proxy)
+        # Always return relative URLs to avoid CORS issues
         if obj.content_type in ('image', 'video'):
             path = reverse('thumbnail-proxy', args=[obj.id])
-            if request:
-                return request.build_absolute_uri(path)
-            # If no request context, construct path that frontend can use
-            # Frontend uses /api/proxy, so we need to construct the full path
-            return f'/api/proxy{path}'
+            # Return relative path - frontend will route through /api/proxy
+            return path
         # For other types, no thumbnail
         return None
 
