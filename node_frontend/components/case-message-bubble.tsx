@@ -187,15 +187,8 @@ export function CaseMessageBubble({
               }
             }}
             onError={() => {
-              // Retry on image load error
-              if (retryCount < maxRetries) {
-                setRetryCount(prev => prev + 1)
-                setImageUrl(null)
-                setIsLoading(true)
-              } else {
-                setHasError(true)
-                setIsLoading(false)
-              }
+              setHasError(true)
+              setIsLoading(false)
             }}
           />
         )}
