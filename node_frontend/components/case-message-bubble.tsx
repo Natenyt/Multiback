@@ -96,7 +96,7 @@ export function CaseMessageBubble({
   }, [])
 
   // Image loader component with proper state management
-  function ImageLoader({ content }: { content: { id: number; thumbnail_url: string | null; file_url: string | null; caption?: string | null } }) {
+  function ImageLoader({ content }: { content: { id: number; thumbnail_url?: string | null; file_url?: string | null; caption?: string | null } }) {
     const [imageUrl, setImageUrl] = React.useState<string | null>(null)
     const [isLoading, setIsLoading] = React.useState(true)
     const [hasError, setHasError] = React.useState(false)
