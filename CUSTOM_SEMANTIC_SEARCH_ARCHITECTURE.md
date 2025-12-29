@@ -426,3 +426,4 @@ models/
 
 This architecture gives you a **completely custom, domain-specific semantic search** that understands your departments deeply and improves continuously from real-world corrections.
 
+

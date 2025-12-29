@@ -34,3 +34,4 @@ class GraveyardConfig(AppConfig):
             except Exception as e:
                 logger.warning(f"Failed to start database connection keepalive: {e}")
 
+

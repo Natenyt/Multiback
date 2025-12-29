@@ -66,3 +66,4 @@ class SecurityMiddleware(MiddlewareMixin):
             ip = request.META.get('REMOTE_ADDR', 'Unknown')
         return ip
 
+
