@@ -148,8 +148,12 @@ class SendMessageAPIView(APIView):
                 
                 # Send the actual message content to Telegram
                 # For files, use the existing task
+                # Ensure message is saved and files are accessible before sending
                 if has_files:
-                    upload_message_to_telegram.delay(msg.id, chat_id)
+                    # Refresh from DB to ensure all related objects are loaded
+                    msg.refresh_from_db()
+                    # Use apply_async with countdown to give Django time to finish saving files
+                    upload_message_to_telegram.apply_async(args=[msg.id, chat_id], countdown=1)
                 # For text messages, send directly
                 elif text:
                     try:

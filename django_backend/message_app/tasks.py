@@ -71,24 +71,40 @@ def upload_message_to_telegram(self, message_id, chat_id=None):
         # Get all file contents - verify file actually exists
         file_contents = []
         for c in message.contents.all():
-            if c.content_type != 'text' and c.file and not c.telegram_file_id:
-                # Verify file actually exists
-                try:
-                    if hasattr(c.file, 'path'):
-                        import os
-                        if os.path.exists(c.file.path):
-                            file_contents.append(c)
-                        else:
-                            logger.warning(f"File path does not exist: {c.file.path} for content {c.id}")
-                    elif hasattr(c.file, 'read'):
-                        # File-like object, assume it's valid
+            # Only process non-text content with files that haven't been sent to Telegram yet
+            if c.content_type == 'text':
+                continue
+                
+            if not c.file:
+                logger.warning(f"Content {c.id} has content_type '{c.content_type}' but no file object")
+                continue
+                
+            if c.telegram_file_id:
+                logger.info(f"Content {c.id} already has telegram_file_id, skipping")
+                continue
+            
+            # Verify file actually exists
+            try:
+                if hasattr(c.file, 'path'):
+                    import os
+                    if os.path.exists(c.file.path):
+                        file_size = os.path.getsize(c.file.path)
+                        logger.info(f"Found file for content {c.id}: {c.file.path} (size: {file_size} bytes)")
                         file_contents.append(c)
                     else:
-                        logger.warning(f"Content {c.id} has file but cannot verify: {type(c.file)}")
-                except Exception as e:
-                    logger.error(f"Error checking file for content {c.id}: {e}")
+                        logger.error(f"File path does not exist: {c.file.path} for content {c.id}")
+                elif hasattr(c.file, 'read'):
+                    # File-like object, assume it's valid
+                    logger.info(f"Content {c.id} has file-like object: {type(c.file)}")
+                    file_contents.append(c)
+                else:
+                    logger.warning(f"Content {c.id} has file but cannot verify: {type(c.file)}")
                     # Try to add it anyway - might work
                     file_contents.append(c)
+            except Exception as e:
+                logger.error(f"Error checking file for content {c.id}: {e}")
+                # Try to add it anyway - might work
+                file_contents.append(c)
         
         logger.info(f"Message {message_id} has {len(file_contents)} files to send, text: {bool(text_to_send)}")
         

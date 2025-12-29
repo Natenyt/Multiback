@@ -102,15 +102,23 @@ export function CaseMessageBubble({
     const [hasError, setHasError] = React.useState(false)
     const [retryCount, setRetryCount] = React.useState(0)
     const maxRetries = 3
+    const previousSourceUrlRef = React.useRef<string | null | undefined>(null)
     
     // Determine source URL - prefer thumbnail, fallback to file_url
     const sourceUrl = content.thumbnail_url || content.file_url
     const cacheKey = sourceUrl || `content-${content.id}`
     
     React.useEffect(() => {
+      // Skip if sourceUrl hasn't actually changed
+      if (previousSourceUrlRef.current === sourceUrl && imageUrl !== null) {
+        return
+      }
+      previousSourceUrlRef.current = sourceUrl
+
       if (!sourceUrl) {
         setIsLoading(false)
         setHasError(true)
+        setImageUrl(null)
         return
       }
 
@@ -122,10 +130,6 @@ export function CaseMessageBubble({
         return
       }
 
-      // If we already have a blob URL showing and the source URL changed to backend URL,
-      // keep showing the blob while loading the backend image
-      const isTransitioning = imageUrl && imageUrl.startsWith('blob:') && !sourceUrl.startsWith('blob:')
-      
       // Check cache first
       const cached = blobUrlCache.current.get(cacheKey)
       if (cached) {
@@ -148,10 +152,7 @@ export function CaseMessageBubble({
       }
       
       // All other URLs (including backend URLs) need to go through authenticated fetch
-      // If transitioning from blob, show loading but keep blob visible
-      if (!isTransitioning) {
-        setIsLoading(true)
-      }
+      setIsLoading(true)
       setHasError(false)
       
       const loadImage = async () => {
@@ -180,7 +181,7 @@ export function CaseMessageBubble({
       }
 
       loadImage()
-    }, [sourceUrl, cacheKey, retryCount, imageUrl])
+    }, [sourceUrl, cacheKey, retryCount])
 
     // Cleanup blob URL on unmount
     React.useEffect(() => {

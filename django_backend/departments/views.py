@@ -107,31 +107,31 @@ def dashboard_leaderboard(request):
 
             # Get full name with same fallbacks as before
             full_name = getattr(staff_user, "full_name", None)
-            if not full_name:
-                if staff_profile.username:
-                    full_name = staff_profile.username
+                if not full_name:
+                    if staff_profile.username:
+                        full_name = staff_profile.username
                 elif getattr(staff_user, "username", None):
                     full_name = staff_user.username  # type: ignore[attr-defined]
-                else:
+                    else:
                     full_name = str(getattr(staff_user, "user_uuid", "")) or "Unknown"
 
-            # Get department name
-            department_name = "Unknown"
-            if staff_profile.department:
+                # Get department name
+                department_name = "Unknown"
+                if staff_profile.department:
                 department_name = staff_profile.department.name_uz or "Unknown"
 
             # Get avatar URL (same behavior as before)
-            avatar_url = None
+                avatar_url = None
             if hasattr(staff_user, "avatar") and staff_user.avatar:
-                try:
-                    avatar_url = request.build_absolute_uri(staff_user.avatar.url)
+                    try:
+                        avatar_url = request.build_absolute_uri(staff_user.avatar.url)
                 except Exception as e:  # pragma: no cover - defensive
                     logger.warning(
                         "Failed to get avatar URL for user %s: %s",
                         getattr(staff_user, "user_uuid", "unknown"),
                         e,
                     )
-                    avatar_url = None
+                        avatar_url = None
 
             leaderboard_data.append(
                 {
@@ -151,7 +151,7 @@ def dashboard_leaderboard(request):
         current_rank = 1
         for i, entry in enumerate(top_5):
             if i > 0 and entry["solved_total"] < top_5[i - 1]["solved_total"]:
-                current_rank = i + 1
+                    current_rank = i + 1
             entry["rank"] = current_rank
 
         return Response({"leaderboard": top_5})
