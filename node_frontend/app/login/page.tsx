@@ -68,9 +68,42 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Force dark theme on login page - locked to dark theme
+  // Prevents theme switching even on page refresh
   useEffect(() => {
+    // Immediately add dark class
     document.documentElement.classList.add('dark');
-    // Keep dark theme locked - don't remove on unmount
+    
+    // Watch for any theme changes and force dark theme back
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          const htmlElement = document.documentElement;
+          if (!htmlElement.classList.contains('dark')) {
+            // If dark class was removed, add it back immediately
+            htmlElement.classList.add('dark');
+          }
+        }
+      });
+    });
+    
+    // Start observing the html element for class changes
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    
+    // Also set up a periodic check as backup (in case MutationObserver misses something)
+    const intervalId = setInterval(() => {
+      if (!document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.add('dark');
+      }
+    }, 100); // Check every 100ms
+    
+    // Cleanup on unmount
+    return () => {
+      observer.disconnect();
+      clearInterval(intervalId);
+    };
   }, []);
 
   const form = useForm<LoginFormValues>({

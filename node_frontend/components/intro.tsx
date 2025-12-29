@@ -9,10 +9,10 @@ import { getAuthToken } from '@/dash_department/lib/api';
  * Intro Component
  * 
  * Displays a professional intro screen with:
- * - NTMP logo with slow fade-in (0.8s) and optional scale (98% → 100%)
- * - Text appearing after logo with 0.3s delay
+ * - NTMP logo appears first with slow fade-in (0.8s) and optional scale (98% → 100%)
+ * - Text appearing 0.3s after logo appears (not after animation starts)
  * - Total duration: 5 seconds (within 4-6 second range)
- * - Dark background (#0E1116) - locked regardless of user theme preference
+ * - Pure black background (#000000) - locked regardless of user theme preference
  * - No audio (silent, professional)
  */
 export default function Intro() {
@@ -27,18 +27,18 @@ export default function Intro() {
     // This ensures consistent dark background for intro and login pages
     document.documentElement.classList.add('dark');
     
-    // Logo fade-in animation: very slow fade (0.8s) from opacity 0 → 100
+    // Logo appears first: fade-in animation (0.8s) from opacity 0 → 100
     // Optional slight scale from 98% → 100%
     const logoTimer = setTimeout(() => {
       setLogoOpacity(1);
       setLogoScale(1);
     }, 100); // Small delay to ensure smooth animation start
 
-    // Text fade-in animation: appears after logo with 0.3s delay
-    // Text starts fading in 0.3s after logo animation begins
+    // Text appears 0.3s AFTER logo appears (not after animation starts)
+    // Logo animation is 0.8s, so text appears at: 100ms (start) + 800ms (logo animation) + 300ms (delay) = 1200ms
     const textTimer = setTimeout(() => {
       setTextOpacity(1);
-    }, 100 + 300); // Initial delay + 0.3s delay after logo
+    }, 100 + 800 + 300); // Start delay + logo animation duration + 0.3s delay after logo appears
 
     // Total intro duration: 5 seconds (within 4-6 second range)
     // After intro completes, redirect to login or dashboard
@@ -67,10 +67,10 @@ export default function Intro() {
     <div 
       className="fixed inset-0 flex flex-col items-center justify-center z-50"
       style={{ 
-        backgroundColor: '#0E1116', // Dark neutral background - locked, won't change
+        backgroundColor: '#000000', // Pure black background - locked, won't change
       }}
     >
-      {/* Logo: Very slow fade-in (0.8s) with optional scale (98% → 100%) */}
+      {/* Logo: Appears first, fade-in (0.8s) with optional scale (98% → 100%) */}
       {/* No rotation, no bounce - just smooth fade and subtle scale */}
       <div
         style={{
@@ -90,7 +90,7 @@ export default function Intro() {
         />
       </div>
 
-      {/* Text: Appears under logo with small spacing, fades in after 0.3s delay */}
+      {/* Text: Appears 0.3s after logo appears, bigger text size */}
       <div
         style={{
           opacity: textOpacity,
@@ -99,13 +99,13 @@ export default function Intro() {
         className="text-center"
       >
         <h1 
-          className="text-2xl font-semibold mb-2"
+          className="text-3xl font-semibold mb-3"
           style={{ color: '#ffffff' }} // White color
         >
           NTMP
         </h1>
         <p 
-          className="text-sm"
+          className="text-base"
           style={{ color: '#ffffff' }} // White color
         >
           Raqamli murojaatlar boshqaruv tizimi
