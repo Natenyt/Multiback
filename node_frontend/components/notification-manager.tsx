@@ -4,7 +4,7 @@ import * as React from "react"
 import { useNotifications } from "@/contexts/notification-context"
 import { useToast } from "@/hooks/use-toast"
 import { formatTimeAgo } from "@/lib/time-utils"
-import { getAuthToken } from "@/dash_department/lib/api"
+import { getAuthToken, getValidAuthToken } from "@/dash_department/lib/api"
 import { getStaffProfile } from "@/dash_department/lib/api"
 
 // Get WS URL from API URL (replace /api with empty, and http with ws)
@@ -98,7 +98,8 @@ export const NotificationManager: React.FC = () => {
           departmentIdRef.current = profile.department_id
         }
 
-        const token = getAuthToken()
+        // Get valid token (will refresh if needed)
+        const token = await getValidAuthToken()
         const departmentId = departmentIdRef.current
 
         if (!token || !departmentId || !mounted) {

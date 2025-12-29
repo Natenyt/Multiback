@@ -10,6 +10,7 @@ from departments.views import (
 )
 from broadcast.views import dashboard_broadcast, broadcast_seen, broadcast_ack
 from users.views import StaffLoginView
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from message_app.views import TicketListAPIView, NeighborhoodSearchAPIView
 from message_app.views_history import TicketHistoryAPIView, MarkReadAPIView
@@ -26,6 +27,7 @@ urlpatterns = [
     
 
     path('auth/staff-login/', StaffLoginView.as_view(), name='staff_login'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # Dashboard
     path('dashboard/stats/', dashboard_stats, name='dashboard_stats'),

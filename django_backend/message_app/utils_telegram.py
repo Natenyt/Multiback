@@ -52,10 +52,11 @@ def send_text_to_telegram(chat_id: int, text: str, remove_keyboard: bool = False
     resp = requests.post(url, json=payload, timeout=15)
     return resp.json()
 
-def send_file_to_telegram(chat_id: int, file_field, file_type: str):
+def send_file_to_telegram(chat_id: int, file_field, file_type: str, caption: str = None):
     """
     file_field: Django InMemoryUploadedFile / File
     file_type: 'photo' | 'document' | 'audio' | 'voice' | 'video'
+    caption: Optional caption text for the file
     Returns telegram API response (dict)
     """
     bot_token = getattr(settings, "TOKEN_BOT", None) or getattr(settings, "TELEGRAM_BOT_TOKEN", None)
@@ -76,6 +77,12 @@ def send_file_to_telegram(chat_id: int, file_field, file_type: str):
 
     files = {}
     data = {"chat_id": str(chat_id)}
+    
+    # Add caption if provided (Telegram supports captions for photos, videos, documents, audio)
+    if caption:
+        data["caption"] = caption
+        data["parse_mode"] = "HTML"  # Support HTML formatting in captions
+    
     # for sendPhoto the field name is 'photo', sendDocument -> 'document'
     fieldname = 'document'
     if method == 'sendPhoto':
@@ -86,7 +93,36 @@ def send_file_to_telegram(chat_id: int, file_field, file_type: str):
         fieldname = 'audio'
     elif method == 'sendVoice':
         fieldname = 'voice'
-    files[fieldname] = (file_field.name, file_field.read())
+    
+    # Handle different file types - Django FileField can be tricky
+    file_name = getattr(file_field, 'name', 'file')
+    
+    # Try to read the file data
+    try:
+        # Reset file pointer to beginning in case it was read before
+        if hasattr(file_field, 'seek'):
+            file_field.seek(0)
+        
+        # Try to read directly
+        if hasattr(file_field, 'read'):
+            file_data = file_field.read()
+        elif hasattr(file_field, 'path'):
+            # Django FileField with path - open and read
+            with open(file_field.path, 'rb') as f:
+                file_data = f.read()
+            file_name = file_field.name
+        else:
+            raise ValueError(f"Cannot read file: {type(file_field)}")
+    except Exception as e:
+        # If reading fails, try opening the file by path
+        if hasattr(file_field, 'path'):
+            with open(file_field.path, 'rb') as f:
+                file_data = f.read()
+            file_name = file_field.name
+        else:
+            raise ValueError(f"Failed to read file: {e}")
+    
+    files[fieldname] = (file_name, file_data)
 
     resp = requests.post(url, data=data, files=files, timeout=60)
     return resp.json()

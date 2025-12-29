@@ -39,10 +39,18 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
   const handleMessageUpdate = (optimisticId: string, updatedMessage: Message) => {
     setMessages((prev) => {
       // Find and replace the optimistic message with the real one
-      const index = prev.findIndex(msg => msg.optimisticId === optimisticId || msg.message_uuid === optimisticId)
+      const index = prev.findIndex(msg => 
+        msg.optimisticId === optimisticId || 
+        msg.message_uuid === optimisticId ||
+        (msg.optimisticId && msg.optimisticId === optimisticId)
+      )
       if (index !== -1) {
         const newMessages = [...prev]
-        newMessages[index] = updatedMessage
+        // Replace with real message, preserving optimisticId for reference
+        newMessages[index] = {
+          ...updatedMessage,
+          optimisticId: optimisticId, // Keep for potential future reference
+        }
         return newMessages
       }
       // If not found, just add it (shouldn't happen, but fallback)

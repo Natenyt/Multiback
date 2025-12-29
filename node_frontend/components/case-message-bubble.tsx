@@ -37,8 +37,6 @@ export function CaseMessageBubble({
   const textContent = message.contents.find((c) => c.content_type === "text")?.text || ""
   const imageContents = message.contents.filter((c) => c.content_type === "image")
   const hasImages = imageContents.length > 0
-  const sendingStatus = message.sendingStatus
-  const showStatusIndicator = isStaff && sendingStatus && sendingStatus !== 'sent'
 
   // Calculate border radius classes based on grouping and sender type
   // Always start with rounded-lg, then explicitly use rounded-*-none to remove rounding
@@ -97,124 +95,160 @@ export function CaseMessageBubble({
     }
   }, [])
 
+  // Image loader component with proper state management
+  function ImageLoader({ content }: { content: { id: number; thumbnail_url: string | null; file_url: string | null; caption?: string | null } }) {
+    const [imageUrl, setImageUrl] = React.useState<string | null>(null)
+    const [isLoading, setIsLoading] = React.useState(true)
+    const [hasError, setHasError] = React.useState(false)
+    const [retryCount, setRetryCount] = React.useState(0)
+    const maxRetries = 3
+    
+    // Determine source URL - prefer thumbnail, fallback to file_url
+    const sourceUrl = content.thumbnail_url || content.file_url
+    const cacheKey = sourceUrl || `content-${content.id}`
+    
+    React.useEffect(() => {
+      if (!sourceUrl) {
+        setIsLoading(false)
+        setHasError(true)
+        return
+      }
+
+      // Check if it's already a blob URL (optimistic UI) - show immediately
+      if (sourceUrl.startsWith('blob:')) {
+        setImageUrl(sourceUrl)
+        setIsLoading(false)
+        setHasError(false)
+        return
+      }
+
+      // If we already have a blob URL showing and the source URL changed to backend URL,
+      // keep showing the blob while loading the backend image
+      const isTransitioning = imageUrl && imageUrl.startsWith('blob:') && !sourceUrl.startsWith('blob:')
+      
+      // Check cache first
+      const cached = blobUrlCache.current.get(cacheKey)
+      if (cached) {
+        setImageUrl(cached)
+        setIsLoading(false)
+        setHasError(false)
+        return
+      }
+
+      // Check if it's a truly external URL (not our backend)
+      const isExternalUrl = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://')
+      const isBackendUrl = sourceUrl.includes('/api/') || sourceUrl.includes('/media/')
+      
+      // Only use external URLs directly if they're not pointing to our backend
+      if (isExternalUrl && !isBackendUrl) {
+        setImageUrl(sourceUrl)
+        setIsLoading(false)
+        setHasError(false)
+        return
+      }
+      
+      // All other URLs (including backend URLs) need to go through authenticated fetch
+      // If transitioning from blob, show loading but keep blob visible
+      if (!isTransitioning) {
+        setIsLoading(true)
+      }
+      setHasError(false)
+      
+      const loadImage = async () => {
+        try {
+          const blobUrl = await fetchAuthenticatedImage(sourceUrl)
+          if (blobUrl) {
+            blobUrlCache.current.set(cacheKey, blobUrl)
+            setImageUrl(blobUrl)
+            setIsLoading(false)
+            setHasError(false)
+          } else {
+            throw new Error('Failed to fetch image')
+          }
+        } catch (error) {
+          console.error('Error loading image:', error)
+          // Retry logic
+          if (retryCount < maxRetries) {
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1)
+            }, 1000 * (retryCount + 1)) // Exponential backoff
+          } else {
+            setHasError(true)
+            setIsLoading(false)
+          }
+        }
+      }
+
+      loadImage()
+    }, [sourceUrl, cacheKey, retryCount, imageUrl])
+
+    // Cleanup blob URL on unmount
+    React.useEffect(() => {
+      return () => {
+        if (imageUrl && imageUrl.startsWith('blob:') && !sourceUrl?.startsWith('blob:')) {
+          // Only revoke if it's not the original optimistic blob URL
+          URL.revokeObjectURL(imageUrl)
+        }
+      }
+    }, [imageUrl, sourceUrl])
+
+    return (
+      <div
+        className="relative rounded-lg overflow-hidden border border-border max-w-[200px] max-h-[200px] bg-muted"
+      >
+        {isLoading ? (
+          <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-muted-foreground">Loading...</span>
+            </div>
+          </div>
+        ) : hasError || !imageUrl ? (
+          <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
+            <span className="text-xs text-muted-foreground">Image not available</span>
+          </div>
+        ) : (
+          <img
+            src={imageUrl}
+            alt={content.caption || "Image"}
+            className="object-cover w-full h-full cursor-pointer hover:opacity-90 transition-opacity max-w-[200px] max-h-[200px]"
+            onClick={() => {
+              // Open full size image if available
+              if (content.file_url && content.file_url !== sourceUrl) {
+                window.open(content.file_url, '_blank')
+              }
+            }}
+            onError={() => {
+              // Retry on image load error
+              if (retryCount < maxRetries) {
+                setRetryCount(prev => prev + 1)
+                setImageUrl(null)
+                setIsLoading(true)
+              } else {
+                setHasError(true)
+                setIsLoading(false)
+              }
+            }}
+          />
+        )}
+        {content.caption && imageUrl && !hasError && (
+          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2">
+            {content.caption}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={`flex ${isStaff ? "justify-end" : "justify-start"} mb-1`}>
       <div className={`max-w-[70%] ${isStaff ? "items-end" : "items-start"} flex flex-col`}>
         {/* Images */}
         {hasImages && (
           <div className={`flex flex-wrap gap-2 mb-2 ${isStaff ? "justify-end" : "justify-start"}`}>
-            {imageContents.map((content) => {
-              const [imageUrl, setImageUrl] = React.useState<string | null>(null)
-              const [isLoading, setIsLoading] = React.useState(true)
-              const [hasError, setHasError] = React.useState(false)
-              
-              // Determine source URL - prefer thumbnail, fallback to file_url
-              const sourceUrl = content.thumbnail_url || content.file_url
-              const cacheKey = sourceUrl || `content-${content.id}`
-              
-              React.useEffect(() => {
-                if (!sourceUrl) {
-                  setIsLoading(false)
-                  setHasError(true)
-                  return
-                }
-
-                // Check if it's already a blob URL (optimistic UI)
-                if (sourceUrl.startsWith('blob:')) {
-                  setImageUrl(sourceUrl)
-                  setIsLoading(false)
-                  return
-                }
-
-                // Check cache first
-                const cached = blobUrlCache.current.get(cacheKey)
-                if (cached) {
-                  setImageUrl(cached)
-                  setIsLoading(false)
-                  return
-                }
-
-                // Check if it's a truly external URL (not our backend)
-                // If it contains /api/ or /media/, it's our backend and needs auth through proxy
-                const isExternalUrl = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://')
-                const isBackendUrl = sourceUrl.includes('/api/') || sourceUrl.includes('/media/')
-                
-                // Only use external URLs directly if they're not pointing to our backend
-                if (isExternalUrl && !isBackendUrl) {
-                  setImageUrl(sourceUrl)
-                  setIsLoading(false)
-                  return
-                }
-                
-                // All other URLs (including backend URLs) need to go through authenticated fetch
-
-                // Fetch with authentication and convert to blob
-                setIsLoading(true)
-                fetchAuthenticatedImage(sourceUrl)
-                  .then((blobUrl) => {
-                    if (blobUrl) {
-                      blobUrlCache.current.set(cacheKey, blobUrl)
-                      setImageUrl(blobUrl)
-                      setIsLoading(false)
-                    } else {
-                      setHasError(true)
-                      setIsLoading(false)
-                    }
-                  })
-                  .catch((error) => {
-                    console.error('Error loading image:', error)
-                    setHasError(true)
-                    setIsLoading(false)
-                  })
-              }, [sourceUrl, cacheKey])
-
-              // Cleanup blob URL on unmount
-              React.useEffect(() => {
-                return () => {
-                  if (imageUrl && imageUrl.startsWith('blob:') && !sourceUrl?.startsWith('blob:')) {
-                    // Only revoke if it's not the original optimistic blob URL
-                    URL.revokeObjectURL(imageUrl)
-                  }
-                }
-              }, [imageUrl, sourceUrl])
-
-              return (
-                <div
-                  key={content.id}
-                  className="relative rounded-lg overflow-hidden border border-border max-w-[200px] max-h-[200px] bg-muted"
-                >
-                  {isLoading ? (
-                    <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground">Loading...</span>
-                    </div>
-                  ) : hasError || !imageUrl ? (
-                    <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground">Image not available</span>
-                    </div>
-                  ) : (
-                    <img
-                      src={imageUrl}
-                      alt={content.caption || "Image"}
-                      className="object-cover w-full h-full cursor-pointer hover:opacity-90 transition-opacity max-w-[200px] max-h-[200px]"
-                      onClick={() => {
-                        // Open full size image if available
-                        if (content.file_url && content.file_url !== sourceUrl) {
-                          window.open(content.file_url, '_blank')
-                        }
-                      }}
-                      onError={() => {
-                        setHasError(true)
-                      }}
-                    />
-                  )}
-                  {content.caption && imageUrl && !hasError && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2">
-                      {content.caption}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {imageContents.map((content) => (
+              <ImageLoader key={content.id} content={content} />
+            ))}
           </div>
         )}
 
@@ -226,27 +260,6 @@ export function CaseMessageBubble({
               ${isStaff ? "bg-background dark:bg-card text-foreground border border-border" : "bg-[#193BE5] dark:bg-[#2563eb] text-white"}`}
           >
             <p className="text-sm whitespace-pre-wrap break-words">{textContent}</p>
-            {/* Status Indicator - only for staff messages */}
-            {showStatusIndicator && (
-              <div
-                className={`absolute bottom-1 right-1 w-2 h-2 rounded-full transition-colors duration-300 ${
-                  sendingStatus === 'sending' ? 'bg-blue-400' : sendingStatus === 'failed' ? 'bg-red-400' : 'bg-green-500'
-                }`}
-                title={sendingStatus === 'sending' ? 'Sending...' : sendingStatus === 'failed' ? 'Failed' : 'Sent'}
-              />
-            )}
-          </div>
-        )}
-        
-        {/* Status Indicator for image-only messages (staff) */}
-        {hasImages && !textContent && showStatusIndicator && (
-          <div className="relative">
-            <div
-              className={`absolute bottom-1 right-1 w-2 h-2 rounded-full transition-colors duration-300 z-10 ${
-                sendingStatus === 'sending' ? 'bg-blue-400' : sendingStatus === 'failed' ? 'bg-red-400' : 'bg-green-500'
-              }`}
-              title={sendingStatus === 'sending' ? 'Sending...' : sendingStatus === 'failed' ? 'Failed' : 'Sent'}
-            />
           </div>
         )}
 

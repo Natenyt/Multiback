@@ -42,6 +42,165 @@ export function getAuthToken(): string | null {
   return null;
 }
 
+export function getRefreshToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('refresh_token');
+  }
+  return null;
+}
+
+/**
+ * Decode JWT token to check expiration
+ * Returns the expiration timestamp in seconds, or null if invalid
+ */
+function getTokenExpiration(token: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+    const payload = JSON.parse(atob(parts[1]));
+    return payload.exp || null;
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if a token is expired or will expire soon (within 5 minutes)
+ */
+export function isTokenExpired(token: string | null): boolean {
+  if (!token) {
+    return true;
+  }
+  const exp = getTokenExpiration(token);
+  if (!exp) {
+    return true; // If we can't decode it, consider it expired
+  }
+  // Check if token expires within 5 minutes (300 seconds)
+  const now = Math.floor(Date.now() / 1000);
+  return exp <= (now + 300);
+}
+
+/**
+ * Refresh the access token using the refresh token
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    console.warn('No refresh token available');
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Token refresh failed:', errorData);
+      // If refresh token is invalid, clear all tokens
+      if (response.status === 401 || response.status === 403) {
+        clearAuthTokens();
+        // Redirect to login page
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.access) {
+      // Update the access token in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_token', data.access);
+      }
+      return data.access;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return null;
+  }
+}
+
+/**
+ * Get a valid access token, refreshing if necessary
+ */
+export async function getValidAuthToken(): Promise<string | null> {
+  let token = getAuthToken();
+  
+  // If token is expired or will expire soon, refresh it
+  if (isTokenExpired(token)) {
+    console.log('Token expired or expiring soon, refreshing...');
+    token = await refreshAccessToken();
+  }
+  
+  return token;
+}
+
+/**
+ * Make an authenticated fetch request with automatic token refresh on 401
+ */
+async function authenticatedFetch(
+  url: string,
+  options: RequestInit = {},
+  retryCount = 0
+): Promise<Response> {
+  // Get valid token (will refresh if needed)
+  let token = await getValidAuthToken();
+  
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  // Add authorization header
+  const headers = new Headers(options.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Content-Type') && options.body && typeof options.body === 'string') {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  // If we get a 401, try refreshing the token once and retry
+  if (response.status === 401 && retryCount === 0) {
+    console.log('Got 401, attempting token refresh and retry...');
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      // Retry with new token
+      const retryHeaders = new Headers(options.headers);
+      retryHeaders.set('Authorization', `Bearer ${newToken}`);
+      if (!retryHeaders.has('Content-Type') && options.body && typeof options.body === 'string') {
+        retryHeaders.set('Content-Type', 'application/json');
+      }
+      return fetch(url, {
+        ...options,
+        headers: retryHeaders,
+      });
+    } else {
+      // Refresh failed, clear tokens and redirect
+      clearAuthTokens();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Authentication failed. Please log in again.');
+    }
+  }
+
+  return response;
+}
+
 /**
  * Fetch an authenticated image and convert it to a blob URL
  * This is needed because <img> tags can't send authentication headers
@@ -185,17 +344,13 @@ export interface StaffProfileResponse {
 }
 
 export async function getStaffProfile(): Promise<StaffProfileResponse> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
 
-  const response = await fetch(`${API_BASE_URL}/dashboard/staff-profile/`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/dashboard/staff-profile/`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
   });
 
   if (!response.ok) {
@@ -478,8 +633,7 @@ export interface Message {
   };
   contents: MessageContent[];
   // Optimistic UI fields
-  sendingStatus?: 'sending' | 'sent' | 'failed';
-  optimisticId?: string; // Temporary ID to match with server response
+  optimisticId?: string; // Temporary ID to match with server response (for message matching only)
 }
 
 export interface SessionData {
@@ -799,7 +953,8 @@ export async function sendMessage(
     client_message_id?: string;
   }
 ): Promise<{ message: Message; queued_for_analysis: boolean; broadcasted: boolean; telegram_delivery: any }> {
-  const token = getAuthToken();
+  // Get valid token (will refresh if needed)
+  let token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -814,6 +969,7 @@ export async function sendMessage(
     formData.append('client_message_id', options.client_message_id);
   }
 
+
   if (options?.files && options.files.length > 0) {
     options.files.forEach((file) => {
       formData.append('files', file);
@@ -824,13 +980,36 @@ export async function sendMessage(
     formData.append('files', options.voiceBlob, 'voice.ogg');
   }
 
-  const response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/send/`, {
+  let response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/send/`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
     },
     body: formData,
   });
+
+  // If we get a 401, try refreshing the token once and retry
+  if (response.status === 401) {
+    console.log('Got 401 on sendMessage, attempting token refresh and retry...');
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      // Retry with new token
+      response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/send/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${newToken}`,
+        },
+        body: formData,
+      });
+    } else {
+      // Refresh failed, clear tokens and redirect
+      clearAuthTokens();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Authentication failed. Please log in again.');
+    }
+  }
 
   if (!response.ok) {
     const errorData: ApiError = await response.json().catch(() => ({

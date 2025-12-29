@@ -96,14 +96,13 @@ export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }
           content_type: 'image' as const,
           text: undefined,
           caption: undefined,
-          file_url: preview, // Use local preview URL
+          file_url: preview, // Use local blob URL for immediate display
           thumbnail_url: preview,
           telegram_file_id: null,
           media_group_id: null,
           created_at: new Date().toISOString(),
         })),
       ],
-      sendingStatus: 'sending',
       optimisticId,
     }
 
@@ -125,16 +124,10 @@ export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }
       
       // Update optimistic message with real data
       if (onMessageUpdate && optimisticId) {
-        onMessageUpdate(optimisticId, {
-          ...response.message,
-          sendingStatus: 'sent',
-        })
+        onMessageUpdate(optimisticId, response.message)
       } else {
         // Fallback: if no update handler, just add the real message
-        onMessageSent({
-          ...response.message,
-          sendingStatus: 'sent',
-        })
+        onMessageSent(response.message)
       }
       
       // Revoke preview URLs after a delay to ensure images are loaded
@@ -144,13 +137,8 @@ export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }
     } catch (error) {
       console.error("Failed to send message:", error)
       
-      // Update optimistic message to show failed state
-      if (onMessageUpdate && optimisticId) {
-        onMessageUpdate(optimisticId, {
-          ...optimisticMessage,
-          sendingStatus: 'failed',
-        })
-      }
+      // Remove optimistic message on error (or keep it, user can retry)
+      // For now, we'll keep it but the user can see the error toast
       
       toast({
         title: "Error",
