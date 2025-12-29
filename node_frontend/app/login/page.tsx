@@ -121,6 +121,13 @@ export default function LoginPage() {
     try {
       const response = await staffLogin(data);
       storeAuthTokens(response.access, response.refresh);
+      
+      // Dispatch custom event to notify StaffProfileProvider that token is set
+      // This ensures the profile loads immediately after login
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth-token-set'));
+      }
+      
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');

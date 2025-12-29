@@ -87,20 +87,20 @@ export function SessionsChart() {
               className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
               aria-label="Select a time range"
             >
-              <SelectValue placeholder="Last 30 days" />
+              <SelectValue placeholder="Oxirgisi 30 kun" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="7d" className="rounded-lg">
-                Last 7 days
+                Oxirgisi 7 kun
               </SelectItem>
               <SelectItem value="30d" className="rounded-lg">
-                Last 30 days
+                Oxirgisi 30 kun
               </SelectItem>
               <SelectItem value="3m" className="rounded-lg">
-                Last 3 months
+                Oxirgisi 3 oy
               </SelectItem>
               <SelectItem value="all" className="rounded-lg">
-                All time
+                Barcha vaqt
               </SelectItem>
             </SelectContent>
           </Select>
@@ -130,20 +130,20 @@ export function SessionsChart() {
             className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
             aria-label="Select a time range"
           >
-            <SelectValue placeholder="Last 30 days" />
+            <SelectValue placeholder="Oxirgisi 30 kun" />
           </SelectTrigger>
           <SelectContent className="rounded-xl">
             <SelectItem value="7d" className="rounded-lg">
-              Last 7 days
+              Oxirgisi 7 kun
             </SelectItem>
             <SelectItem value="30d" className="rounded-lg">
-              Last 30 days
+              Oxirgisi 30 kun
             </SelectItem>
             <SelectItem value="3m" className="rounded-lg">
-              Last 3 months
+              Oxirgisi 3 oy
             </SelectItem>
             <SelectItem value="all" className="rounded-lg">
-              All time
+              Barcha vaqt
             </SelectItem>
           </SelectContent>
         </Select>

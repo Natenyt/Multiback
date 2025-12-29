@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { type Message } from "@/dash_department/lib/api"
 
 interface CaseMessageBubbleProps {
@@ -32,6 +33,8 @@ export function CaseMessageBubble({
 
   const isStaff = message.is_staff_message === true
   const textContent = message.contents.find((c) => c.content_type === "text")?.text || ""
+  const imageContents = message.contents.filter((c) => c.content_type === "image")
+  const hasImages = imageContents.length > 0
 
   // Calculate border radius classes based on grouping and sender type
   // Always start with rounded-lg, then explicitly use rounded-*-none to remove rounding
@@ -108,14 +111,55 @@ export function CaseMessageBubble({
   return (
     <div className={`flex ${isStaff ? "justify-end" : "justify-start"} mb-1`}>
       <div className={`max-w-[70%] ${isStaff ? "items-end" : "items-start"} flex flex-col`}>
-        <div
-          onClick={handleBubbleClick}
-          className={`${getBorderRadiusClasses()} px-4 py-2 transition-transform duration-150 cursor-pointer select-text
-            ${isStaff ? "bg-background dark:bg-card text-foreground border border-border" : "bg-[#193BE5] dark:bg-[#2563eb] text-white"}`}
-        >
-          <p className="text-sm whitespace-pre-wrap break-words">{textContent}</p>
-        </div>
+        {/* Images */}
+        {hasImages && (
+          <div className={`flex flex-wrap gap-2 mb-2 ${isStaff ? "justify-end" : "justify-start"}`}>
+            {imageContents.map((content) => (
+              <div
+                key={content.id}
+                className="relative rounded-lg overflow-hidden border border-border max-w-[200px] max-h-[200px]"
+              >
+                {content.thumbnail_url || content.file_url ? (
+                  <Image
+                    src={content.thumbnail_url || content.file_url || ''}
+                    alt={content.caption || "Image"}
+                    width={200}
+                    height={200}
+                    className="object-cover w-full h-full cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => {
+                      if (content.file_url) {
+                        window.open(content.file_url, '_blank')
+                      }
+                    }}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground">Loading...</span>
+                  </div>
+                )}
+                {content.caption && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2">
+                    {content.caption}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
+        {/* Text Content */}
+        {textContent && (
+          <div
+            onClick={handleBubbleClick}
+            className={`${getBorderRadiusClasses()} px-4 py-2 transition-transform duration-150 cursor-pointer select-text
+              ${isStaff ? "bg-background dark:bg-card text-foreground border border-border" : "bg-[#193BE5] dark:bg-[#2563eb] text-white"}`}
+          >
+            <p className="text-sm whitespace-pre-wrap break-words">{textContent}</p>
+          </div>
+        )}
+
+        {/* Timestamp */}
         <div 
           className={`text-xs text-muted-foreground mt-1 px-1 transition-all duration-200 overflow-hidden
             ${showTimestamp ? "max-h-10 opacity-100 translate-y-0" : "max-h-0 opacity-0 translate-y-2"}`}

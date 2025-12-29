@@ -321,7 +321,7 @@ async def process_message_pipeline(request: AnalyzeRequest):
         {candidates_str}
         
         Instructions:
-        1. Classify the Intent (Complaint, Inquiry, Suggestion).
+        1. Classify the Intent (Shikoyat, Savol, Taklif).
         2. Select the single best Department ID from the list provided above.
         3. CRITICAL: You must return an ID that exists in the list. Do not invent IDs.
         4. Provide a Confidence Score (0-100) and a short Reason.
