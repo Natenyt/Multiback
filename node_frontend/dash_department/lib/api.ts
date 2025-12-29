@@ -970,8 +970,9 @@ export async function sendMessage(
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
-    body: formData,
+    body: JSON.stringify(payload),
   });
 
   // If we get a 401, try refreshing the token once and retry
