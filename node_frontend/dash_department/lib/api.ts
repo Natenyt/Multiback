@@ -369,6 +369,9 @@ export interface Message {
     avatar_url: string | null;
   };
   contents: MessageContent[];
+  // Optimistic UI fields
+  sendingStatus?: 'sending' | 'sent' | 'failed';
+  optimisticId?: string; // Temporary ID to match with server response
 }
 
 export interface SessionData {

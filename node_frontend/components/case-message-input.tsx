@@ -10,9 +10,10 @@ import Image from "next/image"
 interface CaseMessageInputProps {
   sessionUuid: string
   onMessageSent: (message: Message) => void
+  onMessageUpdate?: (optimisticId: string, message: Message) => void
 }
 
-export function CaseMessageInput({ sessionUuid, onMessageSent }: CaseMessageInputProps) {
+export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }: CaseMessageInputProps) {
   const [inputValue, setInputValue] = React.useState("")
   const [isSending, setIsSending] = React.useState(false)
   const [selectedImages, setSelectedImages] = React.useState<File[]>([])
@@ -61,21 +62,96 @@ export function CaseMessageInput({ sessionUuid, onMessageSent }: CaseMessageInpu
   const handleSend = async () => {
     if ((!inputValue.trim() && selectedImages.length === 0) || isSending) return
 
+    const textToSend = inputValue.trim()
+    const imagesToSend = [...selectedImages]
+    
+    // Create optimistic message immediately
+    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`
+    const optimisticMessage: Message = {
+      message_uuid: optimisticId,
+      created_at: new Date().toISOString(),
+      delivered_at: null,
+      read_at: null,
+      is_staff_message: true,
+      is_me: true,
+      sender_platform: 'web',
+      sender: {
+        user_uuid: null,
+        full_name: 'You',
+        avatar_url: null,
+      },
+      contents: [
+        ...(textToSend ? [{
+          id: 0,
+          content_type: 'text',
+          text: textToSend,
+          file_url: null,
+          thumbnail_url: null,
+          telegram_file_id: null,
+          media_group_id: null,
+          created_at: new Date().toISOString(),
+        }] : []),
+        ...imagePreviews.map((preview, index) => ({
+          id: index + 1,
+          content_type: 'image' as const,
+          text: undefined,
+          caption: undefined,
+          file_url: preview, // Use local preview URL
+          thumbnail_url: preview,
+          telegram_file_id: null,
+          media_group_id: null,
+          created_at: new Date().toISOString(),
+        })),
+      ],
+      sendingStatus: 'sending',
+      optimisticId,
+    }
+
+    // Show optimistic message immediately
+    onMessageSent(optimisticMessage)
+
+    // Clear input immediately for better UX
+    setInputValue("")
+    const previewUrlsToRevoke = [...imagePreviews]
+    setSelectedImages([])
+    setImagePreviews([])
+
     setIsSending(true)
     try {
       const response = await sendMessage(sessionUuid, {
-        text: inputValue.trim() || undefined,
-        files: selectedImages.length > 0 ? selectedImages : undefined,
+        text: textToSend || undefined,
+        files: imagesToSend.length > 0 ? imagesToSend : undefined,
       })
-      onMessageSent(response.message)
-      setInputValue("")
       
-      // Clear images and revoke URLs
-      imagePreviews.forEach(url => URL.revokeObjectURL(url))
-      setSelectedImages([])
-      setImagePreviews([])
+      // Update optimistic message with real data
+      if (onMessageUpdate && optimisticId) {
+        onMessageUpdate(optimisticId, {
+          ...response.message,
+          sendingStatus: 'sent',
+        })
+      } else {
+        // Fallback: if no update handler, just add the real message
+        onMessageSent({
+          ...response.message,
+          sendingStatus: 'sent',
+        })
+      }
+      
+      // Revoke preview URLs after a delay to ensure images are loaded
+      setTimeout(() => {
+        previewUrlsToRevoke.forEach(url => URL.revokeObjectURL(url))
+      }, 1000)
     } catch (error) {
       console.error("Failed to send message:", error)
+      
+      // Update optimistic message to show failed state
+      if (onMessageUpdate && optimisticId) {
+        onMessageUpdate(optimisticId, {
+          ...optimisticMessage,
+          sendingStatus: 'failed',
+        })
+      }
+      
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send message",
