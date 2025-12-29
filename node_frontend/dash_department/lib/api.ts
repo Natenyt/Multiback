@@ -948,8 +948,6 @@ export async function sendMessage(
   sessionUuid: string,
   options?: {
     text?: string;
-    files?: File[];
-    voiceBlob?: Blob;
     client_message_id?: string;
   }
 ): Promise<{ message: Message; queued_for_analysis: boolean; broadcasted: boolean; telegram_delivery: any }> {
@@ -959,25 +957,13 @@ export async function sendMessage(
     throw new Error('No authentication token found');
   }
 
-  const formData = new FormData();
-  
-  if (options?.text) {
-    formData.append('text', options.text);
-  }
+  // Only send text messages - use JSON instead of FormData
+  const payload: { text: string; client_message_id?: string } = {
+    text: options?.text || '',
+  };
   
   if (options?.client_message_id) {
-    formData.append('client_message_id', options.client_message_id);
-  }
-
-
-  if (options?.files && options.files.length > 0) {
-    options.files.forEach((file) => {
-      formData.append('files', file);
-    });
-  }
-
-  if (options?.voiceBlob) {
-    formData.append('files', options.voiceBlob, 'voice.ogg');
+    payload.client_message_id = options.client_message_id;
   }
 
   let response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/send/`, {
@@ -998,8 +984,9 @@ export async function sendMessage(
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${newToken}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify(payload),
       });
     } else {
       // Refresh failed, clear tokens and redirect

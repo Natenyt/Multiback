@@ -3,7 +3,7 @@ import traceback
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -18,7 +18,7 @@ from websockets.utils import broadcast_message_created
 
 class SendMessageAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser]
 
     def post(self, request, session_uuid):
         user = request.user
@@ -68,8 +68,9 @@ class SendMessageAPIView(APIView):
                     "note": "Duplicate message skipped"
                 }, status=status.HTTP_200_OK)
 
-        files = request.FILES.getlist('files') or request.FILES.getlist('file') or [file for _, file in request.FILES.items()]
-        has_files = len(files) > 0
+        # Only allow text messages - no file uploads
+        if not text or not text.strip():
+            return Response({"detail": "Message text is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             with transaction.atomic():
@@ -81,16 +82,7 @@ class SendMessageAPIView(APIView):
                     client_message_id=client_message_id
                 )
 
-                if text:
-                    MessageContent.objects.create(message=msg, content_type='text', text=text)
-
-                for uploaded in files:
-                    ctype = 'file'
-                    mime = getattr(uploaded, 'content_type', '')
-                    if mime.startswith('image/'): ctype = 'image'
-                    elif mime.startswith('video/'): ctype = 'video'
-                    elif mime.startswith('audio/'): ctype = 'voice'
-                    MessageContent.objects.create(message=msg, content_type=ctype, file=uploaded)
+                MessageContent.objects.create(message=msg, content_type='text', text=text)
 
                 # Update last_messaged and check SLA breach when staff sends a message
                 if is_staff_message:
@@ -146,16 +138,8 @@ class SendMessageAPIView(APIView):
                 #         logger = logging.getLogger(__name__)
                 #         logger.error(f"Failed to send staff connection notification: {e}")
                 
-                # Send the actual message content to Telegram
-                # For files, use the existing task
-                # Ensure message is saved and files are accessible before sending
-                if has_files:
-                    # Refresh from DB to ensure all related objects are loaded
-                    msg.refresh_from_db()
-                    # Use apply_async with countdown to give Django time to finish saving files
-                    upload_message_to_telegram.apply_async(args=[msg.id, chat_id], countdown=1)
-                # For text messages, send directly
-                elif text:
+                # Send text message to Telegram
+                if text:
                     try:
                         send_text_to_telegram(chat_id, text)
                     except Exception as e:
