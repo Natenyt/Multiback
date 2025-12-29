@@ -98,3 +98,4 @@ Traceback (most recent call last):
   File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/http/request.py", line 205, in get_host
     raise DisallowedHost(msg)
 django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'httpbin.org'. You may need to add 'httpbin.org' to ALLOWED_HOSTS.
+WARNING 2025-12-29 09:03:11,276 🚨 SUSPICIOUS REQUEST BLOCKED: GET /.git/config from IP: 195.178.110.199 | User-Agent: Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0

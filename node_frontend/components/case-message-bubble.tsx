@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { type Message } from "@/dash_department/lib/api"
+import { type Message, fetchAuthenticatedImage } from "@/dash_department/lib/api"
 
 interface CaseMessageBubbleProps {
   message: Message
@@ -17,6 +17,8 @@ export function CaseMessageBubble({
 }: CaseMessageBubbleProps) {
   const [showTimestamp, setShowTimestamp] = React.useState(false)
   const timeoutRef = React.useRef<number | null>(null)
+  // Cache for blob URLs to avoid refetching
+  const blobUrlCache = React.useRef<Map<string, string>>(new Map())
 
   const formatTimestamp = (dateString: string) => {
     try {
@@ -102,67 +104,104 @@ export function CaseMessageBubble({
         {hasImages && (
           <div className={`flex flex-wrap gap-2 mb-2 ${isStaff ? "justify-end" : "justify-start"}`}>
             {imageContents.map((content) => {
-              // Determine image URL - prefer thumbnail, fallback to file_url
-              const imageUrl = content.thumbnail_url || content.file_url
-              // Check if it's a blob URL (optimistic) or external URL
-              const isBlobUrl = imageUrl?.startsWith('blob:')
-              const isAbsoluteUrl = imageUrl?.startsWith('http://') || imageUrl?.startsWith('https://')
+              const [imageUrl, setImageUrl] = React.useState<string | null>(null)
+              const [isLoading, setIsLoading] = React.useState(true)
+              const [hasError, setHasError] = React.useState(false)
               
+              // Determine source URL - prefer thumbnail, fallback to file_url
+              const sourceUrl = content.thumbnail_url || content.file_url
+              const cacheKey = sourceUrl || `content-${content.id}`
+              
+              React.useEffect(() => {
+                if (!sourceUrl) {
+                  setIsLoading(false)
+                  setHasError(true)
+                  return
+                }
+
+                // Check if it's already a blob URL (optimistic UI)
+                if (sourceUrl.startsWith('blob:')) {
+                  setImageUrl(sourceUrl)
+                  setIsLoading(false)
+                  return
+                }
+
+                // Check cache first
+                const cached = blobUrlCache.current.get(cacheKey)
+                if (cached) {
+                  setImageUrl(cached)
+                  setIsLoading(false)
+                  return
+                }
+
+                // Check if it's an external URL (doesn't need auth)
+                const isExternalUrl = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://')
+                if (isExternalUrl && !sourceUrl.includes('/api/') && !sourceUrl.includes('/media/')) {
+                  setImageUrl(sourceUrl)
+                  setIsLoading(false)
+                  return
+                }
+
+                // Fetch with authentication and convert to blob
+                setIsLoading(true)
+                fetchAuthenticatedImage(sourceUrl)
+                  .then((blobUrl) => {
+                    if (blobUrl) {
+                      blobUrlCache.current.set(cacheKey, blobUrl)
+                      setImageUrl(blobUrl)
+                      setIsLoading(false)
+                    } else {
+                      setHasError(true)
+                      setIsLoading(false)
+                    }
+                  })
+                  .catch((error) => {
+                    console.error('Error loading image:', error)
+                    setHasError(true)
+                    setIsLoading(false)
+                  })
+              }, [sourceUrl, cacheKey])
+
+              // Cleanup blob URL on unmount
+              React.useEffect(() => {
+                return () => {
+                  if (imageUrl && imageUrl.startsWith('blob:') && !sourceUrl?.startsWith('blob:')) {
+                    // Only revoke if it's not the original optimistic blob URL
+                    URL.revokeObjectURL(imageUrl)
+                  }
+                }
+              }, [imageUrl, sourceUrl])
+
               return (
                 <div
                   key={content.id}
                   className="relative rounded-lg overflow-hidden border border-border max-w-[200px] max-h-[200px] bg-muted"
                 >
-                  {imageUrl ? (
-                    // Use regular img for blob URLs and external URLs to avoid Next.js Image issues
-                    isBlobUrl || !isAbsoluteUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt={content.caption || "Image"}
-                        className="object-cover w-full h-full cursor-pointer hover:opacity-90 transition-opacity max-w-[200px] max-h-[200px]"
-                        onClick={() => {
-                          if (content.file_url && content.file_url !== imageUrl) {
-                            window.open(content.file_url, '_blank')
-                          }
-                        }}
-                        onError={(e) => {
-                          // Fallback on error
-                          const target = e.target as HTMLImageElement
-                          target.style.display = 'none'
-                          const parent = target.parentElement
-                          if (parent) {
-                            const fallback = document.createElement('div')
-                            fallback.className = 'w-full h-full flex items-center justify-center bg-muted'
-                            fallback.innerHTML = '<span class="text-xs text-muted-foreground">Image not available</span>'
-                            parent.appendChild(fallback)
-                          }
-                        }}
-                      />
-                    ) : (
-                      // Use Next.js Image for relative URLs (if any)
-                      <Image
-                        src={imageUrl}
-                        alt={content.caption || "Image"}
-                        width={200}
-                        height={200}
-                        className="object-cover w-full h-full cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => {
-                          if (content.file_url && content.file_url !== imageUrl) {
-                            window.open(content.file_url, '_blank')
-                          }
-                        }}
-                        unoptimized
-                        onError={() => {
-                          // Fallback handled by Next.js Image
-                        }}
-                      />
-                    )
-                  ) : (
+                  {isLoading ? (
                     <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
                       <span className="text-xs text-muted-foreground">Loading...</span>
                     </div>
+                  ) : hasError || !imageUrl ? (
+                    <div className="w-[200px] h-[200px] bg-muted flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground">Image not available</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={imageUrl}
+                      alt={content.caption || "Image"}
+                      className="object-cover w-full h-full cursor-pointer hover:opacity-90 transition-opacity max-w-[200px] max-h-[200px]"
+                      onClick={() => {
+                        // Open full size image if available
+                        if (content.file_url && content.file_url !== sourceUrl) {
+                          window.open(content.file_url, '_blank')
+                        }
+                      }}
+                      onError={() => {
+                        setHasError(true)
+                      }}
+                    />
                   )}
-                  {content.caption && (
+                  {content.caption && imageUrl && !hasError && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2">
                       {content.caption}
                     </div>

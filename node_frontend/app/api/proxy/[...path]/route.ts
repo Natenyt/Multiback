@@ -120,22 +120,44 @@ async function proxyRequest(
     const response = await fetch(backendUrl, requestOptions);
 
     // Get the response data
-    const responseContentType = response.headers.get('content-type');
+    const responseContentType = response.headers.get('content-type') || '';
     let data;
     
-    if (responseContentType?.includes('application/json')) {
+    // Handle binary/image responses
+    if (responseContentType.startsWith('image/') || 
+        responseContentType.startsWith('video/') || 
+        responseContentType.startsWith('audio/') ||
+        responseContentType === 'application/octet-stream' ||
+        responseContentType.includes('application/pdf')) {
+      // For binary content, get as array buffer
+      data = await response.arrayBuffer();
+      
+      // Return binary response with correct content type
+      return new NextResponse(data, {
+        status: response.status,
+        headers: {
+          'Content-Type': responseContentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      });
+    } else if (responseContentType.includes('application/json')) {
       data = await response.json();
+      return NextResponse.json(data, {
+        status: response.status,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
     } else {
+      // For text responses
       data = await response.text();
+      return new NextResponse(data, {
+        status: response.status,
+        headers: {
+          'Content-Type': responseContentType || 'text/plain',
+        },
+      });
     }
-
-    // Return the response with the same status and headers
-    return NextResponse.json(data, {
-      status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
   } catch (error) {
     console.error('Proxy error:', error);
     return NextResponse.json(

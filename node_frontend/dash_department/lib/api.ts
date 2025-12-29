@@ -42,6 +42,86 @@ export function getAuthToken(): string | null {
   return null;
 }
 
+/**
+ * Fetch an authenticated image and convert it to a blob URL
+ * This is needed because <img> tags can't send authentication headers
+ */
+export async function fetchAuthenticatedImage(url: string): Promise<string | null> {
+  const token = getAuthToken();
+  if (!token) {
+    console.warn('No auth token available for image fetch');
+    return null;
+  }
+
+  try {
+    // Determine the correct fetch URL
+    let fetchUrl = url;
+    
+    // If it's already a full URL with domain, use it directly
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      fetchUrl = url;
+    } 
+    // If it starts with /api/, it needs to go through Next.js proxy
+    else if (url.startsWith('/api/')) {
+      // Remove /api prefix and add /api/proxy
+      fetchUrl = `/api/proxy${url.substring(4)}`; // substring(4) removes '/api'
+    }
+    // If it starts with /media/, these are typically public static files
+    // But if they're behind authentication, we'll try with auth header
+    // If it fails, the error handler will catch it
+    else if (url.startsWith('/media/')) {
+      // Try direct first - /media/ files are usually public
+      // But add auth header in case they need it
+      fetchUrl = url;
+    }
+    // Relative URL without leading slash
+    else if (!url.startsWith('/')) {
+      fetchUrl = `/api/proxy/${url}`;
+    }
+    // Other relative URLs
+    else {
+      fetchUrl = `/api/proxy${url}`;
+    }
+
+    const response = await fetch(fetchUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to fetch image: ${fetchUrl} - ${response.status} ${response.statusText}`);
+      // Try to get error details
+      try {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+      } catch (e) {
+        // Ignore
+      }
+      return null;
+    }
+
+    // Check if response is actually an image
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/') && !contentType.startsWith('application/octet-stream')) {
+      // Might be JSON error response from proxy
+      try {
+        const jsonData = await response.json();
+        console.error('Proxy returned JSON instead of image:', jsonData);
+        return null;
+      } catch (e) {
+        // Not JSON, continue
+      }
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (error) {
+    console.error('Error fetching authenticated image:', error);
+    return null;
+  }
+}
+
 export function clearAuthTokens(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('auth_token');
