@@ -258,11 +258,11 @@ export function TicketsTable({
 
             // Always add notification so toast appears even when on unassigned page
             // The NotificationManager will handle showing the toast
-            addNotification({
-              session_uuid: newSession.session_uuid,
-              citizen_name: newSession.citizen?.full_name || 'Unknown',
-              created_at: newSession.created_at,
-            })
+              addNotification({
+                session_uuid: newSession.session_uuid,
+                citizen_name: newSession.citizen?.full_name || 'Unknown',
+                created_at: newSession.created_at,
+              })
           }
         }
 
@@ -399,7 +399,7 @@ export function TicketsTable({
                   className="h-8 -ml-3"
                   onClick={() => handleSort("session_id")}
                 >
-                  Session ID
+                  Murojaat ID
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
@@ -454,7 +454,7 @@ export function TicketsTable({
                         await navigator.clipboard.writeText(ticket.session_id)
                         toast({
                           title: "Copied",
-                          description: "Session ID copied to clipboard",
+                          description: "Murojaat ID copied to clipboard",
                         })
                       } catch (error) {
                         console.error("Failed to copy:", error)

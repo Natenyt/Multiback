@@ -37,9 +37,9 @@ allowed_hosts_str = config('ALLOWED_HOSTS', default='')
 if allowed_hosts_str:
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
 else:
-    # In development, allow common localhost variants
-    # In production with DEBUG=False, you MUST set ALLOWED_HOSTS in .env
-    ALLOWED_HOSTS = ['*']
+    # Default to localhost only - MUST set ALLOWED_HOSTS in .env for production
+    # This prevents host header injection attacks
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 AUTH_USER_MODEL = 'users.User'
 
 
@@ -108,6 +108,8 @@ CHANNEL_LAYERS = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'graveyard.db_middleware.DatabaseConnectionMiddleware',  # Ensure fresh DB connections (prevents MySQL timeout errors)
+    'graveyard.security_middleware.SecurityMiddleware',  # Custom security middleware (blocks suspicious requests)
     'corsheaders.middleware.CorsMiddleware',  # CORS middleware (should be early)
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -159,8 +161,27 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            # Set MySQL timeouts to match Django's connection management
+            # wait_timeout and interactive_timeout are set to 8 hours (28800 seconds)
+            # This matches MySQL's default and prevents premature connection closure
+            'init_command': (
+                "SET sql_mode='STRICT_TRANS_TABLES', "
+                "wait_timeout=28800, "
+                "interactive_timeout=28800"
+            ),
+            'connect_timeout': 10,  # Time to wait for initial connection
+            'read_timeout': 30,  # Time to wait for read operations
+            'write_timeout': 30,  # Time to wait for write operations
+            'charset': 'utf8mb4',
+            'autocommit': True,  # Enable autocommit for better connection handling
         },
+        # Connection pooling settings
+        # CONN_MAX_AGE: How long to keep connections open (in seconds)
+        # Set to 300 seconds (5 minutes) - less than wait_timeout but long enough for performance
+        # The keepalive system will ping connections every 5 minutes to keep them alive
+        'CONN_MAX_AGE': 300,  # Reuse connections for 5 minutes (balance between performance and reliability)
+        'CONN_HEALTH_CHECKS': True,  # Check connection health before reusing (closes stale connections)
+        'ATOMIC_REQUESTS': False,  # Keep False for better performance
     }
 }
 
@@ -205,6 +226,19 @@ CSRF_TRUSTED_ORIGINS = [
 # trust the X-Forwarded-Proto header so Django knows the original scheme was HTTPS.
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Security Settings - Production Hardening
+if not DEBUG:
+    # HTTPS Security (only in production)
+    SECURE_SSL_REDIRECT = False  # Set to True if using HTTPS directly (not behind proxy)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'  # Prevent clickjacking
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -251,3 +285,42 @@ CELERY_ENABLE_UTC = True
 
 # Celery Beat Schedule (can also be defined in celery.py)
 # The schedule is defined in celery.py for better organization
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'security': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'security.log',
+            'formatter': 'security',
+        },
+    },
+    'loggers': {
+        'security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

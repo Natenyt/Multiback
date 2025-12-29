@@ -100,7 +100,7 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
     
     # Store chosen neighborhood and COMPLETE registration without asking for a free-text location
     await state.update_data(neighborhood=message.text)
-
+    
     # Fetch latest state data
     data = await state.get_data()
     fullname = data.get("fullname")
