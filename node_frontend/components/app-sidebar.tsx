@@ -49,7 +49,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
 import { useStaffProfile } from "@/contexts/staff-profile-context"
-import { WorkspaceLoading } from "@/components/workspace-loading"
 
 // Menu items with Lucide icons
 const menuItems = [
@@ -88,7 +87,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions, escalatedNotifications } = useNotifications()
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error } = useStaffProfile()
-  const [isNavigating, setIsNavigating] = React.useState(false)
   const [escalatedCount, setEscalatedCount] = React.useState(0)
   const unreadCount = getUnreadCount()
   const hasAssigned = hasAssignedSessions()
@@ -135,27 +133,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   
   const currentWorkspace = getCurrentWorkspace()
 
-  // Handle workspace navigation with loading
+  // Handle workspace navigation
   const handleWorkspaceNavigation = React.useCallback((path: string) => {
-    // Only show loading if switching to a different workspace
-    const targetWorkspace = path.startsWith('/train') ? 'Training' : path.startsWith('/statistics') ? 'Statistics' : 'Dashboard'
-    if (targetWorkspace !== currentWorkspace) {
-      setIsNavigating(true)
-      // Navigate immediately, show loading overlay
-      router.push(path)
-      // Hide loading after a short delay (navigation should be fast)
-      setTimeout(() => {
-        setIsNavigating(false)
-      }, 500)
-    } else {
-      router.push(path)
-    }
-  }, [currentWorkspace, router])
+    // Navigate immediately without loading animation
+    router.push(path)
+  }, [router])
 
-  // Clear loading state when pathname changes (navigation completed)
-  React.useEffect(() => {
-    setIsNavigating(false)
-  }, [pathname])
 
   // Clear assigned sessions when viewing assigned page
   React.useEffect(() => {
@@ -193,7 +176,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <>
-      {isNavigating && <WorkspaceLoading />}
       <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <DropdownMenu>
@@ -212,7 +194,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <div className="flex flex-1 items-center gap-2 group-data-[collapsible=icon]:hidden">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold group-hover/logo:text-sidebar-foreground/80 whitespace-nowrap text-left">
-                    NTMP
+                    {currentWorkspace === "Dashboard" ? "NTMP" : currentWorkspace}
                   </span>
                 </div>
               </div>

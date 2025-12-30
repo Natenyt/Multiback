@@ -220,7 +220,7 @@ export function CaseMessageBubble({
             className={`${getBorderRadiusClasses()} px-4 py-2 transition-transform duration-150 cursor-pointer select-text relative
               ${isStaff ? "bg-background dark:bg-card text-foreground border border-border" : "bg-[#193BE5] dark:bg-[#2563eb] text-white"}`}
           >
-            <p className="text-sm whitespace-pre-wrap break-words">{textContent}</p>
+            <p className="text-sm whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{textContent}</p>
           </div>
         )}
 
