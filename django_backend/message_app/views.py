@@ -31,9 +31,6 @@ class TicketListAPIView(APIView):
         staff_profile = staff.staff_profile
         department = staff_profile.department
         
-        if not department:
-            return Response({"error": "Staff member is not assigned to a department."}, status=400)
-        
         lang = request.query_params.get('lang', 'uz')
         status = request.query_params.get('status', 'unassigned')
         search = request.query_params.get('search', '')
@@ -43,8 +40,18 @@ class TicketListAPIView(APIView):
         queryset = Session.objects.select_related('citizen', 'citizen__neighborhood', 'assigned_staff', 'assigned_department')
 
         # Status-based filtering
-        # Always exclude escalated sessions from staff views (they go to superuser)
-        queryset = queryset.exclude(status='escalated')
+        if status == 'escalated':
+            # For escalated status, return only escalated sessions
+            # VIP members can access all escalated sessions regardless of department
+            if staff_profile.role != 'VIP':
+                return Response({"error": "Only VIP members can view escalated sessions."}, status=403)
+            queryset = queryset.filter(status='escalated')
+        else:
+            # For other statuses, require department assignment
+            if not department:
+                return Response({"error": "Staff member is not assigned to a department."}, status=400)
+            # Always exclude escalated sessions from other staff views (they go to VIP/superuser)
+            queryset = queryset.exclude(status='escalated')
         
         if status == 'unassigned':
             # Filter unassigned sessions that belong to the staff's department

@@ -289,11 +289,11 @@ class TicketEscalateAPIView(APIView):
                 # Remove assigned staff (even if it was already None)
                 session.assigned_staff = None
                 
+                # Remove assigned department when escalating
+                session.assigned_department = None
+                
                 # Deactivate SLA deadline
                 session.sla_deadline = None
-                
-                # Keep assigned_department for tracking which department escalated
-                # assigned_department remains unchanged
                 
                 session.save()
 

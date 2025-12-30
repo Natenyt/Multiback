@@ -79,7 +79,9 @@ class TicketHistoryAPIView(APIView):
                 return True
             # Check if user is VIP member
             if hasattr(user, 'staff_profile') and user.staff_profile:
-                if user.staff_profile.role == 'VIP':
+                from departments.models import StaffProfile
+                # Check role (ROLE_VIP constant is 'VIP', so both checks are equivalent)
+                if user.staff_profile.role == StaffProfile.ROLE_VIP:
                     return True
             return False
 
