@@ -269,7 +269,7 @@ export function SessionsChart() {
               fill="url(#fillUnassigned)"
               stroke={chartConfig.unassigned.color}
               stackId="a"
-              animationDuration={1}
+              animationDuration={1000}
               isAnimationActive={true}
             />
             <Area
@@ -278,7 +278,7 @@ export function SessionsChart() {
               fill="url(#fillAssigned)"
               stroke={chartConfig.assigned.color}
               stackId="a"
-              animationDuration={1}
+              animationDuration={1000}
               isAnimationActive={true}
             />
             <Area
@@ -287,7 +287,7 @@ export function SessionsChart() {
               fill="url(#fillClosed)"
               stroke={chartConfig.closed.color}
               stackId="a"
-              animationDuration={1}
+              animationDuration={1000}
               isAnimationActive={true}
             />
             <ChartLegend content={<ChartLegendContent />} />
