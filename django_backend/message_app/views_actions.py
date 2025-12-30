@@ -171,7 +171,7 @@ class TicketHoldAPIView(APIView):
                 # 3. Check if hold has already been used
                 if session.is_hold:
                     return Response(
-                        {"detail": "Hold has already been used for this session. You have reached your hold limit."},
+                        {"detail": "Ushbu murojaat uchun hold allaqachon ishlatilgan. Siz uzaytirish limitini tugatdingiz."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 

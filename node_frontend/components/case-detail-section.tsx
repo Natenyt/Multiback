@@ -86,7 +86,7 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
       setIsEscalating(false)
       toast({
         title: "Xatolik",
-        description: error instanceof Error ? error.message : "Murojaatni ko'tarib bo'lmadi",
+        description: error instanceof Error ? error.message : "Murojaatni Escalate qilib bo'lmadi",
         variant: "destructive",
       })
     }

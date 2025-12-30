@@ -36,28 +36,14 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
   }, [session])
 
   const handleNewMessage = (newMessage: Message) => {
-    setMessages((prev) => [...prev, newMessage])
-  }
-
-  const handleMessageUpdate = (optimisticId: string, updatedMessage: Message) => {
+    // Only add message if it doesn't already exist (WebSocket might have already added it)
     setMessages((prev) => {
-      // Find and replace the optimistic message with the real one
-      const index = prev.findIndex(msg => 
-        msg.optimisticId === optimisticId || 
-        msg.message_uuid === optimisticId ||
-        (msg.optimisticId && msg.optimisticId === optimisticId)
-      )
-      if (index !== -1) {
-        const newMessages = [...prev]
-        // Replace with real message, preserving optimisticId for reference
-        newMessages[index] = {
-          ...updatedMessage,
-          optimisticId: optimisticId, // Keep for potential future reference
-        }
-        return newMessages
+      const exists = prev.some((m) => m.message_uuid === newMessage.message_uuid)
+      if (exists) {
+        // Message already exists (likely from WebSocket), don't add again
+        return prev
       }
-      // If not found, just add it (shouldn't happen, but fallback)
-      return [...prev, updatedMessage]
+      return [...prev, newMessage]
     })
   }
 
@@ -163,7 +149,6 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
         <CaseMessageInput
           sessionUuid={sessionUuid}
           onMessageSent={handleNewMessage}
-          onMessageUpdate={handleMessageUpdate}
         />
         )}
       </div>

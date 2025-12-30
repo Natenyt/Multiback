@@ -9,10 +9,9 @@ import { useToast } from "@/hooks/use-toast"
 interface CaseMessageInputProps {
   sessionUuid: string
   onMessageSent: (message: Message) => void
-  onMessageUpdate?: (optimisticId: string, message: Message) => void
 }
 
-export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }: CaseMessageInputProps) {
+export function CaseMessageInput({ sessionUuid, onMessageSent }: CaseMessageInputProps) {
   const [inputValue, setInputValue] = React.useState("")
   const [isSending, setIsSending] = React.useState(false)
   const { toast } = useToast()
@@ -22,56 +21,26 @@ export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }
 
     const textToSend = inputValue.trim()
     
-    // Create optimistic message immediately
-    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`
-    const optimisticMessage: Message = {
-      message_uuid: optimisticId,
-      created_at: new Date().toISOString(),
-      delivered_at: null,
-      read_at: null,
-      is_staff_message: true,
-      is_me: true,
-      sender_platform: 'web',
-      sender: {
-        user_uuid: null,
-        full_name: 'You',
-        avatar_url: null,
-      },
-      contents: [{
-        id: 0,
-        content_type: 'text',
-        text: textToSend,
-        file_url: null,
-        thumbnail_url: null,
-        telegram_file_id: null,
-        media_group_id: null,
-        created_at: new Date().toISOString(),
-      }],
-      optimisticId,
-    }
-
-    // Show optimistic message immediately
-    onMessageSent(optimisticMessage)
-
-    // Clear input immediately for better UX
-    setInputValue("")
-
+    // Don't clear input yet - keep it until message is sent
     setIsSending(true)
     try {
       const response = await sendMessage(sessionUuid, {
         text: textToSend,
       })
       
-      // Update optimistic message with real data
-      if (onMessageUpdate && optimisticId) {
-        onMessageUpdate(optimisticId, response.message)
-      } else {
-        // Fallback: if no update handler, just add the real message
+      // Only clear input and add message after successful send
+      // The WebSocket will handle adding the message to the chat
+      // But we can also add it here as a fallback if WebSocket is slow
+      if (onMessageSent) {
         onMessageSent(response.message)
       }
+      
+      // Clear input only after successful send
+      setInputValue("")
     } catch (error) {
       console.error("Failed to send message:", error)
       
+      // Don't clear input on error - user can retry
       toast({
         title: "Xatolik",
         description: error instanceof Error ? error.message : "Xabarni yuborib bo'lmadi",
@@ -97,7 +66,8 @@ export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Xabaringizni kiriting"
-          className="flex-1 min-h-[40px] max-h-[120px] py-3 pl-4 pr-14 border-0 bg-transparent resize-none focus:outline-none focus:ring-0 text-foreground placeholder:text-muted-foreground"
+          disabled={isSending}
+          className="flex-1 min-h-[40px] max-h-[120px] py-3 pl-4 pr-14 border-0 bg-transparent resize-none focus:outline-none focus:ring-0 text-foreground placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
           rows={1}
         />
         <Button
