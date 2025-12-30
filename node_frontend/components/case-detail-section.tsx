@@ -121,7 +121,7 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
       invalidateDashboardStats()
       toast({
         title: "Success",
-        description: "Murojaat hold qilindi",
+        description: "Murojaat 1 kunga uzaytirildi",
         playSound: true,
       })
       // Optionally refresh the page or update state

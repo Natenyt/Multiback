@@ -109,11 +109,23 @@ export default function LoginPage() {
     return () => {
       observer.disconnect();
       clearInterval(intervalId);
-      // When leaving login page, restore the saved theme (or keep dark if none saved)
-      // The ThemeProvider will handle this, but we ensure localStorage wasn't modified
-      if (typeof window !== 'undefined' && savedTheme) {
-        // localStorage should already have the correct theme, but ensure it's not overwritten
-        // ThemeProvider will read it and apply it
+      // When leaving login page, restore the saved theme
+      if (typeof window !== 'undefined') {
+        const currentSavedTheme = localStorage.getItem('ntmp-theme');
+        // Remove dark class that was forced by login page
+        document.documentElement.classList.remove('dark');
+        // Apply the saved theme
+        if (currentSavedTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        // Force ThemeProvider to sync by triggering storage event
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'ntmp-theme',
+          newValue: currentSavedTheme,
+          storageArea: localStorage
+        }));
       }
     };
   }, []);
@@ -134,9 +146,24 @@ export default function LoginPage() {
       const response = await staffLogin(data);
       storeAuthTokens(response.access, response.refresh);
       
-      // Remove dark class before navigation to allow ThemeProvider to restore user's theme
+      // Get saved theme from localStorage before navigation
+      const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('ntmp-theme') : null;
+      
+      // Remove dark class and restore saved theme before navigation
       if (typeof window !== 'undefined') {
         document.documentElement.classList.remove('dark');
+        // Force ThemeProvider to apply the saved theme
+        if (savedTheme && savedTheme !== 'dark') {
+          document.documentElement.classList.remove('dark');
+        } else if (savedTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+        // Trigger a storage event to notify ThemeProvider
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'ntmp-theme',
+          newValue: savedTheme,
+          storageArea: localStorage
+        }));
       }
       
       // Dispatch custom event to notify StaffProfileProvider that token is set

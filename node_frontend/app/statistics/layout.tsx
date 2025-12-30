@@ -17,6 +17,16 @@ export default function StatisticsLayout({
       router.push('/login');
       return;
     }
+    
+    // Ensure theme is restored from localStorage after navigation from login
+    const savedTheme = localStorage.getItem('ntmp-theme');
+    if (savedTheme) {
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
   }, [router]);
 
   return (
