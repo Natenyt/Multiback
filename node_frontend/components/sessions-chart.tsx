@@ -178,7 +178,7 @@ export function SessionsChart() {
               top: 10,
               right: 0,
               left: 0,
-              bottom: 40,
+              bottom: 0,
             }}
           >
             <defs>
