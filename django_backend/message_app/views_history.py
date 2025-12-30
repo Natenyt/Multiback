@@ -73,10 +73,14 @@ class TicketHistoryAPIView(APIView):
         if session.citizen == user:
             return True
 
-        # Escalated sessions: only accessible to superusers and the citizen
+        # Escalated sessions: accessible to superusers, VIP members, and the citizen
         if session.status == 'escalated':
             if hasattr(user, 'is_superuser') and user.is_superuser:
                 return True
+            # Check if user is VIP member
+            if hasattr(user, 'staff_profile') and user.staff_profile:
+                if user.staff_profile.role == 'VIP':
+                    return True
             return False
 
         # staff?

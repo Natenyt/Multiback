@@ -8,7 +8,7 @@ import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
 
 interface TicketsLayoutProps {
-  status: "unassigned" | "assigned" | "archive"
+  status: "unassigned" | "assigned" | "archive" | "escalated"
 }
 
 export function TicketsLayout({ status }: TicketsLayoutProps) {
@@ -96,7 +96,7 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
   return (
     <div className="h-full">
       <TicketsTable
-        status={status === "archive" ? "closed" : status}
+        status={status === "archive" ? "closed" : status === "escalated" ? "escalated" : status}
         onPreviewClick={handlePreviewClick}
         onAssign={handleAssign}
         onEscalate={handleEscalate}

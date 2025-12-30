@@ -442,7 +442,7 @@ export function TicketsTable({
                     } else if (status === "closed" || status === "archive") {
                       route = `/dashboard/closed/${ticket.session_id}`
                     } else if (status === "escalated") {
-                      route = `/dashboard/train/${ticket.session_id}`
+                      route = `/train/${ticket.session_id}`
                     } else {
                       route = `/dashboard/assigned/${ticket.session_id}`
                     }
