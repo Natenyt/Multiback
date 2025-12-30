@@ -1,7 +1,7 @@
 # websocket/routing.py
 from django.urls import re_path
 from channels.routing import URLRouter
-from .consumers import ChatConsumer, DepartmentConsumer, StaffConsumer, SuperuserConsumer
+from .consumers import ChatConsumer, DepartmentConsumer, StaffConsumer, SuperuserConsumer, VIPConsumer
 from .middleware import JWTAuthMiddleware  # your custom middleware
 
 websocket_urlpatterns = [
@@ -16,6 +16,9 @@ websocket_urlpatterns = [
 
     # Superuser dashboard channel
     re_path(r"ws/superuser/$", SuperuserConsumer.as_asgi()),
+
+    # VIP dashboard channel
+    re_path(r"ws/vip/$", VIPConsumer.as_asgi()),
 ]
 
 # Replace AuthMiddlewareStack with JWTAuthMiddleware

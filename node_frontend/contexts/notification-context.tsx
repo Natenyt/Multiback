@@ -14,6 +14,7 @@ interface NotificationContextType {
   notifications: Notification[]
   assignedSessions: Set<string> // Track newly assigned session UUIDs
   closedSessions: Set<string> // Track newly closed session UUIDs
+  escalatedSessions: Set<string> // Track newly escalated session UUIDs
   addNotification: (notification: Omit<Notification, 'id' | 'read'>) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
@@ -27,6 +28,10 @@ interface NotificationContextType {
   removeClosedSession: (sessionUuid: string) => void
   hasClosedSessions: () => boolean
   clearClosedSessions: () => void
+  addEscalatedSession: (sessionUuid: string) => void
+  removeEscalatedSession: (sessionUuid: string) => void
+  hasEscalatedSessions: () => boolean
+  clearEscalatedSessions: () => void
 }
 
 const NotificationContext = React.createContext<NotificationContextType | undefined>(undefined)
@@ -35,11 +40,13 @@ const NOTIFICATIONS_STORAGE_KEY = 'unassigned_session_notifications'
 
 const ASSIGNED_SESSIONS_STORAGE_KEY = 'assigned_sessions'
 const CLOSED_SESSIONS_STORAGE_KEY = 'closed_sessions'
+const ESCALATED_SESSIONS_STORAGE_KEY = 'escalated_sessions'
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = React.useState<Notification[]>([])
   const [assignedSessions, setAssignedSessions] = React.useState<Set<string>>(new Set())
   const [closedSessions, setClosedSessions] = React.useState<Set<string>>(new Set())
+  const [escalatedSessions, setEscalatedSessions] = React.useState<Set<string>>(new Set())
 
   // Load notifications from localStorage on mount
   React.useEffect(() => {
@@ -74,6 +81,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch (error) {
       console.error("Failed to load closed sessions from localStorage:", error)
     }
+
+    // Load escalated sessions from localStorage
+    try {
+      const storedEscalated = localStorage.getItem(ESCALATED_SESSIONS_STORAGE_KEY)
+      if (storedEscalated) {
+        const parsed = JSON.parse(storedEscalated) as string[]
+        setEscalatedSessions(new Set(parsed))
+      }
+    } catch (error) {
+      console.error("Failed to load escalated sessions from localStorage:", error)
+    }
   }, [])
 
   // Save notifications to localStorage whenever they change
@@ -102,6 +120,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       console.error("Failed to save closed sessions to localStorage:", error)
     }
   }, [closedSessions])
+
+  // Save escalated sessions to localStorage whenever they change
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(ESCALATED_SESSIONS_STORAGE_KEY, JSON.stringify(Array.from(escalatedSessions)))
+    } catch (error) {
+      console.error("Failed to save escalated sessions to localStorage:", error)
+    }
+  }, [escalatedSessions])
 
   const addNotification = React.useCallback(
     (notification: Omit<Notification, 'id' | 'read'>) => {
@@ -197,11 +224,37 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
+  const addEscalatedSession = React.useCallback((sessionUuid: string) => {
+    setEscalatedSessions((prev) => new Set([...prev, sessionUuid]))
+  }, [])
+
+  const removeEscalatedSession = React.useCallback((sessionUuid: string) => {
+    setEscalatedSessions((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(sessionUuid)
+      return newSet
+    })
+  }, [])
+
+  const hasEscalatedSessions = React.useCallback(() => {
+    return escalatedSessions.size > 0
+  }, [escalatedSessions])
+
+  const clearEscalatedSessions = React.useCallback(() => {
+    setEscalatedSessions(new Set())
+    try {
+      localStorage.removeItem(ESCALATED_SESSIONS_STORAGE_KEY)
+    } catch (error) {
+      console.error("Failed to clear escalated sessions from localStorage:", error)
+    }
+  }, [])
+
   const value = React.useMemo(
     () => ({
       notifications,
       assignedSessions,
       closedSessions,
+      escalatedSessions,
       addNotification,
       markAsRead,
       markAllAsRead,
@@ -215,8 +268,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       removeClosedSession,
       hasClosedSessions,
       clearClosedSessions,
+      addEscalatedSession,
+      removeEscalatedSession,
+      hasEscalatedSessions,
+      clearEscalatedSessions,
     }),
-    [notifications, assignedSessions, closedSessions, addNotification, markAsRead, markAllAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions]
+    [notifications, assignedSessions, closedSessions, escalatedSessions, addNotification, markAsRead, markAllAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions, addEscalatedSession, removeEscalatedSession, hasEscalatedSessions, clearEscalatedSessions]
   )
 
   return (

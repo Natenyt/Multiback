@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -17,13 +17,12 @@ import { NotificationManager } from "@/components/notification-manager";
 import { AuthErrorProvider } from "@/contexts/auth-error-context";
 import { AuthErrorHandler } from "@/components/auth-error-handler";
 
-export default function TrainingLayout({
+export default function StatisticsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     const token = getAuthToken();
@@ -33,9 +32,6 @@ export default function TrainingLayout({
     }
   }, [router]);
 
-  // Check if current route is a case detail page
-  const isCaseDetailPage = pathname?.match(/^\/train\/[^/]+$/) !== null;
-
   return (
     <AuthErrorProvider>
       <NotificationProvider>
@@ -44,8 +40,7 @@ export default function TrainingLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        {!isCaseDetailPage && (
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="relative flex-1 max-w-[428px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -59,7 +54,6 @@ export default function TrainingLayout({
             <HeaderActions />
           </div>
         </header>
-        )}
         <div className="flex flex-1 flex-col">
           {children}
         </div>

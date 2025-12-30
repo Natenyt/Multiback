@@ -116,13 +116,24 @@ def broadcast_session_hold(department_id, session_obj, request=None):
 
 def broadcast_session_escalated_to_superuser(session_obj, request=None):
     """
-    Notifies the superuser group that a session has been escalated.
-    All superusers connected to the dashboard will receive this event.
+    Notifies the superuser and VIP groups that a session has been escalated.
+    All superusers and VIP members connected to the dashboard will receive this event.
     """
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
+    
+    # Broadcast to superuser group
     async_to_sync(channel_layer.group_send)(
         "superuser",
+        {
+            "type": "session.escalated",
+            "session": data
+        }
+    )
+    
+    # Also broadcast to VIP group
+    async_to_sync(channel_layer.group_send)(
+        "vip",
         {
             "type": "session.escalated",
             "session": data

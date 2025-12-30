@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import { useNotifications } from "@/contexts/notification-context"
 import { useToast } from "@/hooks/use-toast"
 import { formatTimeAgo } from "@/lib/time-utils"
@@ -39,11 +40,15 @@ const getWsBaseUrl = (): string => {
 const SHOWN_TOAST_SESSIONS_KEY = 'shown_toast_sessions'
 
 export const NotificationManager: React.FC = () => {
-  const { notifications, addNotification } = useNotifications()
+  const { notifications, addNotification, addEscalatedSession } = useNotifications()
   const { toast } = useToast()
+  const pathname = usePathname()
   const wsRef = React.useRef<WebSocket | null>(null)
+  const vipWsRef = React.useRef<WebSocket | null>(null)
   const departmentIdRef = React.useRef<number | null>(null)
+  const staffRoleRef = React.useRef<string | null>(null)
   const shownToastSessionsRef = React.useRef<Set<string>>(new Set())
+  const shownEscalatedToastSessionsRef = React.useRef<Set<string>>(new Set())
 
   // Load shown toast sessions from localStorage on mount
   React.useEffect(() => {
@@ -86,21 +91,24 @@ export const NotificationManager: React.FC = () => {
     })
   }, [notifications, toast])
 
+
   // WebSocket connection for real-time notifications
   React.useEffect(() => {
     let mounted = true
 
     async function setupWebSocket() {
       try {
-        // Get department ID
-        if (!departmentIdRef.current) {
+        // Get department ID and role
+        if (!departmentIdRef.current || !staffRoleRef.current) {
           const profile = await getStaffProfile()
           departmentIdRef.current = profile.department_id
+          staffRoleRef.current = profile.role
         }
 
         // Get valid token (will refresh if needed)
         const token = await getValidAuthToken()
         const departmentId = departmentIdRef.current
+        const staffRole = staffRoleRef.current
 
         if (!token || !departmentId || !mounted) {
           return
@@ -158,6 +166,81 @@ export const NotificationManager: React.FC = () => {
             }, 3000)
           }
         }
+
+        // Setup VIP websocket for escalated sessions (if user is VIP)
+        if (staffRole === 'VIP') {
+          const setupVIPWebSocket = (authToken: string) => {
+            const vipWsUrl = `${wsBaseUrl}/ws/vip/?token=${encodeURIComponent(authToken)}`
+            console.log("NotificationManager: Connecting to VIP WebSocket:", vipWsUrl.replace(authToken, "***"))
+            const vipWs = new WebSocket(vipWsUrl)
+            vipWsRef.current = vipWs
+
+            vipWs.onopen = () => {
+              console.log("NotificationManager: VIP WebSocket connected")
+            }
+
+            vipWs.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data)
+                console.log("NotificationManager: VIP WebSocket message received:", data)
+
+                // Handle session.escalated events
+                if (data.type === "session.escalated" && data.session && mounted) {
+                  const escalatedSession = data.session
+                  const sessionUuid = escalatedSession.session_uuid
+                  
+                  // Only show notification if we haven't shown it yet
+                  if (!shownEscalatedToastSessionsRef.current.has(sessionUuid)) {
+                    shownEscalatedToastSessionsRef.current.add(sessionUuid)
+                    
+                    // Add to escalated sessions set
+                    addEscalatedSession(sessionUuid)
+                    
+                    // Determine if we're in Training workspace
+                    const isInTrainingWorkspace = pathname === '/train' || pathname?.startsWith('/train/')
+                    
+                    // Show toast notification
+                    const workspaceText = isInTrainingWorkspace ? "" : " (Training)"
+                    toast({
+                      title: `Escalated Murojaat${workspaceText}`,
+                      description: `Fuqoro: ${escalatedSession.citizen?.full_name || escalatedSession.citizen?.phone_number || "Unknown"}\n${formatTimeAgo(escalatedSession.created_at || new Date().toISOString())}`,
+                      playSound: true,
+                      duration: 5000,
+                    })
+                  }
+                }
+              } catch (error) {
+                console.error("NotificationManager: Error parsing VIP websocket message:", error)
+              }
+            }
+
+            vipWs.onerror = (error) => {
+              console.error("NotificationManager: VIP WebSocket error:", error)
+            }
+
+            vipWs.onclose = (event) => {
+              console.log("NotificationManager: VIP WebSocket closed:", event.code, event.reason)
+              // Attempt to reconnect after a delay if not intentionally closed
+              if (event.code !== 1000 && mounted) {
+                setTimeout(async () => {
+                  if (mounted && (!vipWsRef.current || vipWsRef.current.readyState === WebSocket.CLOSED)) {
+                    // Reconnect VIP websocket
+                    try {
+                      const newToken = await getValidAuthToken()
+                      if (newToken && mounted) {
+                        setupVIPWebSocket(newToken)
+                      }
+                    } catch (error) {
+                      console.error("NotificationManager: Failed to reconnect VIP WebSocket:", error)
+                    }
+                  }
+                }, 3000)
+              }
+            }
+          }
+
+          setupVIPWebSocket(token)
+        }
       } catch (error) {
         console.error("NotificationManager: Failed to setup WebSocket:", error)
       }
@@ -173,8 +256,14 @@ export const NotificationManager: React.FC = () => {
         }
         wsRef.current = null
       }
+      if (vipWsRef.current) {
+        if (vipWsRef.current.readyState === WebSocket.OPEN || vipWsRef.current.readyState === WebSocket.CONNECTING) {
+          vipWsRef.current.close(1000, "Component unmounting")
+        }
+        vipWsRef.current = null
+      }
     }
-  }, [addNotification])
+  }, [addNotification, addEscalatedSession, pathname])
 
   return null
 }

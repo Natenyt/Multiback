@@ -344,3 +344,56 @@ class SuperuserConsumer(AsyncJsonWebsocketConsumer):
             "type": "session.escalated",
             "session": event.get("session")
         })
+
+
+class VIPConsumer(AsyncJsonWebsocketConsumer):
+    """
+    VIP dashboard channel: vip
+    Only users with staff_profile.role='VIP' can connect.
+    Receives escalated sessions for review and training.
+    """
+    async def connect(self):
+        self.user = self.scope.get("user", None)
+
+        if not self.user or not self.user.is_authenticated:
+            await self.close(code=4401)
+            return
+
+        # Check if user is VIP
+        @sync_to_async
+        def check_vip():
+            if hasattr(self.user, 'staff_profile') and self.user.staff_profile:
+                from departments.models import StaffProfile
+                return self.user.staff_profile.role == StaffProfile.ROLE_VIP
+            return False
+
+        is_vip = await check_vip()
+        if not is_vip:
+            await self.close(code=4403)
+            return
+
+        self.group_name = "vip"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        await self.send_json({
+            "type": "vip.joined",
+            "message": "Connected to VIP dashboard"
+        })
+
+    async def disconnect(self, code):
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        except Exception:
+            pass
+
+    async def session_escalated(self, event):
+        """
+        Handler for escalated session events.
+        Sends escalated session data to VIP dashboard.
+        """
+        await self.send_json({
+            "type": "session.escalated",
+            "session": event.get("session")
+        })

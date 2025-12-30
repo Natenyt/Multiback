@@ -84,7 +84,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  const [currentWorkspace, setCurrentWorkspace] = React.useState("Dashboard")
   const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions } = useNotifications()
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error } = useStaffProfile()
@@ -95,6 +94,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isOnAssignedPage = pathname === '/dashboard/assigned' || pathname?.startsWith('/dashboard/assigned/')
   const isOnArchivePage = pathname === '/dashboard/archive' || pathname?.startsWith('/dashboard/archive/') || pathname?.startsWith('/dashboard/closed/')
   const isOnTrainingPage = pathname === '/train' || pathname?.startsWith('/train/')
+  const isOnStatisticsPage = pathname === '/statistics' || pathname?.startsWith('/statistics/')
+  
+  // Determine current workspace from pathname
+  const getCurrentWorkspace = React.useCallback(() => {
+    if (isOnTrainingPage) return "Training"
+    if (isOnStatisticsPage) return "Statistics"
+    return "Dashboard"
+  }, [isOnTrainingPage, isOnStatisticsPage])
+  
+  const currentWorkspace = getCurrentWorkspace()
 
   // Clear assigned sessions when viewing assigned page
   React.useEffect(() => {
@@ -164,7 +173,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => setCurrentWorkspace("Dashboard")}
+              onClick={() => {
+                router.push("/dashboard/dashboard")
+              }}
               className="cursor-pointer"
             >
               <div className="flex items-center gap-2 w-full">
@@ -184,7 +195,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </DropdownMenuItem>
             {staffProfile?.role === 'VIP' && (
               <DropdownMenuItem
-                onClick={() => setCurrentWorkspace("Statistics")}
+                onClick={() => {
+                  router.push("/statistics")
+                }}
                 className="cursor-pointer"
               >
                 <div className="flex items-center gap-2 w-full">
@@ -199,7 +212,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {staffProfile?.role === 'VIP' && (
               <DropdownMenuItem
                 onClick={() => {
-                  setCurrentWorkspace("Training")
                   router.push("/train")
                 }}
                 className="cursor-pointer"
