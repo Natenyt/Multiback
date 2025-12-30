@@ -16,7 +16,10 @@ class AnalyzeRequest(BaseModel):
 class TrainCorrectionRequest(BaseModel):
     text: str
     correct_department_id: str
-    language: str
+    message_uuid: UUID
+    corrected_by: Optional[UUID] = None
+    language: Optional[str] = None
+    correction_notes: Optional[str] = None
 
 class Candidate(BaseModel):
     id: str

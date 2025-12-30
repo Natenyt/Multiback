@@ -31,10 +31,12 @@ class StaffProfile(models.Model):
     # Role Constants
     ROLE_MANAGER = 'MANAGER'
     ROLE_STAFF = 'STAFF'
+    ROLE_VIP = 'VIP'
     
     ROLE_CHOICES = [
         (ROLE_MANAGER, 'Department Manager (Head)'),
         (ROLE_STAFF, 'Staff Member'),
+        (ROLE_VIP, 'VIP Member'),   
     ]
 
     id = models.BigAutoField(primary_key=True)

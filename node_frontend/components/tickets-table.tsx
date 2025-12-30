@@ -53,7 +53,7 @@ const getWsBaseUrl = (): string => {
 }
 
 interface TicketsTableProps {
-  status: "unassigned" | "assigned" | "closed" | "archive"
+  status: "unassigned" | "assigned" | "closed" | "archive" | "escalated"
   onPreviewClick: (sessionId: string) => void
   onAssign: (sessionId: string) => void
   onEscalate: (sessionId: string) => void
@@ -90,7 +90,7 @@ export function TicketsTable({
       setIsLoading(true)
       // Map 'archive' to 'closed' for API call
       const apiStatus = status === 'archive' ? 'closed' : status
-      const data = await getTickets(apiStatus as 'unassigned' | 'assigned' | 'closed', {
+      const data = await getTickets(apiStatus as 'unassigned' | 'assigned' | 'closed' | 'escalated', {
         search: search || undefined,
         neighborhood_id: neighborhoodId,
         page: 1,
@@ -417,7 +417,7 @@ export function TicketsTable({
               <TableHead>Ism Familiya</TableHead>
               <TableHead>Telefon Raqam</TableHead>
               <TableHead>Mahalla</TableHead>
-              {status !== "closed" && status !== "archive" && <TableHead>Action</TableHead>}
+              {status !== "closed" && status !== "archive" && status !== "escalated" && <TableHead>Action</TableHead>}
               <TableHead className="w-[50px]">{status === 'unassigned' ? '' : ''}</TableHead>
             </TableRow>
           </TableHeader>
@@ -441,6 +441,8 @@ export function TicketsTable({
                       route = `/dashboard/unassigned/${ticket.session_id}`
                     } else if (status === "closed" || status === "archive") {
                       route = `/dashboard/closed/${ticket.session_id}`
+                    } else if (status === "escalated") {
+                      route = `/dashboard/train/${ticket.session_id}`
                     } else {
                       route = `/dashboard/assigned/${ticket.session_id}`
                     }
@@ -484,7 +486,7 @@ export function TicketsTable({
                     {ticket.phone_number || "N/A"}
                   </TableCell>
                   <TableCell>{ticket.neighborhood?.name || "N/A"}</TableCell>
-                  {status !== "closed" && status !== "archive" && (
+                  {status !== "closed" && status !== "archive" && status !== "escalated" && (
                     <TableCell>
                       {status === "unassigned" && (
                         <Button
@@ -514,20 +516,22 @@ export function TicketsTable({
                       )}
                     </TableCell>
                   )}
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEscalate(ticket.session_id)}>
-                          Escalate
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  {status !== "escalated" && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEscalate(ticket.session_id)}>
+                            Escalate
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                   <TableCell className="w-[50px]">
                     {status === 'unassigned' && (() => {
                       // Check if this session has an unread notification

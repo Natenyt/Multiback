@@ -16,6 +16,7 @@ import {
   ChevronsUpDown,
   BarChart3,
   Check,
+  GraduationCap,
 } from "lucide-react"
 import {
   Sidebar,
@@ -180,18 +181,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {currentWorkspace === "Dashboard" && <Check className="h-4 w-4" />}
               </div>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setCurrentWorkspace("Statistics")}
-              className="cursor-pointer"
-            >
-              <div className="flex items-center gap-2 w-full">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border">
-                  <BarChart3 className="h-4 w-4" />
+            {staffProfile?.role === 'VIP' && (
+              <DropdownMenuItem
+                onClick={() => setCurrentWorkspace("Statistics")}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border">
+                    <BarChart3 className="h-4 w-4" />
+                  </div>
+                  <span className="flex-1">Statistics</span>
+                  {currentWorkspace === "Statistics" && <Check className="h-4 w-4" />}
                 </div>
-                <span className="flex-1">Statistics</span>
-                {currentWorkspace === "Statistics" && <Check className="h-4 w-4" />}
-              </div>
-            </DropdownMenuItem>
+              </DropdownMenuItem>
+            )}
+            {staffProfile?.role === 'VIP' && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentWorkspace("Training")
+                  router.push("/dashboard/train")
+                }}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border">
+                    <GraduationCap className="h-4 w-4" />
+                  </div>
+                  <span className="flex-1">Training</span>
+                  {currentWorkspace === "Training" && <Check className="h-4 w-4" />}
+                </div>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarHeader>

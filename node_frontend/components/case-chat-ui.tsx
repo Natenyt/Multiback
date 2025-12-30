@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { type SessionData, type Message, assignTicket } from "@/dash_department/lib/api"
 import { CaseMessageList } from "./case-message-list"
 import { CaseMessageInput } from "./case-message-input"
+import { TrainingRouteDialog } from "./training-route-dialog"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
@@ -24,8 +25,10 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
   const [messages, setMessages] = React.useState<Message[]>(initialMessages)
   const [isAssigning, setIsAssigning] = React.useState(false)
   const [currentSession, setCurrentSession] = React.useState<SessionData>(session)
+  const [isRouteDialogOpen, setIsRouteDialogOpen] = React.useState(false)
   const isUnassigned = !currentSession.assigned_staff
   const isClosed = currentSession.status === "closed"
+  const isTrainingRoute = pathname?.includes('/train/')
 
   // Update local session when prop changes
   React.useEffect(() => {
@@ -119,7 +122,19 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
 
       {/* Input Area */}
       <div className="bg-muted dark:bg-muted/30 border-t">
-        {isUnassigned ? (
+        {isTrainingRoute ? (
+          <div className="p-4 flex flex-col items-center justify-center gap-3">
+            <p className="text-sm text-muted-foreground text-center" style={{ fontFamily: 'Segoe UI Symbol, sans-serif' }}>
+              Murojaatni to'g'ri bo'limga yo'naltirish uchun "Yo'naltirish" tugmasini bosing
+            </p>
+            <Button
+              onClick={() => setIsRouteDialogOpen(true)}
+              className="w-full bg-black dark:bg-white dark:text-black text-white hover:bg-black/80 dark:hover:bg-white/90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-[13px] font-medium h-8 px-4"
+            >
+              Yo'naltirish
+            </Button>
+          </div>
+        ) : isUnassigned ? (
           <div className="p-4 flex flex-col items-center justify-center gap-3">
             <p className="text-sm text-muted-foreground text-center" style={{ fontFamily: 'Segoe UI Symbol, sans-serif' }}>
               Iltimos, o'zingizni biriktirish uchun "Biriktirish" tugmasini bosing
@@ -148,6 +163,24 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
         />
         )}
       </div>
+
+      {/* Training Route Dialog */}
+      {isTrainingRoute && (() => {
+        // Find first non-staff message
+        const firstMessage = messages.find(msg => !msg.is_staff_message)
+        const firstMessageText = firstMessage?.contents?.find(c => c.content_type === 'text')?.text || ''
+        const firstMessageUuid = firstMessage?.message_uuid || ''
+
+        return (
+          <TrainingRouteDialog
+            open={isRouteDialogOpen}
+            onOpenChange={setIsRouteDialogOpen}
+            sessionUuid={sessionUuid}
+            firstMessageText={firstMessageText}
+            firstMessageUuid={firstMessageUuid}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -412,14 +412,25 @@ async def send_webhook(url: str, data: Dict[str, Any]):
 async def train_correction_pipeline(request: TrainCorrectionRequest):
     logger.info(f"--- START TRAINING: {request.text[:50]}... ---")
     
+    # Step 1: Language Detection (reuse logic from process_message_pipeline)
+    language = request.language
+    if not language:
+        language = "uz"
+        if any("\u0400" <= char <= "\u04FF" for char in request.text):  # Cyrillic check
+            language = "ru"
+    logger.info(f"Language detected/specified: '{language}'")
+    
+    # Step 2: Generate Embedding
     embedding_result = await async_embed(request.text)
     vector = embedding_result['embedding']
     logger.info(f"Generated embedding vector.")
     
+    # Step 3: Generate Point ID
     NAMESPACE = uuid.UUID('d87b3c2a-9e5f-4b1d-8c6a-2f3e4d5c6b7a')
-    point_id = str(uuid.uuid5(NAMESPACE, f"{request.text}_{request.language}"))
+    point_id = str(uuid.uuid5(NAMESPACE, f"{request.text}_{language}"))
     logger.info(f"Generated Point ID: {point_id}")
     
+    # Step 4: Upsert to Qdrant
     if qdrant_client:
         await asyncio.to_thread(
             qdrant_client.upsert,
@@ -429,7 +440,7 @@ async def train_correction_pipeline(request: TrainCorrectionRequest):
                 "vector": vector,
                 "payload": {
                     "department_id": request.correct_department_id,
-                    "language": request.language,
+                    "language": language,
                     "name": "User Correction",
                     "description": request.text,
                     "is_correction": True
@@ -439,3 +450,17 @@ async def train_correction_pipeline(request: TrainCorrectionRequest):
         logger.info(f"Upserted correction to Qdrant: {point_id}")
     else:
         logger.error("Qdrant client not connected, skipping upsert.")
+    
+    # Step 5: Send webhook to Django to update AIAnalysis
+    webhook_data = {
+        "message_uuid": str(request.message_uuid),
+        "correct_department_id": request.correct_department_id,
+        "language": language,
+        "correction_notes": request.correction_notes,
+    }
+    if request.corrected_by:
+        webhook_data["corrected_by"] = str(request.corrected_by)
+    
+    logger.info(f"Sending webhook to Django for AIAnalysis update...")
+    await send_webhook(f"{DJANGO_BACKEND_URL}/api/internal/train-correction/", webhook_data)
+    logger.info(f"--- END TRAINING: {request.text[:50]}... ---")

@@ -108,7 +108,6 @@ CHANNEL_LAYERS = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'graveyard.db_middleware.DatabaseConnectionMiddleware',  # Ensure fresh DB connections (prevents MySQL timeout errors)
     'graveyard.security_middleware.SecurityMiddleware',  # Custom security middleware (blocks suspicious requests)
     'corsheaders.middleware.CorsMiddleware',  # CORS middleware (should be early)
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -154,7 +153,7 @@ WSGI_APPLICATION = 'graveyard.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'graveyard.db_backend',  # Custom backend with automatic reconnection
         'NAME': os.getenv('DB_NAME', 'gov_db'),
         'USER': os.getenv('DB_USER', 'root'),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
@@ -166,8 +165,8 @@ DATABASES = {
             # This matches MySQL's default and prevents premature connection closure
             'init_command': (
                 "SET sql_mode='STRICT_TRANS_TABLES', "
-                "wait_timeout=28800, "
-                "interactive_timeout=28800"
+                "wait_timeout=31536000, "
+                "interactive_timeout=31536000"
             ),
             'connect_timeout': 10,  # Time to wait for initial connection
             'read_timeout': 30,  # Time to wait for read operations
@@ -178,7 +177,7 @@ DATABASES = {
         # Connection pooling settings
         # CONN_MAX_AGE: How long to keep connections open (in seconds)
         # Set to 300 seconds (5 minutes) - less than wait_timeout but long enough for performance
-        # The keepalive system will ping connections every 5 minutes to keep them alive
+        # The custom db_backend automatically handles reconnection on connection errors
         'CONN_MAX_AGE': 300,  # Reuse connections for 5 minutes (balance between performance and reliability)
         'CONN_HEALTH_CHECKS': True,  # Check connection health before reusing (closes stale connections)
         'ATOMIC_REQUESTS': False,  # Keep False for better performance

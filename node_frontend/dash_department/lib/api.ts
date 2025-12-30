@@ -341,6 +341,7 @@ export interface StaffProfileResponse {
   phone_number: string;
   joined_at: string | null;
   staff_uuid: string;
+  role: string;
 }
 
 export async function getStaffProfile(): Promise<StaffProfileResponse> {
@@ -684,7 +685,7 @@ export interface TicketHistoryResponse {
 }
 
 export async function getTickets(
-  status: 'unassigned' | 'assigned' | 'closed',
+  status: 'unassigned' | 'assigned' | 'closed' | 'escalated',
   options?: {
     search?: string;
     neighborhood_id?: number;
@@ -703,7 +704,8 @@ export async function getTickets(
   params.append('status', status);
   
   // For assigned and closed status, send staff_uuid (required by backend)
-  if (status === 'assigned' || status === 'closed') {
+  // Escalated status doesn't require staff_uuid (all escalated sessions visible to VIP)
+  if ((status === 'assigned' || status === 'closed') && status !== 'escalated') {
     const staffUuid = getStaffUuid();
     if (staffUuid) {
       params.append('staff_uuid', staffUuid);
@@ -1054,6 +1056,99 @@ export async function getNeighborhoods(options?: { search?: string; lang?: strin
   }
 
   const data: Neighborhood[] = await response.json();
+  return data;
+}
+
+export interface Department {
+  id: number;
+  name_uz: string;
+  name_ru: string;
+  is_active: boolean;
+}
+
+export async function getDepartments(options?: { search?: string; lang?: string }): Promise<Department[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  // Build URL with query params
+  const params = new URLSearchParams();
+  if (options?.search) {
+    params.append('search', options.search);
+  }
+  if (options?.lang) {
+    params.append('lang', options.lang);
+  }
+
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/departments/${queryString ? '?' + queryString : ''}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      detail: 'Failed to fetch departments',
+    }));
+    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch departments';
+    if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
+      clearAuthTokens();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data: Department[] = await response.json();
+  return data;
+}
+
+export interface TrainCorrectionRequest {
+  text: string;
+  correct_department_id: string;
+  message_uuid: string;
+  corrected_by?: string;
+  language?: string;
+  correction_notes?: string;
+}
+
+export async function trainCorrection(request: TrainCorrectionRequest): Promise<{ status: string }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  // FastAPI endpoint - use proxy route
+  // The proxy should route to FastAPI service
+  const url = `/api/proxy/api/v1/train-correction`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      detail: 'Failed to train correction',
+    }));
+    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to train correction';
+    if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
+      clearAuthTokens();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
   return data;
 }
 

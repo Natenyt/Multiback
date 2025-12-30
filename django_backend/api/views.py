@@ -121,3 +121,74 @@ def routing_result(request):
         )
 
     return Response({"status": "processed"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
+def train_correction_webhook(request):
+    """
+    Webhook endpoint called by FastAPI after training correction.
+    Updates AIAnalysis record with correction data.
+    """
+    data = request.data
+    logger.info(f"Train Correction Webhook Received: {data}")
+    
+    try:
+        message_uuid = data.get('message_uuid')
+        if not message_uuid:
+            logger.error("Train Correction Webhook: Missing message_uuid")
+            return Response(
+                {"status": "error", "detail": "message_uuid is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Find the Message by message_uuid
+        message_obj = Message.objects.filter(message_uuid=message_uuid).first()
+        if not message_obj:
+            logger.error(f"Train Correction Webhook: Message {message_uuid} not found.")
+            return Response(
+                {"status": "error", "detail": "Message not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Find AIAnalysis by message
+        ai_analysis = AIAnalysis.objects.filter(message=message_obj).first()
+        if not ai_analysis:
+            logger.warning(f"Train Correction Webhook: AIAnalysis not found for message {message_uuid}. Creating new record.")
+            # Create new AIAnalysis if it doesn't exist
+            ai_analysis = AIAnalysis.objects.create(
+                session=message_obj.session,
+                message=message_obj,
+            )
+        
+        # Update correction fields
+        ai_analysis.is_corrected = True
+        ai_analysis.corrected_department_id = data.get('correct_department_id')
+        ai_analysis.correction_notes = data.get('correction_notes')
+        
+        # Update corrected_by if provided
+        corrected_by_uuid = data.get('corrected_by')
+        if corrected_by_uuid:
+            try:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                corrected_by_user = User.objects.filter(user_uuid=corrected_by_uuid).first()
+                if corrected_by_user:
+                    ai_analysis.corrected_by = corrected_by_user
+                else:
+                    logger.warning(f"Train Correction Webhook: User {corrected_by_uuid} not found for corrected_by.")
+            except Exception as e:
+                logger.error(f"Train Correction Webhook: Error setting corrected_by: {e}")
+        
+        ai_analysis.save()
+        logger.info(f"Train Correction Webhook: Updated AIAnalysis {ai_analysis.id} with correction data.")
+        
+    except Exception as e:
+        logger.error(f"Error processing train correction webhook: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return Response(
+            {"status": "error", "error": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    return Response({"status": "processed"}, status=status.HTTP_200_OK)

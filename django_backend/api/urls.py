@@ -6,7 +6,8 @@ from departments.views import (
     staff_profile,
     dashboard_sessions_chart,
     dashboard_demographics,
-    dashboard_top_neighborhoods
+    dashboard_top_neighborhoods,
+    departments_list
 )
 from broadcast.views import dashboard_broadcast, broadcast_seen, broadcast_ack
 from users.views import StaffLoginView
@@ -23,6 +24,7 @@ from support_tools.views import QuickReplyListAPIView
 urlpatterns = [
     path('internal/injection-alert/', views.injection_alert, name='injection_alert'),
     path('internal/routing-result/', views.routing_result, name='routing_result'),
+    path('internal/train-correction/', views.train_correction_webhook, name='train_correction_webhook'),
     path('ai/route_message/', AIWebhookView.as_view(), name='ai_webhook'),
     
 
@@ -45,6 +47,7 @@ urlpatterns = [
     # Tickets List
     path('tickets/', TicketListAPIView.as_view(), name='ticket-list'),
     path('neighborhoods/', NeighborhoodSearchAPIView.as_view(), name='neighborhood-search'),
+    path('departments/', departments_list, name='departments-list'),
 
     # Tickets Chat
     path('tickets/<uuid:session_uuid>/history/', TicketHistoryAPIView.as_view(), name='ticket-history'),

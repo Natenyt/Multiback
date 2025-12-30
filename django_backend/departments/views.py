@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
-from .models import StaffDailyPerformance
+from .models import StaffDailyPerformance, Department
 from message_app.models import Session
 from datetime import timedelta, datetime
 from django.db.models import Sum, Count, Q
@@ -206,6 +206,7 @@ def staff_profile(request):
         "phone_number": user.phone_number,
         "joined_at": profile.joined_at.isoformat() if profile.joined_at else None,
         "staff_uuid": str(user.user_uuid),
+        "role": profile.role,
     })
 
 
@@ -482,3 +483,31 @@ def dashboard_top_neighborhoods(request):
         })
     
     return Response(result)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def departments_list(request):
+    """
+    Get list of all active departments.
+    Supports search and language filtering.
+    """
+    search = request.query_params.get('search', '').strip()
+    lang = request.query_params.get('lang', 'uz')
+    
+    queryset = Department.objects.filter(is_active=True)
+    
+    if search:
+        queryset = queryset.filter(
+            Q(name_uz__icontains=search) | Q(name_ru__icontains=search)
+        )
+    
+    departments = []
+    for dept in queryset.order_by('name_uz'):
+        departments.append({
+            'id': dept.id,
+            'name_uz': dept.name_uz,
+            'name_ru': dept.name_ru,
+            'is_active': dept.is_active,
+        })
+    
+    return Response(departments)
