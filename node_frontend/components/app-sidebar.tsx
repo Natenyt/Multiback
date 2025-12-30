@@ -182,14 +182,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <DropdownMenuTrigger asChild>
             <button suppressHydrationWarning className="flex w-full items-center gap-2 rounded-md px-2 py-4 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group/logo group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground group-hover/logo:bg-sidebar-primary/90 group-data-[collapsible=icon]:group-hover/logo:bg-sidebar-primary !transition-none">
-                <Image
-                  src="/logo.svg"
-                  alt="Logo"
-                  width={14}
-                  height={14}
-                  className="object-contain dark:invert-0"
-                  style={{ filter: 'brightness(0) invert(1)' }}
-                />
+                {currentWorkspace === "Dashboard" ? (
+                  <Image
+                    src="/logo.svg"
+                    alt="NTMP Logo"
+                    width={14}
+                    height={14}
+                    className="object-contain dark:invert-0"
+                    style={{ filter: 'brightness(0) invert(1)' }}
+                  />
+                ) : currentWorkspace === "Training" ? (
+                  <GraduationCap className="h-4 w-4" />
+                ) : currentWorkspace === "Statistics" ? (
+                  <BarChart3 className="h-4 w-4" />
+                ) : (
+                  <Image
+                    src="/logo.svg"
+                    alt="Logo"
+                    width={14}
+                    height={14}
+                    className="object-contain dark:invert-0"
+                    style={{ filter: 'brightness(0) invert(1)' }}
+                  />
+                )}
               </div>
               <div className="flex flex-1 items-center gap-2 group-data-[collapsible=icon]:hidden">
                 <div className="flex flex-col gap-0.5">
