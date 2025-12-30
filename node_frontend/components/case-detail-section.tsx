@@ -70,6 +70,9 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
     setIsEscalating(true)
     try {
       await escalateTicket(sessionUuid)
+      // Invalidate dashboard stats cache (but no sound for escalate)
+      const { invalidateDashboardStats } = await import("@/hooks/use-dashboard-data")
+      invalidateDashboardStats()
       // Wait 4 seconds to show the message
       await new Promise(resolve => setTimeout(resolve, 4000))
       
@@ -92,9 +95,13 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
   const handleClose = async () => {
     try {
       await closeTicket(sessionUuid)
+      // Invalidate dashboard stats cache
+      const { invalidateDashboardStats } = await import("@/hooks/use-dashboard-data")
+      invalidateDashboardStats()
       toast({
         title: "Success",
         description: "Murojaat tugallandi",
+        playSound: true,
       })
       router.back()
     } catch (error) {
@@ -109,9 +116,13 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
   const handleHold = async () => {
     try {
       await holdTicket(sessionUuid)
+      // Invalidate dashboard stats cache
+      const { invalidateDashboardStats } = await import("@/hooks/use-dashboard-data")
+      invalidateDashboardStats()
       toast({
         title: "Success",
         description: "Murojaat hold qilindi",
+        playSound: true,
       })
       // Optionally refresh the page or update state
     } catch (error) {

@@ -18,14 +18,18 @@ let demographicsCache: DemographicsResponse | null = null
 let neighborhoodsCache: TopNeighborhood[] | null = null
 const sessionsChartCache: Record<string, SessionsChartDataPoint[] | undefined> = {}
 
+// Function to invalidate dashboard stats cache
+export function invalidateDashboardStats() {
+  dashboardStatsCache = null
+}
+
 export function useDashboardStats() {
   const [stats, setStats] = React.useState<DashboardStatsResponse | null>(dashboardStatsCache)
   const [isLoading, setIsLoading] = React.useState(!dashboardStatsCache)
   const [error, setError] = React.useState<Error | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0)
 
   React.useEffect(() => {
-    if (dashboardStatsCache) return
-
     let isMounted = true
     ;(async () => {
       try {
@@ -50,9 +54,15 @@ export function useDashboardStats() {
     return () => {
       isMounted = false
     }
+  }, [refreshTrigger])
+
+  // Refresh function
+  const refresh = React.useCallback(() => {
+    dashboardStatsCache = null
+    setRefreshTrigger(prev => prev + 1)
   }, [])
 
-  return { stats, isLoading, error }
+  return { stats, isLoading, error, refresh }
 }
 
 export function useSessionsChart(timeRange: string) {

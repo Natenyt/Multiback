@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useSessionsChart } from "@/hooks/use-dashboard-data"
+import type { SessionsChartDataPoint } from "@/dash_department/lib/api"
 
 const chartConfig = {
   unassigned: {
@@ -38,6 +39,23 @@ const chartConfig = {
 export function SessionsChart() {
   const [timeRange, setTimeRange] = React.useState("30d")
   const { data, isLoading, error } = useSessionsChart(timeRange)
+  const [displayData, setDisplayData] = React.useState<SessionsChartDataPoint[]>([])
+  const [isTransitioning, setIsTransitioning] = React.useState(false)
+
+  // Smooth transition when data changes
+  React.useEffect(() => {
+    if (data.length > 0) {
+      setIsTransitioning(true)
+      // Small delay to allow smooth transition
+      const timer = setTimeout(() => {
+        setDisplayData(data)
+        setIsTransitioning(false)
+      }, 50)
+      return () => clearTimeout(timer)
+    } else {
+      setDisplayData(data)
+    }
+  }, [data])
 
   // Helper function to format dates safely
   const formatDate = (value: string | Date): string => {
@@ -154,7 +172,8 @@ export function SessionsChart() {
           className="aspect-auto h-[250px] w-full overflow-visible [&_svg]:overflow-visible"
         >
           <AreaChart
-            data={data}
+            key={timeRange}
+            data={displayData.length > 0 ? displayData : data}
             margin={{
               top: 10,
               right: 0,
@@ -250,6 +269,8 @@ export function SessionsChart() {
               fill="url(#fillUnassigned)"
               stroke={chartConfig.unassigned.color}
               stackId="a"
+              animationDuration={500}
+              isAnimationActive={true}
             />
             <Area
               dataKey="assigned"
@@ -257,6 +278,8 @@ export function SessionsChart() {
               fill="url(#fillAssigned)"
               stroke={chartConfig.assigned.color}
               stackId="a"
+              animationDuration={500}
+              isAnimationActive={true}
             />
             <Area
               dataKey="closed"
@@ -264,6 +287,8 @@ export function SessionsChart() {
               fill="url(#fillClosed)"
               stroke={chartConfig.closed.color}
               stackId="a"
+              animationDuration={500}
+              isAnimationActive={true}
             />
             <ChartLegend content={<ChartLegendContent />} />
           </AreaChart>

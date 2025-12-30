@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Poppins } from 'next/font/google';
 import { Button } from "@/components/ui/button";
 import { HeaderActions } from "@/components/header-actions";
@@ -10,6 +11,7 @@ import { DemographicsChart } from "@/components/demographics-chart";
 import { NeighborhoodsChart } from "@/components/neighborhoods-chart";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { useStaffProfile } from "@/contexts/staff-profile-context";
+import { useDashboardStats } from "@/hooks/use-dashboard-data";
 
 const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
@@ -19,6 +21,15 @@ const poppins = Poppins({
 
 export default function DashboardPage() {
   const { staffProfile } = useStaffProfile();
+  const pathname = usePathname();
+  const { refresh } = useDashboardStats();
+
+  // Refresh dashboard stats when navigating to dashboard page
+  useEffect(() => {
+    if (pathname === '/dashboard/dashboard') {
+      refresh();
+    }
+  }, [pathname, refresh]);
 
   return (
     <>

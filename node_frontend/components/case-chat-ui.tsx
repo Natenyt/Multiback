@@ -65,9 +65,13 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
     setIsAssigning(true)
     try {
       const response = await assignTicket(sessionUuid)
+      // Invalidate dashboard stats cache
+      const { invalidateDashboardStats } = await import("@/hooks/use-dashboard-data")
+      invalidateDashboardStats()
       toast({
         title: "Success",
         description: "Murojaat sizga tayinlandi",
+        playSound: true,
       })
       // Update local session state
       setCurrentSession(response.session)

@@ -25,6 +25,9 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
   const handleAssign = async (sessionId: string) => {
     try {
       await assignTicket(sessionId)
+      // Invalidate dashboard stats cache
+      const { invalidateDashboardStats } = await import("@/hooks/use-dashboard-data")
+      invalidateDashboardStats()
       // Track the assigned session
       addAssignedSession(sessionId)
       toast({
@@ -63,6 +66,9 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
   const handleClose = async (sessionId: string) => {
     try {
       await closeTicket(sessionId)
+      // Invalidate dashboard stats cache
+      const { invalidateDashboardStats } = await import("@/hooks/use-dashboard-data")
+      invalidateDashboardStats()
       // Track the closed session
       addClosedSession(sessionId)
       toast({
