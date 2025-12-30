@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from .models import Session
 from .serializers import TicketListSerializer, MessageSerializer, MessageContentSerializer, SessionSerializer
+from departments.models import StaffProfile
 
 
 class TicketListAPIView(APIView):
@@ -43,7 +44,7 @@ class TicketListAPIView(APIView):
         if status == 'escalated':
             # For escalated status, return only escalated sessions
             # VIP members can access all escalated sessions regardless of department
-            if staff_profile.role != 'VIP':
+            if staff_profile.role != StaffProfile.ROLE_VIP:
                 return Response({"error": "Only VIP members can view escalated sessions."}, status=403)
             queryset = queryset.filter(status='escalated')
         else:
@@ -95,14 +96,15 @@ class TicketListAPIView(APIView):
                 Q(citizen__full_name__icontains=search)
             )
 
-        # Neighborhood filter
-        if neighborhood_id:
-            queryset = queryset.filter(citizen__neighborhood_id=neighborhood_id, citizen__neighborhood__is_active=True)
-        else:
-            # exclude inactive neighborhoods
-            queryset = queryset.filter(
-                Q(citizen__neighborhood__isnull=True) | Q(citizen__neighborhood__is_active=True)
-            )
+        # Neighborhood filter (skip for escalated sessions - VIP members should see all)
+        if status != 'escalated':
+            if neighborhood_id:
+                queryset = queryset.filter(citizen__neighborhood_id=neighborhood_id, citizen__neighborhood__is_active=True)
+            else:
+                # exclude inactive neighborhoods
+                queryset = queryset.filter(
+                    Q(citizen__neighborhood__isnull=True) | Q(citizen__neighborhood__is_active=True)
+                )
 
         # Pagination (optional: simple)
         page = int(request.query_params.get('page', 1))

@@ -193,6 +193,43 @@ def train_correction_webhook(request):
         ai_analysis.save()
         logger.info(f"Train Correction Webhook: Updated AIAnalysis {ai_analysis.id} with correction data.")
         
+        # Update session status to unassigned and route to corrected department
+        session_obj = message_obj.session
+        correct_department_id = data.get('correct_department_id')
+        
+        if session_obj and correct_department_id:
+            try:
+                from departments.models import Department
+                department = Department.objects.get(id=correct_department_id)
+                
+                # Update session: set status to unassigned and assign to corrected department
+                session_obj.status = 'unassigned'
+                session_obj.assigned_department = department
+                session_obj.assigned_staff = None  # Clear any assigned staff
+                session_obj.save(update_fields=['status', 'assigned_department', 'assigned_staff'])
+                logger.info(f"Train Correction Webhook: Updated session {session_obj.session_uuid} to unassigned and assigned to department {department.id}")
+                
+                # Call the routing webhook to properly route the session
+                route_payload = {
+                    "department_id": correct_department_id,
+                    "session_uuid": str(session_obj.session_uuid),
+                    "message_uuid": str(message_uuid),
+                }
+                webhook_url = request.build_absolute_uri(reverse('ai_webhook'))
+                try:
+                    logger.info(f"Train Correction Webhook: Calling routing webhook: {webhook_url} with payload: {route_payload}")
+                    response = requests.post(webhook_url, json=route_payload, timeout=5)
+                    if response.status_code == 200:
+                        logger.info(f"Train Correction Webhook: Successfully routed session {session_obj.session_uuid} to department {correct_department_id}")
+                    else:
+                        logger.error(f"Train Correction Webhook: Routing webhook returned error {response.status_code}: {response.text}")
+                except requests.RequestException as req_err:
+                    logger.error(f"Train Correction Webhook: Failed to call routing webhook: {req_err}")
+            except Department.DoesNotExist:
+                logger.error(f"Train Correction Webhook: Department {correct_department_id} not found")
+            except Exception as route_err:
+                logger.error(f"Train Correction Webhook: Error routing session: {route_err}")
+        
     except Exception as e:
         logger.error(f"Error processing train correction webhook: {e}")
         import traceback
