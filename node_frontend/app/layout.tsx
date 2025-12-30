@@ -55,6 +55,7 @@ export default function RootLayout({
           defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
+          storageKey="ntmp-theme"
         >
           <ToastProvider>
             <StaffProfileProvider>

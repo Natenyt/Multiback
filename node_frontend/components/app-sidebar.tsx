@@ -49,6 +49,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
 import { useStaffProfile } from "@/contexts/staff-profile-context"
+import { WorkspaceLoading } from "@/components/workspace-loading"
 
 // Menu items with Lucide icons
 const menuItems = [
@@ -87,6 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions } = useNotifications()
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error } = useStaffProfile()
+  const [isNavigating, setIsNavigating] = React.useState(false)
   const unreadCount = getUnreadCount()
   const hasAssigned = hasAssignedSessions()
   const hasClosed = hasClosedSessions()
@@ -104,6 +106,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [isOnTrainingPage, isOnStatisticsPage])
   
   const currentWorkspace = getCurrentWorkspace()
+
+  // Handle workspace navigation with loading
+  const handleWorkspaceNavigation = React.useCallback((path: string) => {
+    // Only show loading if switching to a different workspace
+    const targetWorkspace = path.startsWith('/train') ? 'Training' : path.startsWith('/statistics') ? 'Statistics' : 'Dashboard'
+    if (targetWorkspace !== currentWorkspace) {
+      setIsNavigating(true)
+      // Navigate after a short delay to show loading
+      setTimeout(() => {
+        router.push(path)
+        // Hide loading after navigation completes
+        setTimeout(() => {
+          setIsNavigating(false)
+        }, 100)
+      }, 1000)
+    } else {
+      router.push(path)
+    }
+  }, [currentWorkspace, router])
+
+  // Clear loading state when pathname changes (navigation completed)
+  React.useEffect(() => {
+    setIsNavigating(false)
+  }, [pathname])
 
   // Clear assigned sessions when viewing assigned page
   React.useEffect(() => {
@@ -140,7 +166,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <>
+      {isNavigating && <WorkspaceLoading />}
+      <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -174,7 +202,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
-                router.push("/dashboard/dashboard")
+                handleWorkspaceNavigation("/dashboard/dashboard")
               }}
               className="cursor-pointer"
             >
@@ -196,7 +224,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {staffProfile?.role === 'VIP' && (
               <DropdownMenuItem
                 onClick={() => {
-                  router.push("/statistics")
+                  handleWorkspaceNavigation("/statistics")
                 }}
                 className="cursor-pointer"
               >
@@ -212,7 +240,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {staffProfile?.role === 'VIP' && (
               <DropdownMenuItem
                 onClick={() => {
-                  router.push("/train")
+                  handleWorkspaceNavigation("/train")
                 }}
                 className="cursor-pointer"
               >
@@ -462,6 +490,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </SidebarFooter>
     </Sidebar>
+    </>
   )
 }
 
