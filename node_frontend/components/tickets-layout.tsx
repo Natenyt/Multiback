@@ -50,8 +50,8 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
         setAuthError(error)
       } else {
         toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to assign ticket",
+          title: "Xatolik",
+          description: error instanceof Error ? error.message : "Murojaatni biriktirib bo'lmadi",
           variant: "destructive",
         })
       }
@@ -91,8 +91,8 @@ export function TicketsLayout({ status }: TicketsLayoutProps) {
         setAuthError(error)
       } else {
         toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to close ticket",
+          title: "Xatolik",
+          description: error instanceof Error ? error.message : "Murojaatni yopib bo'lmadi",
           variant: "destructive",
         })
       }

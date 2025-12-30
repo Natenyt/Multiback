@@ -134,6 +134,11 @@ export default function LoginPage() {
       const response = await staffLogin(data);
       storeAuthTokens(response.access, response.refresh);
       
+      // Remove dark class before navigation to allow ThemeProvider to restore user's theme
+      if (typeof window !== 'undefined') {
+        document.documentElement.classList.remove('dark');
+      }
+      
       // Dispatch custom event to notify StaffProfileProvider that token is set
       // This ensures the profile loads immediately after login
       if (typeof window !== 'undefined') {

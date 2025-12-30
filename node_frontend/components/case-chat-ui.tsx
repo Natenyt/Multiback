@@ -85,8 +85,8 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to assign ticket",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Murojaatni biriktirib bo'lmadi",
         variant: "destructive",
       })
     } finally {

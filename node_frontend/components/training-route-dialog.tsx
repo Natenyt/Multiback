@@ -51,8 +51,8 @@ export function TrainingRouteDialog({
     } catch (error) {
       console.error("Failed to fetch departments:", error)
       toast({
-        title: "Error",
-        description: "Failed to load departments",
+        title: "Xatolik",
+        description: "Bo'limlarni yuklab bo'lmadi",
         variant: "destructive",
       })
     }
@@ -107,8 +107,8 @@ export function TrainingRouteDialog({
     } catch (error) {
       console.error("Failed to train correction:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to route session",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Murojaatni yo'naltirib bo'lmadi",
         variant: "destructive",
       })
     } finally {

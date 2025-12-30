@@ -89,9 +89,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error } = useStaffProfile()
   const [isNavigating, setIsNavigating] = React.useState(false)
+  const [escalatedCount, setEscalatedCount] = React.useState(0)
   const unreadCount = getUnreadCount()
   const hasAssigned = hasAssignedSessions()
   const hasClosed = hasClosedSessions()
+  
+  // Fetch total escalated count for VIP members
+  React.useEffect(() => {
+    if (staffProfile?.role === 'VIP') {
+      const fetchEscalatedCount = async () => {
+        try {
+          const { getTickets } = await import("@/dash_department/lib/api")
+          // Fetch escalated tickets with a reasonable page size
+          // Since we need the total count, we'll fetch a large batch
+          // In production, you might want to add a count endpoint
+          const tickets = await getTickets('escalated', { page_size: 500 })
+          setEscalatedCount(tickets.length)
+        } catch (error) {
+          console.error("Failed to fetch escalated count:", error)
+          // Fallback to 0 if fetch fails
+          setEscalatedCount(0)
+        }
+      }
+      fetchEscalatedCount()
+      
+      // Refresh count periodically (every 30 seconds)
+      const interval = setInterval(fetchEscalatedCount, 30000)
+      return () => clearInterval(interval)
+    } else {
+      setEscalatedCount(0)
+    }
+  }, [staffProfile?.role])
   const isOnUnassignedPage = pathname === '/dashboard/unassigned' || pathname?.startsWith('/dashboard/unassigned/')
   const isOnAssignedPage = pathname === '/dashboard/assigned' || pathname?.startsWith('/dashboard/assigned/')
   const isOnArchivePage = pathname === '/dashboard/archive' || pathname?.startsWith('/dashboard/archive/') || pathname?.startsWith('/dashboard/closed/')
@@ -113,14 +141,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const targetWorkspace = path.startsWith('/train') ? 'Training' : path.startsWith('/statistics') ? 'Statistics' : 'Dashboard'
     if (targetWorkspace !== currentWorkspace) {
       setIsNavigating(true)
-      // Navigate after a short delay to show loading
+      // Navigate immediately, show loading overlay
+      router.push(path)
+      // Hide loading after a short delay (navigation should be fast)
       setTimeout(() => {
-        router.push(path)
-        // Hide loading after navigation completes
-        setTimeout(() => {
-          setIsNavigating(false)
-        }, 100)
-      }, 1000)
+        setIsNavigating(false)
+      }, 500)
     } else {
       router.push(path)
     }
@@ -249,12 +275,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <GraduationCap className="h-4 w-4" />
                   </div>
                   <span className="flex-1">Training</span>
-                  {escalatedNotifications.length > 0 && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-                      {escalatedNotifications.length > 9 ? "9+" : escalatedNotifications.length}
-                    </span>
-                  )}
-                  {currentWorkspace === "Training" && <Check className="h-4 w-4" />}
+                  <div className="flex items-center gap-1.5">
+                    {escalatedCount > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                        {escalatedCount > 9 ? "9+" : escalatedCount}
+                      </span>
+                    )}
+                    {currentWorkspace === "Training" && <Check className="h-4 w-4" />}
+                  </div>
                 </div>
               </DropdownMenuItem>
             )}

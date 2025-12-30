@@ -85,8 +85,8 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
     } catch (error) {
       setIsEscalating(false)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to escalate",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Murojaatni ko'tarib bo'lmadi",
         variant: "destructive",
       })
     }
@@ -106,8 +106,8 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
       router.back()
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to close",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Murojaatni yopib bo'lmadi",
         variant: "destructive",
       })
     }
@@ -127,8 +127,8 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
       // Optionally refresh the page or update state
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to hold",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Murojaatni uzaytirib bo'lmadi",
         variant: "destructive",
       })
     }
@@ -143,8 +143,8 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
       })
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save description",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Tavsifni saqlab bo'lmadi",
         variant: "destructive",
       })
     }

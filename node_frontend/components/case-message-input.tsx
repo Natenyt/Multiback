@@ -73,8 +73,8 @@ export function CaseMessageInput({ sessionUuid, onMessageSent, onMessageUpdate }
       console.error("Failed to send message:", error)
       
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send message",
+        title: "Xatolik",
+        description: error instanceof Error ? error.message : "Xabarni yuborib bo'lmadi",
         variant: "destructive",
       })
     } finally {

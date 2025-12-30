@@ -140,11 +140,10 @@ export function HeaderActions() {
         </DropdownMenu>
 
       {/* Sound Toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 rounded-full"
+      <button
+        suppressHydrationWarning
         onClick={toggleSound}
+        className="relative flex items-center justify-center w-8 h-8 rounded-full bg-muted/50 border border-border/50 hover:bg-muted transition-colors"
         title={soundEnabled ? "Ovozni o'chirish" : "Ovozni yoqish"}
       >
         {soundEnabled ? (
@@ -152,7 +151,7 @@ export function HeaderActions() {
         ) : (
           <VolumeX className="h-4 w-4 text-muted-foreground" />
         )}
-      </Button>
+      </button>
 
       {/* Theme Toggle */}
       <ThemeToggle />
