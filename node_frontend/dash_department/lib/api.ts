@@ -705,7 +705,7 @@ export async function getTickets(
   
   // For assigned and closed status, send staff_uuid (required by backend)
   // Escalated status doesn't require staff_uuid (all escalated sessions visible to VIP)
-  if ((status === 'assigned' || status === 'closed') && status !== 'escalated') {
+  if (status === 'assigned' || status === 'closed') {
     const staffUuid = getStaffUuid();
     if (staffUuid) {
       params.append('staff_uuid', staffUuid);
