@@ -20,6 +20,7 @@ interface NotificationContextType {
   addEscalatedNotification: (notification: Omit<Notification, 'id' | 'read'>) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
+  markEscalatedAsRead: () => void
   getUnreadCount: () => number
   clearNotifications: () => void
   addAssignedSession: (sessionUuid: string) => void
@@ -199,6 +200,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setEscalatedNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }, [])
 
+  const markEscalatedAsRead = React.useCallback(() => {
+    setEscalatedNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  }, [])
+
   const getUnreadCount = React.useCallback(() => {
     return notifications.filter((n) => !n.read).length + escalatedNotifications.filter((n) => !n.read).length
   }, [notifications, escalatedNotifications])
@@ -300,6 +305,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       addEscalatedNotification,
       markAsRead,
       markAllAsRead,
+      markEscalatedAsRead,
       getUnreadCount,
       clearNotifications,
       addAssignedSession,
@@ -315,7 +321,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       hasEscalatedSessions,
       clearEscalatedSessions,
     }),
-    [notifications, escalatedNotifications, assignedSessions, closedSessions, escalatedSessions, addNotification, addEscalatedNotification, markAsRead, markAllAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions, addEscalatedSession, removeEscalatedSession, hasEscalatedSessions, clearEscalatedSessions]
+    [notifications, escalatedNotifications, assignedSessions, closedSessions, escalatedSessions, addNotification, addEscalatedNotification, markAsRead, markAllAsRead, markEscalatedAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions, addEscalatedSession, removeEscalatedSession, hasEscalatedSessions, clearEscalatedSessions]
   )
 
   return (

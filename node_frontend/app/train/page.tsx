@@ -5,12 +5,12 @@ import { TicketsLayout } from "@/components/tickets-layout"
 import { useNotifications } from "@/contexts/notification-context"
 
 export default function TrainingPage() {
-  const { clearEscalatedSessions } = useNotifications()
+  const { markEscalatedAsRead } = useNotifications()
 
-  // Clear escalated sessions when viewing training page
+  // Mark escalated notifications as read when viewing training page
   React.useEffect(() => {
-    clearEscalatedSessions()
-  }, [clearEscalatedSessions])
+    markEscalatedAsRead()
+  }, [markEscalatedAsRead])
 
   return (
     <div className="h-full p-6">
