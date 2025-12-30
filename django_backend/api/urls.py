@@ -26,6 +26,7 @@ urlpatterns = [
     path('internal/routing-result/', views.routing_result, name='routing_result'),
     path('internal/train-correction/', views.train_correction_webhook, name='train_correction_webhook'),
     path('ai/route_message/', AIWebhookView.as_view(), name='ai_webhook'),
+    path('train-correction/', views.train_correction, name='train_correction'),
     
 
     path('auth/staff-login/', StaffLoginView.as_view(), name='staff_login'),

@@ -1,15 +1,26 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.urls import reverse
+from django.conf import settings
 import requests
+import os
 
 from ai_endpoints.models import InjectionLog, AIAnalysis # Keep imports from ai_endpoints models as they are defined there
 from message_app.models import Session, Message
 import logging
 
 logger = logging.getLogger(__name__)
+
+# FastAPI microservice URL - get from settings or environment
+# AI_MICROSERVICE_URL might include /api/v1, so we'll handle that
+FASTAPI_BASE = getattr(settings, 'AI_MICROSERVICE_URL', os.getenv('AI_MICROSERVICE_URL', 'http://localhost:8001'))
+# Remove /api/v1 suffix if present (we'll add it in the endpoint)
+if FASTAPI_BASE.endswith('/api/v1'):
+    FASTAPI_BASE = FASTAPI_BASE[:-7]
+elif FASTAPI_BASE.endswith('/api'):
+    FASTAPI_BASE = FASTAPI_BASE[:-4]
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
@@ -192,3 +203,77 @@ def train_correction_webhook(request):
         )
 
     return Response({"status": "processed"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])  # Require authentication for training
+def train_correction(request):
+    """
+    Django endpoint that proxies training correction requests to FastAPI.
+    This keeps FastAPI internal and secure.
+    """
+    data = request.data
+    logger.info(f"Train Correction Request Received: {data}")
+    
+    try:
+        # Validate required fields
+        if not all([data.get('text'), data.get('correct_department_id'), data.get('message_uuid')]):
+            return Response(
+                {"status": "error", "detail": "Missing required fields: text, correct_department_id, message_uuid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get user UUID for corrected_by if authenticated
+        corrected_by_uuid = None
+        if request.user and hasattr(request.user, 'user_uuid'):
+            corrected_by_uuid = str(request.user.user_uuid)
+        
+        # Prepare payload for FastAPI
+        fastapi_payload = {
+            "text": data.get('text'),
+            "correct_department_id": data.get('correct_department_id'),
+            "message_uuid": data.get('message_uuid'),
+            "language": data.get('language'),  # Optional, will be auto-detected
+            "correction_notes": data.get('correction_notes'),  # Optional
+        }
+        
+        if corrected_by_uuid:
+            fastapi_payload["corrected_by"] = corrected_by_uuid
+        
+        # Call FastAPI endpoint
+        fastapi_url = f"{FASTAPI_BASE}/api/v1/train-correction"
+        logger.info(f"Calling FastAPI: {fastapi_url} with payload keys: {list(fastapi_payload.keys())}")
+        
+        try:
+            response = requests.post(
+                fastapi_url,
+                json=fastapi_payload,
+                timeout=30.0  # Training might take longer
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"FastAPI train-correction succeeded")
+                return Response(
+                    {"status": "success"},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                logger.error(f"FastAPI returned error {response.status_code}: {response.text}")
+                return Response(
+                    {"status": "error", "detail": f"FastAPI error: {response.status_code}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        except requests.RequestException as e:
+            logger.error(f"Failed to connect to FastAPI: {e}")
+            return Response(
+                {"status": "error", "detail": f"Failed to connect to AI service: {str(e)}"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+            
+    except Exception as e:
+        logger.error(f"Error processing train correction request: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return Response(
+            {"status": "error", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

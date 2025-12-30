@@ -425,7 +425,7 @@ export function TicketsTable({
             {sortedTickets.map((ticket) => (
                 <TableRow 
                   key={ticket.session_id} 
-                  className="hover:bg-muted/50 cursor-pointer"
+                  className="hover:bg-muted/50 cursor-pointer h-12"
                   onClick={(e) => {
                     // Don't navigate if clicking on buttons or interactive elements
                     const target = e.target as HTMLElement

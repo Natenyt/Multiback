@@ -102,7 +102,7 @@ export function TrainingRouteDialog({
       // Wait a bit to show success animation
       setTimeout(() => {
         onOpenChange(false)
-        router.push("/dashboard/train")
+        router.push("/train")
       }, 1500)
     } catch (error) {
       console.error("Failed to train correction:", error)

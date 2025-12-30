@@ -1118,21 +1118,9 @@ export interface TrainCorrectionRequest {
 }
 
 export async function trainCorrection(request: TrainCorrectionRequest): Promise<{ status: string }> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error('No authentication token found');
-  }
-
-  // FastAPI endpoint - use proxy route
-  // The proxy should route to FastAPI service
-  const url = `/api/proxy/api/v1/train-correction`;
-
-  const response = await fetch(url, {
+  // Django endpoint that proxies to FastAPI (FastAPI is not exposed publicly)
+  const response = await authenticatedFetch(`${API_BASE_URL}/train-correction/`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
     body: JSON.stringify(request),
   });
 

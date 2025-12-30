@@ -28,7 +28,7 @@ export function CaseChatUI({ session, initialMessages, initialNextCursor, sessio
   const [isRouteDialogOpen, setIsRouteDialogOpen] = React.useState(false)
   const isUnassigned = !currentSession.assigned_staff
   const isClosed = currentSession.status === "closed"
-  const isTrainingRoute = pathname?.includes('/train/')
+  const isTrainingRoute = pathname?.startsWith('/train/')
 
   // Update local session when prop changes
   React.useEffect(() => {

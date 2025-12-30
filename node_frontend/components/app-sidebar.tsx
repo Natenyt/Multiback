@@ -199,7 +199,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <DropdownMenuItem
                 onClick={() => {
                   setCurrentWorkspace("Training")
-                  router.push("/dashboard/train")
+                  router.push("/train")
                 }}
                 className="cursor-pointer"
               >
@@ -220,7 +220,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-[5px]">
-              {menuItems.map((item) => {
+              {isOnTrainingPage ? (
+                // Training workspace: Only show Escalated Murojaatlar
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={true} className="!transition-none">
+                    <Link
+                      href="/train"
+                      className="flex items-center !transition-none relative gap-2 px-2 bg-sidebar-accent/80 dark:bg-sidebar-accent/80 text-sidebar-accent-foreground font-semibold shadow-md border-l-4 border-sidebar-primary"
+                    >
+                      <span className="shrink-0 !transition-none">
+                        <Inbox className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="group-data-[collapsible=icon]:hidden">
+                        Escalated Murojaatlar
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : (
+                menuItems.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href))
                 const showGreenCircle = item.href === "/dashboard/unassigned" && unreadCount > 0 && !isOnUnassignedPage
                 const showBlueCircle = item.href === "/dashboard/assigned" && hasAssigned && !isOnAssignedPage
@@ -287,7 +305,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
-              })}
+              })
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

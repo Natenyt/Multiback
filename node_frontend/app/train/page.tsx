@@ -8,7 +8,7 @@ export default function TrainingPage() {
   const router = useRouter()
 
   const handlePreviewClick = (sessionId: string) => {
-    router.push(`/dashboard/train/${sessionId}`)
+    router.push(`/train/${sessionId}`)
   }
 
   const handleAssign = () => {
@@ -34,4 +34,5 @@ export default function TrainingPage() {
     </div>
   )
 }
+
 
