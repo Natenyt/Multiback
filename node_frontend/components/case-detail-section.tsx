@@ -306,8 +306,8 @@ export function CaseDetailSection({ session, sessionUuid, onSessionUpdate }: Cas
           </div>
         </div>
 
-        {/* Action Section - Hide for closed sessions */}
-        {currentSession.status !== "closed" && (
+        {/* Action Section - Hide for closed sessions and escalated sessions */}
+        {currentSession.status !== "closed" && currentSession.status !== "escalated" && !pathname?.startsWith('/train/') && (
         <div className="space-y-2">
             <h2 className="text-[20px] font-semibold text-foreground">Harakat</h2>
           <div className="flex flex-col gap-2 items-start">
