@@ -393,12 +393,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-[200px]"
+              className="min-w-[200px] max-w-[300px]"
               side="right"
             >
               <DropdownMenuLabel>
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 rounded-lg">
+                  <Avatar className="h-8 w-8 rounded-lg shrink-0">
                     {staffProfile.avatar_url ? (
                       <AvatarImage src={staffProfile.avatar_url} alt={staffProfile.full_name} />
                     ) : null}
@@ -406,11 +406,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       {getInitials(staffProfile.full_name || "User")}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-sm font-medium truncate">
                       {staffProfile.full_name || "User"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground truncate">
                       {staffProfile.email || "emailnot@registered.com"}
                     </span>
                   </div>

@@ -67,19 +67,24 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Force dark theme on login page - locked to dark theme
-  // Prevents theme switching even on page refresh
+  // Force dark theme on login page only - locked to dark theme
+  // Does NOT update localStorage, so user's selected theme is preserved
+  // When navigating away, ThemeProvider will restore the user's saved theme
   useEffect(() => {
-    // Immediately add dark class
+    // Store the current theme from localStorage before forcing dark
+    const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('ntmp-theme') : null;
+    
+    // Immediately add dark class for login page
     document.documentElement.classList.add('dark');
     
-    // Watch for any theme changes and force dark theme back
+    // Watch for any theme changes and force dark theme back (only on login page)
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
           const htmlElement = document.documentElement;
           if (!htmlElement.classList.contains('dark')) {
             // If dark class was removed, add it back immediately
+            // But DON'T update localStorage - preserve user's theme preference
             htmlElement.classList.add('dark');
           }
         }
@@ -96,6 +101,7 @@ export default function LoginPage() {
     const intervalId = setInterval(() => {
       if (!document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.add('dark');
+        // DON'T update localStorage - preserve user's theme preference
       }
     }, 100); // Check every 100ms
     
@@ -103,6 +109,12 @@ export default function LoginPage() {
     return () => {
       observer.disconnect();
       clearInterval(intervalId);
+      // When leaving login page, restore the saved theme (or keep dark if none saved)
+      // The ThemeProvider will handle this, but we ensure localStorage wasn't modified
+      if (typeof window !== 'undefined' && savedTheme) {
+        // localStorage should already have the correct theme, but ensure it's not overwritten
+        // ThemeProvider will read it and apply it
+      }
     };
   }, []);
 

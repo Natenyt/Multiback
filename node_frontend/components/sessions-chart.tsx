@@ -127,7 +127,7 @@ export function SessionsChart() {
           <div className="aspect-auto h-[250px] w-full flex items-center justify-center">
             <div className="text-center">
               <p className="text-muted-foreground">
-                {error || "No data available for the selected period"}
+                {error || "Tanlangan davr uchun ma'lumot mavjud emas"}
               </p>
             </div>
           </div>
@@ -166,10 +166,10 @@ export function SessionsChart() {
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="px-[16px] pt-4 sm:px-[32px] sm:pt-6 overflow-visible">
+      <CardContent className="px-[16px] pt-4 sm:px-[32px] sm:pt-6 overflow-hidden">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full overflow-visible [&_svg]:overflow-visible"
+          className="aspect-auto h-[250px] w-full [&_svg]:overflow-visible"
         >
           <AreaChart
             key={timeRange}
@@ -178,7 +178,7 @@ export function SessionsChart() {
               top: 10,
               right: 0,
               left: 0,
-              bottom: 0,
+              bottom: 40,
             }}
           >
             <defs>
@@ -231,6 +231,7 @@ export function SessionsChart() {
               angle={0}
               textAnchor="middle"
               interval="preserveStartEnd"
+              height={40}
             />
             <ChartTooltip
               cursor={false}

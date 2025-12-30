@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Bell } from "lucide-react"
+import { Bell, Volume2, VolumeX } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,9 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useNotifications } from "@/contexts/notification-context"
 import { formatTimeAgo } from "@/lib/time-utils"
+import { setSoundPreference } from "@/hooks/use-toast"
 
 export function HeaderActions() {
   const router = useRouter()
@@ -25,6 +27,24 @@ export function HeaderActions() {
     markAllAsRead 
   } = useNotifications()
   const unreadCount = getUnreadCount()
+  
+  // Sound preference state
+  const [soundEnabled, setSoundEnabled] = React.useState(true)
+  
+  // Load sound preference on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('notification-sound-enabled')
+      setSoundEnabled(stored === null ? true : stored === 'true')
+    }
+  }, [])
+  
+  // Toggle sound preference
+  const toggleSound = React.useCallback(() => {
+    const newValue = !soundEnabled
+    setSoundEnabled(newValue)
+    setSoundPreference(newValue)
+  }, [soundEnabled])
 
   // Mark all notifications as read when dropdown opens
   const handleDropdownOpenChange = (open: boolean) => {
@@ -118,6 +138,21 @@ export function HeaderActions() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+
+      {/* Sound Toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 rounded-full"
+        onClick={toggleSound}
+        title={soundEnabled ? "Ovozni o'chirish" : "Ovozni yoqish"}
+      >
+        {soundEnabled ? (
+          <Volume2 className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <VolumeX className="h-4 w-4 text-muted-foreground" />
+        )}
+      </Button>
 
       {/* Theme Toggle */}
       <ThemeToggle />

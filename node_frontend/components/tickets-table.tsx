@@ -378,12 +378,12 @@ export function TicketsTable({
 
       {isLoading ? (
         <div className="flex items-center justify-center p-8">
-          <p className="text-muted-foreground">Loading tickets...</p>
+          <p className="text-muted-foreground">Murojaatlar yuklanmoqda...</p>
         </div>
       ) : sortedTickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8">
-          <p className="text-muted-foreground text-lg mb-2">No tickets found</p>
-          <p className="text-muted-foreground text-sm">Try adjusting your search or filters</p>
+          <p className="text-muted-foreground text-lg mb-2">Murojaatlar topilmadi</p>
+          <p className="text-muted-foreground text-sm">Qidiruv yoki filtrlarni o'zgartirib ko'ring</p>
         </div>
       ) : (
         <>

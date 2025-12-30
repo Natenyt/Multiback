@@ -21,8 +21,27 @@ interface ToastContextType {
   }) => void
 }
 
+// Notification sound preference storage key
+const SOUND_PREFERENCE_KEY = 'notification-sound-enabled'
+
+// Get sound preference from localStorage
+function getSoundPreference(): boolean {
+  if (typeof window === 'undefined') return true // Default to enabled on server
+  const stored = localStorage.getItem(SOUND_PREFERENCE_KEY)
+  return stored === null ? true : stored === 'true' // Default to enabled if not set
+}
+
+// Set sound preference in localStorage
+export function setSoundPreference(enabled: boolean) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(SOUND_PREFERENCE_KEY, String(enabled))
+  }
+}
+
 // Notification sound function
 function playNotificationSound() {
+  if (!getSoundPreference()) return // Don't play if disabled
+  
   try {
     const audio = new Audio('/notification.mp3')
     audio.volume = 0.5 // Set volume to 50%
@@ -77,7 +96,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={toast.id}
             className={`px-4 py-3 rounded-md shadow-lg min-w-[320px] max-w-[420px] ${
               toast.variant === "destructive"
-                ? "bg-destructive text-destructive-foreground"
+                ? "bg-destructive text-white"
                 : "bg-background text-foreground border border-border"
             }`}
             style={{
@@ -86,7 +105,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             {toast.title && <div className="font-semibold text-sm">{toast.title}</div>}
             {toast.description && (
-              <div className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
+              <div className={`text-sm mt-1 whitespace-pre-line ${
+                toast.variant === "destructive" ? "text-white/90" : "text-muted-foreground"
+              }`}>
                 {toast.description}
               </div>
             )}
