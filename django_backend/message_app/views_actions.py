@@ -306,52 +306,24 @@ class TicketEscalateAPIView(APIView):
                 # 7. Broadcast to citizen chat
                 broadcast_session_escalated_to_citizen(session.session_uuid, session_obj=session, request=request)
 
-                # 8. Send notification message to citizen
-                try:
-                    from message_app.models import Message, MessageContent
-                    from websockets.utils import broadcast_message_created
-                    from message_app.utils_telegram import send_text_to_telegram
-                    
-                    # Create system message for citizen
-                    notification_text = (
-                        "<b>ℹ️ Murojaatingiz qayta ko'rib chiqilmoqda</b>\n\n"
-                        "Sizning murojaatingiz to'g'ri bo'limga yo'naltirilmoqda. "
-                        "Iltimos, kuting. Tez orada sizga javob beriladi."
-                    )
-                    
-                    # Create message in database
-                    notification_msg = Message.objects.create(
-                        session=session,
-                        sender=None,  # System message
-                        is_staff_message=True,
-                        sender_platform='system'
-                    )
-                    MessageContent.objects.create(
-                        message=notification_msg,
-                        content_type='text',
-                        text=notification_text
-                    )
-                    
-                    # Broadcast to chat
+                # 8. Send notification to citizen via Telegram (system message, not in chat)
+                if session.origin == 'telegram':
                     try:
-                        broadcast_message_created(str(session.session_uuid), notification_msg, request=request)
-                    except Exception as broadcast_err:
-                        logger.error(f"Failed to broadcast escalation notification: {broadcast_err}")
-                    
-                    # Send to Telegram if session originated from Telegram
-                    if session.origin == 'telegram':
                         telegram_profile = getattr(session.citizen, 'telegram_profile', None)
                         if telegram_profile and telegram_profile.telegram_chat_id:
-                            try:
-                                send_text_to_telegram(
-                                    telegram_profile.telegram_chat_id,
-                                    notification_text,
-                                    remove_keyboard=False
-                                )
-                            except Exception as telegram_err:
-                                logger.error(f"Failed to send escalation notification to Telegram: {telegram_err}")
-                except Exception as msg_err:
-                    logger.error(f"Failed to create escalation notification message: {msg_err}")
+                            from message_app.utils_telegram import send_text_to_telegram
+                            notification_text = (
+                                "<b>ℹ️ Murojaatingiz qayta ko'rib chiqilmoqda</b>\n\n"
+                                "Sizning murojaatingiz to'g'ri bo'limga yo'naltirilmoqda. "
+                                "Iltimos, kuting. Tez orada sizga javob beriladi."
+                            )
+                            send_text_to_telegram(
+                                telegram_profile.telegram_chat_id,
+                                notification_text,
+                                remove_keyboard=False
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to send escalation notification to Telegram: {e}")
 
                 # 9. Return updated session data
                 serializer = SessionSerializer(session, context={'request': request})

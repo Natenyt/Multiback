@@ -222,52 +222,36 @@ def train_correction_webhook(request):
                     if response.status_code == 200:
                         logger.info(f"Train Correction Webhook: Successfully routed session {session_obj.session_uuid} to department {correct_department_id}")
                         
-                        # Send notification message to citizen after rerouting
+                        # Explicitly broadcast session.created to department so staff get notifications
+                        # This is needed because we updated the session before calling ai_webhook,
+                        # so ai_webhook doesn't detect it as a department change
                         try:
-                            from message_app.models import Message, MessageContent
-                            from websockets.utils import broadcast_message_created
-                            from message_app.utils_telegram import send_text_to_telegram
-                            
-                            # Create system message for citizen
-                            notification_text = (
-                                "<b>✅ Murojaatingiz qayta yo'naltirildi</b>\n\n"
-                                "Sizning murojaatingiz to'g'ri bo'limga qayta yo'naltirildi. "
-                                "Tez orada xodimlar sizga javob berishadi."
-                            )
-                            
-                            # Create message in database
-                            notification_msg = Message.objects.create(
-                                session=session_obj,
-                                sender=None,  # System message
-                                is_staff_message=True,
-                                sender_platform='system'
-                            )
-                            MessageContent.objects.create(
-                                message=notification_msg,
-                                content_type='text',
-                                text=notification_text
-                            )
-                            
-                            # Broadcast to chat
+                            from websockets.utils import broadcast_session_created
+                            # Reload session to ensure we have latest data
+                            session_obj.refresh_from_db()
+                            broadcast_session_created(department.id, session_obj, request=request)
+                            logger.info(f"Train Correction Webhook: Broadcasted session.created to department_{department.id}")
+                        except Exception as broadcast_err:
+                            logger.error(f"Train Correction Webhook: Failed to broadcast session.created: {broadcast_err}")
+                        
+                        # Send notification to citizen via Telegram (system message, not in chat)
+                        if session_obj.origin == 'telegram':
                             try:
-                                broadcast_message_created(str(session_obj.session_uuid), notification_msg, request=request)
-                            except Exception as broadcast_err:
-                                logger.error(f"Failed to broadcast reroute notification: {broadcast_err}")
-                            
-                            # Send to Telegram if session originated from Telegram
-                            if session_obj.origin == 'telegram':
                                 telegram_profile = getattr(session_obj.citizen, 'telegram_profile', None)
                                 if telegram_profile and telegram_profile.telegram_chat_id:
-                                    try:
-                                        send_text_to_telegram(
-                                            telegram_profile.telegram_chat_id,
-                                            notification_text,
-                                            remove_keyboard=False
-                                        )
-                                    except Exception as telegram_err:
-                                        logger.error(f"Failed to send reroute notification to Telegram: {telegram_err}")
-                        except Exception as msg_err:
-                            logger.error(f"Failed to create reroute notification message: {msg_err}")
+                                    from message_app.utils_telegram import send_text_to_telegram
+                                    notification_text = (
+                                        "<b>✅ Murojaatingiz qayta yo'naltirildi</b>\n\n"
+                                        "Sizning murojaatingiz to'g'ri bo'limga qayta yo'naltirildi. "
+                                        "Tez orada xodimlar sizga javob berishadi."
+                                    )
+                                    send_text_to_telegram(
+                                        telegram_profile.telegram_chat_id,
+                                        notification_text,
+                                        remove_keyboard=False
+                                    )
+                            except Exception as e:
+                                logger.error(f"Failed to send reroute notification to Telegram: {e}")
                     else:
                         logger.error(f"Train Correction Webhook: Routing webhook returned error {response.status_code}: {response.text}")
                 except requests.RequestException as req_err:
