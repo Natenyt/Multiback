@@ -397,3 +397,14 @@ class VIPConsumer(AsyncJsonWebsocketConsumer):
             "type": "session.escalated",
             "session": event.get("session")
         })
+
+    async def session_rerouted(self, event):
+        """
+        Handler for rerouted session events.
+        Sends rerouted session data to VIP dashboard.
+        """
+        await self.send_json({
+            "type": "session.rerouted",
+            "session": event.get("session"),
+            "department_name": event.get("department_name")
+        })

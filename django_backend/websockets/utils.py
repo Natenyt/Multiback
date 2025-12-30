@@ -195,3 +195,20 @@ def broadcast_session_closed_to_citizen(session_uuid, session_obj=None, request=
             "message": "This session has been closed."
         }
     )
+
+
+def broadcast_session_rerouted_to_vip(session_obj, department_name, request=None):
+    """
+    Notifies VIP members that a session has been rerouted.
+    """
+    serializer = SessionSerializer(session_obj, context={'request': request})
+    data = serializer.data
+    
+    async_to_sync(channel_layer.group_send)(
+        "vip",
+        {
+            "type": "session.rerouted",
+            "session": data,
+            "department_name": department_name
+        }
+    )

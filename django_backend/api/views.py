@@ -226,13 +226,18 @@ def train_correction_webhook(request):
                         # This is needed because we updated the session before calling ai_webhook,
                         # so ai_webhook doesn't detect it as a department change
                         try:
-                            from websockets.utils import broadcast_session_created
+                            from websockets.utils import broadcast_session_created, broadcast_session_rerouted_to_vip
                             # Reload session to ensure we have latest data
                             session_obj.refresh_from_db()
                             broadcast_session_created(department.id, session_obj, request=request)
                             logger.info(f"Train Correction Webhook: Broadcasted session.created to department_{department.id}")
+                            
+                            # Broadcast to VIP group that session was rerouted
+                            department_name = department.name_uz or department.name_ru or f"Department {department.id}"
+                            broadcast_session_rerouted_to_vip(session_obj, department_name, request=request)
+                            logger.info(f"Train Correction Webhook: Broadcasted session.rerouted to VIP group")
                         except Exception as broadcast_err:
-                            logger.error(f"Train Correction Webhook: Failed to broadcast session.created: {broadcast_err}")
+                            logger.error(f"Train Correction Webhook: Failed to broadcast: {broadcast_err}")
                         
                         # Send notification to citizen via Telegram (system message, not in chat)
                         if session_obj.origin == 'telegram':

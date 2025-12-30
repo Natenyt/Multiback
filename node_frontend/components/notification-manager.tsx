@@ -216,6 +216,34 @@ export const NotificationManager: React.FC = () => {
                     })
                   }
                 }
+
+                // Handle session.rerouted events
+                if (data.type === "session.rerouted" && data.session && mounted) {
+                  const reroutedSession = data.session
+                  const sessionUuid = reroutedSession.session_uuid
+                  const departmentName = data.department_name || "Unknown Department"
+                  
+                  // Determine current workspace
+                  const isInDashboardWorkspace = pathname === '/dashboard/dashboard' || pathname?.startsWith('/dashboard/')
+                  
+                  // Only show notification if not in dashboard workspace
+                  if (!isInDashboardWorkspace) {
+                    // Add notification to dashboard
+                    addNotification({
+                      session_uuid: sessionUuid,
+                      citizen_name: reroutedSession.citizen?.full_name || reroutedSession.citizen?.phone_number || "Unknown",
+                      created_at: reroutedSession.created_at || new Date().toISOString(),
+                    })
+                    
+                    // Show toast notification with workspace info
+                    toast({
+                      title: "Murojaat qayta yo'naltirildi (Dashboard)",
+                      description: `Fuqoro: ${reroutedSession.citizen?.full_name || reroutedSession.citizen?.phone_number || "Unknown"}\nBo'lim: ${departmentName}\n${formatTimeAgo(reroutedSession.created_at || new Date().toISOString())}`,
+                      playSound: true,
+                      duration: 5000,
+                    })
+                  }
+                }
               } catch (error) {
                 console.error("NotificationManager: Error parsing VIP websocket message:", error)
               }
