@@ -94,6 +94,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isOnUnassignedPage = pathname === '/dashboard/unassigned' || pathname?.startsWith('/dashboard/unassigned/')
   const isOnAssignedPage = pathname === '/dashboard/assigned' || pathname?.startsWith('/dashboard/assigned/')
   const isOnArchivePage = pathname === '/dashboard/archive' || pathname?.startsWith('/dashboard/archive/') || pathname?.startsWith('/dashboard/closed/')
+  const isOnTrainingPage = pathname === '/train' || pathname?.startsWith('/train/')
 
   // Clear assigned sessions when viewing assigned page
   React.useEffect(() => {
