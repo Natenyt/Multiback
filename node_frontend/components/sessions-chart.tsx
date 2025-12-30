@@ -87,17 +87,17 @@ export function SessionsChart() {
               className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
               aria-label="Select a time range"
             >
-              <SelectValue placeholder="Oxirgisi 30 kun" />
+              <SelectValue placeholder="Oxirgi 30 kun" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="7d" className="rounded-lg">
-                Oxirgisi 7 kun
+                Oxirgi 7 kun
               </SelectItem>
               <SelectItem value="30d" className="rounded-lg">
-                Oxirgisi 30 kun
+                Oxirgi 30 kun
               </SelectItem>
               <SelectItem value="3m" className="rounded-lg">
-                Oxirgisi 3 oy
+                Oxirgi 3 oy
               </SelectItem>
               <SelectItem value="all" className="rounded-lg">
                 Barcha vaqt
@@ -130,17 +130,17 @@ export function SessionsChart() {
             className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
             aria-label="Select a time range"
           >
-            <SelectValue placeholder="Oxirgisi 30 kun" />
+            <SelectValue placeholder="Oxirgi 30 kun" />
           </SelectTrigger>
           <SelectContent className="rounded-xl">
             <SelectItem value="7d" className="rounded-lg">
-              Oxirgisi 7 kun
+              Oxirgi 7 kun
             </SelectItem>
             <SelectItem value="30d" className="rounded-lg">
-              Oxirgisi 30 kun
+              Oxirgi 30 kun
             </SelectItem>
             <SelectItem value="3m" className="rounded-lg">
-              Oxirgisi 3 oy
+              Oxirgi 3 oy
             </SelectItem>
             <SelectItem value="all" className="rounded-lg">
               Barcha vaqt

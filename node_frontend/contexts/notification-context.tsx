@@ -12,10 +12,12 @@ export interface Notification {
 
 interface NotificationContextType {
   notifications: Notification[]
+  escalatedNotifications: Notification[] // Escalated session notifications
   assignedSessions: Set<string> // Track newly assigned session UUIDs
   closedSessions: Set<string> // Track newly closed session UUIDs
   escalatedSessions: Set<string> // Track newly escalated session UUIDs
   addNotification: (notification: Omit<Notification, 'id' | 'read'>) => void
+  addEscalatedNotification: (notification: Omit<Notification, 'id' | 'read'>) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
   getUnreadCount: () => number
@@ -41,9 +43,11 @@ const NOTIFICATIONS_STORAGE_KEY = 'unassigned_session_notifications'
 const ASSIGNED_SESSIONS_STORAGE_KEY = 'assigned_sessions'
 const CLOSED_SESSIONS_STORAGE_KEY = 'closed_sessions'
 const ESCALATED_SESSIONS_STORAGE_KEY = 'escalated_sessions'
+const ESCALATED_NOTIFICATIONS_STORAGE_KEY = 'escalated_notifications'
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = React.useState<Notification[]>([])
+  const [escalatedNotifications, setEscalatedNotifications] = React.useState<Notification[]>([])
   const [assignedSessions, setAssignedSessions] = React.useState<Set<string>>(new Set())
   const [closedSessions, setClosedSessions] = React.useState<Set<string>>(new Set())
   const [escalatedSessions, setEscalatedSessions] = React.useState<Set<string>>(new Set())
@@ -130,6 +134,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [escalatedSessions])
 
+  // Save escalated notifications to localStorage whenever they change
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(ESCALATED_NOTIFICATIONS_STORAGE_KEY, JSON.stringify(escalatedNotifications))
+    } catch (error) {
+      console.error("Failed to save escalated notifications to localStorage:", error)
+    }
+  }, [escalatedNotifications])
+
   const addNotification = React.useCallback(
     (notification: Omit<Notification, 'id' | 'read'>) => {
       const id = `${notification.session_uuid}-${Date.now()}`
@@ -151,19 +164,44 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     []
   )
 
+  const addEscalatedNotification = React.useCallback(
+    (notification: Omit<Notification, 'id' | 'read'>) => {
+      const id = `escalated-${notification.session_uuid}-${Date.now()}`
+      const newNotification: Notification = {
+        ...notification,
+        id,
+        read: false,
+      }
+      setEscalatedNotifications((prev) => {
+        // Check if notification for this session already exists (avoid duplicates)
+        const exists = prev.some((n) => n.session_uuid === notification.session_uuid && !n.read)
+        if (exists) {
+          return prev
+        }
+        // Prepend new notification (newest first)
+        return [newNotification, ...prev]
+      })
+    },
+    []
+  )
+
   const markAsRead = React.useCallback((id: string) => {
     setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    )
+    setEscalatedNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     )
   }, [])
 
   const markAllAsRead = React.useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setEscalatedNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }, [])
 
   const getUnreadCount = React.useCallback(() => {
-    return notifications.filter((n) => !n.read).length
-  }, [notifications])
+    return notifications.filter((n) => !n.read).length + escalatedNotifications.filter((n) => !n.read).length
+  }, [notifications, escalatedNotifications])
 
   const clearNotifications = React.useCallback(() => {
     setNotifications([])
@@ -242,8 +280,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const clearEscalatedSessions = React.useCallback(() => {
     setEscalatedSessions(new Set())
+    setEscalatedNotifications([])
     try {
       localStorage.removeItem(ESCALATED_SESSIONS_STORAGE_KEY)
+      localStorage.removeItem(ESCALATED_NOTIFICATIONS_STORAGE_KEY)
     } catch (error) {
       console.error("Failed to clear escalated sessions from localStorage:", error)
     }
@@ -252,10 +292,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const value = React.useMemo(
     () => ({
       notifications,
+      escalatedNotifications,
       assignedSessions,
       closedSessions,
       escalatedSessions,
       addNotification,
+      addEscalatedNotification,
       markAsRead,
       markAllAsRead,
       getUnreadCount,
@@ -273,7 +315,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       hasEscalatedSessions,
       clearEscalatedSessions,
     }),
-    [notifications, assignedSessions, closedSessions, escalatedSessions, addNotification, markAsRead, markAllAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions, addEscalatedSession, removeEscalatedSession, hasEscalatedSessions, clearEscalatedSessions]
+    [notifications, escalatedNotifications, assignedSessions, closedSessions, escalatedSessions, addNotification, addEscalatedNotification, markAsRead, markAllAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions, addEscalatedSession, removeEscalatedSession, hasEscalatedSessions, clearEscalatedSessions]
   )
 
   return (

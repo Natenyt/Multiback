@@ -40,7 +40,7 @@ const getWsBaseUrl = (): string => {
 const SHOWN_TOAST_SESSIONS_KEY = 'shown_toast_sessions'
 
 export const NotificationManager: React.FC = () => {
-  const { notifications, addNotification, addEscalatedSession } = useNotifications()
+  const { notifications, addNotification, addEscalatedSession, addEscalatedNotification } = useNotifications()
   const { toast } = useToast()
   const pathname = usePathname()
   const wsRef = React.useRef<WebSocket | null>(null)
@@ -196,6 +196,13 @@ export const NotificationManager: React.FC = () => {
                     // Add to escalated sessions set
                     addEscalatedSession(sessionUuid)
                     
+                    // Add escalated notification
+                    addEscalatedNotification({
+                      session_uuid: sessionUuid,
+                      citizen_name: escalatedSession.citizen?.full_name || escalatedSession.citizen?.phone_number || "Unknown",
+                      created_at: escalatedSession.created_at || new Date().toISOString(),
+                    })
+                    
                     // Determine if we're in Training workspace
                     const isInTrainingWorkspace = pathname === '/train' || pathname?.startsWith('/train/')
                     
@@ -263,7 +270,7 @@ export const NotificationManager: React.FC = () => {
         vipWsRef.current = null
       }
     }
-  }, [addNotification, addEscalatedSession, pathname])
+  }, [addNotification, addEscalatedSession, addEscalatedNotification, pathname])
 
   return null
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 import {
   DropdownMenu,
@@ -17,7 +17,13 @@ import { formatTimeAgo } from "@/lib/time-utils"
 
 export function HeaderActions() {
   const router = useRouter()
-  const { notifications, getUnreadCount, markAllAsRead } = useNotifications()
+  const pathname = usePathname()
+  const { 
+    notifications, 
+    escalatedNotifications,
+    getUnreadCount, 
+    markAllAsRead 
+  } = useNotifications()
   const unreadCount = getUnreadCount()
 
   // Mark all notifications as read when dropdown opens
@@ -28,13 +34,33 @@ export function HeaderActions() {
   }
 
   // Handle notification click - navigate to session detail
-  const handleNotificationClick = (sessionUuid: string) => {
-    router.push(`/dashboard/unassigned/${sessionUuid}`)
+  const handleNotificationClick = (sessionUuid: string, isEscalated: boolean = false) => {
+    if (isEscalated) {
+      router.push(`/train/${sessionUuid}`)
+    } else {
+      router.push(`/dashboard/unassigned/${sessionUuid}`)
+    }
   }
 
-  // Get unread notifications (show all notifications, but mark unread ones)
-  const unreadNotifications = notifications.filter((n) => !n.read)
-  const allNotifications = notifications.slice(0, 20) // Show latest 20
+  // Combine regular notifications and escalated notifications
+  const allNotifications = React.useMemo(() => {
+    const regular = notifications.map(n => ({
+      ...n,
+      isEscalated: false
+    }))
+    
+    const escalated = escalatedNotifications.map(n => ({
+      ...n,
+      isEscalated: true
+    }))
+    
+    // Sort by created_at (newest first) and take latest 20
+    return [...regular, ...escalated]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 20)
+  }, [notifications, escalatedNotifications])
+
+  const unreadInDropdown = allNotifications.filter(n => !n.read).length
 
   return (
     <div className="flex items-center gap-2 bg-muted/30 rounded-lg px-1.5 py-1 border border-border/30">
@@ -51,7 +77,14 @@ export function HeaderActions() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80 max-h-[400px] overflow-y-auto">
-            <DropdownMenuLabel>Xabarnomalar</DropdownMenuLabel>
+            <div className="flex items-center justify-between px-2 py-1.5">
+              <DropdownMenuLabel className="p-0">Xabarnomalar</DropdownMenuLabel>
+              {unreadInDropdown > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {unreadInDropdown} o'qilmagan
+                </span>
+              )}
+            </div>
             <DropdownMenuSeparator />
             {allNotifications.length === 0 ? (
               <div className="px-3 py-4 text-sm text-muted-foreground text-center">
@@ -62,15 +95,20 @@ export function HeaderActions() {
                 <DropdownMenuItem
                   key={notification.id}
                   className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                  onClick={() => handleNotificationClick(notification.session_uuid)}
+                  onClick={() => handleNotificationClick(notification.session_uuid, notification.isEscalated)}
                 >
                   <div className="flex items-start justify-between w-full">
                     <div className="flex flex-col gap-0.5 flex-1">
-                      <span className="text-sm font-medium">Yangi Murojaat</span>
+                      <span className="text-sm font-medium">
+                        {notification.isEscalated ? 'Escalated Murojaat' : 'Yangi Murojaat'}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         Fuqoro: {notification.citizen_name}
                       </span>
                     </div>
+                    {!notification.read && (
+                      <span className="h-2 w-2 rounded-full bg-primary ml-2 mt-1" />
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {formatTimeAgo(notification.created_at)}

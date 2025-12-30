@@ -85,7 +85,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions } = useNotifications()
+  const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions, escalatedSessions } = useNotifications()
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error } = useStaffProfile()
   const [isNavigating, setIsNavigating] = React.useState(false)
@@ -249,6 +249,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <GraduationCap className="h-4 w-4" />
                   </div>
                   <span className="flex-1">Training</span>
+                  {escalatedSessions.size > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                      {escalatedSessions.size > 9 ? "9+" : escalatedSessions.size}
+                    </span>
+                  )}
                   {currentWorkspace === "Training" && <Check className="h-4 w-4" />}
                 </div>
               </DropdownMenuItem>
