@@ -583,27 +583,6 @@ export function TicketsTable({
                       }
                       return null
                     })()}
-                    {status === 'escalated' && (() => {
-                      // Check if session was escalated within the last 20 minutes
-                      let isRecentlyEscalated = false
-                      if (ticket.escalated_at) {
-                        const escalatedAt = new Date(ticket.escalated_at)
-                        const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
-                        isRecentlyEscalated = escalatedAt > twentyMinutesAgo
-                      } else if (ticket.created_at) {
-                        // Fallback to created_at if escalated_at is not available
-                        const createdAt = new Date(ticket.created_at)
-                        const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
-                        isRecentlyEscalated = createdAt > twentyMinutesAgo
-                      }
-                      
-                      if (isRecentlyEscalated) {
-                        return (
-                          <span className="h-4 w-4 rounded-full bg-yellow-500 inline-block" />
-                        )
-                      }
-                      return null
-                    })()}
                   </TableCell>
                 </TableRow>
               ))}
