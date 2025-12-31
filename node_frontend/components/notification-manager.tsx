@@ -106,7 +106,7 @@ export const NotificationManager: React.FC = () => {
         wsRef.current = ws
 
         ws.onopen = () => {
-          logInfo('WEBSOCKET', 'Department WebSocket connected', { component: 'NotificationManager' }, { departmentId });
+          logInfo('WEBSOCKET', 'Department WebSocket connected', { departmentId }, { component: 'NotificationManager' });
         }
 
         ws.onmessage = (event) => {
