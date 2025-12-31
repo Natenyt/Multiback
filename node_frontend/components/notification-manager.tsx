@@ -149,12 +149,12 @@ export const NotificationManager: React.FC = () => {
         }
 
         ws.onclose = (event) => {
-          logWarn('WEBSOCKET', 'Department WebSocket closed', { component: 'NotificationManager' }, { 
+          logWarn('WEBSOCKET', 'Department WebSocket closed', { 
             code: event.code,
             reason: event.reason,
             wasClean: event.wasClean,
             departmentId 
-          });
+          }, { component: 'NotificationManager' });
           // Attempt to reconnect after a delay if not intentionally closed
           if (event.code !== 1000 && mounted) {
             // Clear any existing reconnect timeout
