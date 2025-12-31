@@ -533,10 +533,10 @@ export function TicketsTable({
                       const hasUnreadNotification = notifications.some(
                         (n) => n.session_uuid === ticket.session_id && !n.read
                       )
-                      // Also check if session was created within the last 5 minutes (considered "new")
+                      // Also check if session was created within the last 20 minutes (considered "new")
                       const sessionCreatedAt = new Date(ticket.created_at)
-                      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-                      const isRecentlyCreated = sessionCreatedAt > fiveMinutesAgo
+                      const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
+                      const isRecentlyCreated = sessionCreatedAt > twentyMinutesAgo
                       
                       if (hasUnreadNotification || isRecentlyCreated) {
                         return (
@@ -549,12 +549,12 @@ export function TicketsTable({
                       // Check if this session is in the assigned sessions set (newly assigned)
                       const isNewlyAssigned = assignedSessions.has(ticket.session_id)
                       
-                      // Also check if session was assigned within the last 10 minutes
+                      // Also check if session was assigned within the last 20 minutes
                       let isRecentlyAssigned = false
                       if (ticket.assigned_at) {
                         const assignedAt = new Date(ticket.assigned_at)
-                        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
-                        isRecentlyAssigned = assignedAt > tenMinutesAgo
+                        const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
+                        isRecentlyAssigned = assignedAt > twentyMinutesAgo
                       }
                       
                       if (isNewlyAssigned || isRecentlyAssigned) {
@@ -568,17 +568,38 @@ export function TicketsTable({
                       // Check if this session is in the closed sessions set (newly closed)
                       const isNewlyClosed = closedSessions.has(ticket.session_id)
                       
-                      // Also check if session was closed within the last 10 minutes
+                      // Also check if session was closed within the last 20 minutes
                       let isRecentlyClosed = false
                       if (ticket.closed_at) {
                         const closedAt = new Date(ticket.closed_at)
-                        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
-                        isRecentlyClosed = closedAt > tenMinutesAgo
+                        const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
+                        isRecentlyClosed = closedAt > twentyMinutesAgo
                       }
                       
                       if (isNewlyClosed || isRecentlyClosed) {
                         return (
                           <span className="h-4 w-4 rounded-full bg-gray-500 inline-block" />
+                        )
+                      }
+                      return null
+                    })()}
+                    {status === 'escalated' && (() => {
+                      // Check if session was escalated within the last 20 minutes
+                      let isRecentlyEscalated = false
+                      if (ticket.escalated_at) {
+                        const escalatedAt = new Date(ticket.escalated_at)
+                        const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
+                        isRecentlyEscalated = escalatedAt > twentyMinutesAgo
+                      } else if (ticket.created_at) {
+                        // Fallback to created_at if escalated_at is not available
+                        const createdAt = new Date(ticket.created_at)
+                        const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
+                        isRecentlyEscalated = createdAt > twentyMinutesAgo
+                      }
+                      
+                      if (isRecentlyEscalated) {
+                        return (
+                          <span className="h-4 w-4 rounded-full bg-yellow-500 inline-block" />
                         )
                       }
                       return null

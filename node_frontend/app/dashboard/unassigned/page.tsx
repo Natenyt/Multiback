@@ -5,12 +5,13 @@ import { TicketsLayout } from "@/components/tickets-layout"
 import { useNotifications } from "@/contexts/notification-context"
 
 export default function UnassignedPage() {
-  const { clearNotifications } = useNotifications()
+  const { markAllAsRead, notifications } = useNotifications()
 
   React.useEffect(() => {
-    // When the operator opens the unassigned list, treat all unassigned notifications as seen
-    clearNotifications()
-  }, [clearNotifications])
+    // When the operator opens the unassigned list, mark all notifications as read
+    // This makes the green circle disappear and stay gone
+    markAllAsRead()
+  }, [markAllAsRead])
 
   return (
     <div className="h-full p-6">
