@@ -46,11 +46,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Check if we're in a serverless environment (Vercel, etc.)
+    // In serverless, file system is read-only except /tmp
+    // We'll try to write, but fail gracefully if it's not possible
+    const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
     // Always write logs to server (file logging is always enabled)
     // Create logs/frontend directory if it doesn't exist
-    const logsDir = join(process.cwd(), 'logs', 'frontend');
-    if (!existsSync(logsDir)) {
-      await mkdir(logsDir, { recursive: true });
+    const logsDir = isServerless 
+      ? join('/tmp', 'logs', 'frontend')  // Use /tmp in serverless
+      : join(process.cwd(), 'logs', 'frontend');  // Use project directory in regular Node.js
+    
+    try {
+      if (!existsSync(logsDir)) {
+        await mkdir(logsDir, { recursive: true });
+      }
+    } catch (error) {
+      // If we can't create directory (e.g., in read-only filesystem), fail gracefully
+      // Return success to prevent client from retrying
+      console.warn('Cannot create logs directory, file logging disabled:', error);
+      return NextResponse.json({ 
+        message: 'Logs received (file logging unavailable)',
+        count: logs.length 
+      });
     }
 
     // Generate filename with timestamp (one file per day)
@@ -106,11 +124,13 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         retryCount++;
         if (retryCount >= MAX_RETRIES) {
-          console.error(`Failed to write log file after ${MAX_RETRIES} retries:`, error);
-          return NextResponse.json(
-            { error: 'Failed to write logs after retries' },
-            { status: 500 }
-          );
+          // In serverless, file writing may fail - fail gracefully
+          // Return success to prevent client from retrying
+          console.warn(`Failed to write log file after ${MAX_RETRIES} retries (file logging unavailable):`, error);
+          return NextResponse.json({ 
+            message: 'Logs received (file logging unavailable)',
+            count: logs.length 
+          });
         }
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, 10 * retryCount));
@@ -122,11 +142,13 @@ export async function POST(request: NextRequest) {
       count: logs.length 
     });
   } catch (error) {
-    console.error('Failed to write logs:', error);
-    return NextResponse.json(
-      { error: 'Failed to write logs' },
-      { status: 500 }
-    );
+    // Fail gracefully - don't return 500 to prevent client retries
+    // In serverless environments, file logging may not be available
+    console.warn('Failed to process logs (file logging may be unavailable):', error);
+    return NextResponse.json({ 
+      message: 'Logs received (file logging unavailable)',
+      count: 0 
+    });
   }
 }
 
