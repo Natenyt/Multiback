@@ -16,10 +16,7 @@ export function LeaderboardTable() {
   React.useEffect(() => {
     async function fetchLeaderboard() {
       try {
-        console.log("Fetching leaderboard data...")
         const data = await getLeaderboard()
-        console.log("Leaderboard data received:", data)
-        console.log("Leaderboard entries:", data.leaderboard)
         if (data && data.leaderboard) {
           setLeaderboard(data.leaderboard)
           
