@@ -164,13 +164,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [error, setAuthError])
 
   const handleLogout = () => {
-    // Clear all caches and state before logout
-    clearAllDashboardCaches()
-    clearProfile()
+    // Clear auth tokens immediately (needed for security)
     clearAuthTokens()
     
-    // Navigate to login page
-    router.push("/login")
+    // Navigate to login page IMMEDIATELY for instant logout experience
+    // Using router.replace for faster navigation (no history entry)
+    router.replace("/login")
+    
+    // Clear dashboard caches in the background after navigation starts
+    // We skip clearProfile() because it causes visible state updates
+    // Navigation will unmount components anyway, so profile state doesn't need clearing
+    // Using requestIdleCallback for background cleanup without blocking
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        clearAllDashboardCaches()
+      }, { timeout: 100 })
+    } else {
+      // Fallback for browsers without requestIdleCallback
+      requestAnimationFrame(() => {
+        clearAllDashboardCaches()
+      })
+    }
   }
 
   const getInitials = (name: string) => {
