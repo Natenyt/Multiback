@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { getLeaderboard } from "@/dash_department/lib/api"
+import { getLeaderboard, fetchAuthenticatedImage } from "@/dash_department/lib/api"
 import type { LeaderboardEntry } from "@/dash_department/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -11,6 +11,7 @@ export function LeaderboardTable() {
   const router = useRouter()
   const [leaderboard, setLeaderboard] = React.useState<LeaderboardEntry[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [avatarUrls, setAvatarUrls] = React.useState<Record<number, string>>({})
 
   React.useEffect(() => {
     async function fetchLeaderboard() {
@@ -21,6 +22,30 @@ export function LeaderboardTable() {
         console.log("Leaderboard entries:", data.leaderboard)
         if (data && data.leaderboard) {
           setLeaderboard(data.leaderboard)
+          
+          // Pre-fetch avatars for entries that have avatar URLs
+          const avatarPromises = data.leaderboard
+            .map((entry, index) => {
+              if (entry.avatar_url) {
+                return fetchAuthenticatedImage(entry.avatar_url)
+                  .then(blobUrl => ({ index, blobUrl }))
+                  .catch(err => {
+                    console.error(`Failed to fetch avatar for ${entry.full_name}:`, err)
+                    return { index, blobUrl: null }
+                  })
+              }
+              return Promise.resolve({ index, blobUrl: null })
+            })
+          
+          Promise.all(avatarPromises).then(results => {
+            const urls: Record<number, string> = {}
+            results.forEach(({ index, blobUrl }) => {
+              if (blobUrl) {
+                urls[index] = blobUrl
+              }
+            })
+            setAvatarUrls(urls)
+          })
         } else {
           console.warn("Leaderboard data is missing or invalid:", data)
           setLeaderboard([])
@@ -132,7 +157,10 @@ export function LeaderboardTable() {
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 rounded-lg">
-                          {entry.avatar_url ? (
+                          {avatarUrls[index] ? (
+                            <AvatarImage src={avatarUrls[index]} alt={entry.full_name} />
+                          ) : entry.avatar_url ? (
+                            // Fallback: try direct URL if authenticated fetch hasn't completed yet
                             <AvatarImage src={entry.avatar_url} alt={entry.full_name} />
                           ) : null}
                           <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground rounded-lg">

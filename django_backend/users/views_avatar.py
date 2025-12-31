@@ -8,10 +8,11 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 from .models import User
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([AllowAny])  # Allow public access to avatars
 def serve_avatar(request, user_uuid):
     """
@@ -25,6 +26,14 @@ def serve_avatar(request, user_uuid):
     For stricter security, you could add IsAuthenticated permission
     and check if the requesting user has permission to view the avatar.
     """
+    # Handle CORS preflight requests
+    if request.method == 'OPTIONS':
+        response = Response()
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+    
     try:
         user = get_object_or_404(User, user_uuid=user_uuid)
     except Exception:
@@ -68,6 +77,12 @@ def serve_avatar(request, user_uuid):
         
         # Add caching headers (avatars don't change often)
         response['Cache-Control'] = 'public, max-age=3600'  # Cache for 1 hour
+        
+        # Add CORS headers to allow cross-origin requests
+        # This is important when frontend and backend are on different domains
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         
         return response
     
