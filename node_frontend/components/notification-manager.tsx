@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast"
 import { formatTimeAgo } from "@/lib/time-utils"
 import { getAuthToken, getValidAuthToken } from "@/dash_department/lib/api"
 import { getStaffProfile } from "@/dash_department/lib/api"
+import { logInfo, logError, logWarn } from "@/lib/logger"
 
 import { getWsBaseUrl } from "@/lib/websocket-utils"
 
@@ -34,9 +35,9 @@ export const NotificationManager: React.FC = () => {
         const parsed = JSON.parse(stored) as string[]
         shownToastSessionsRef.current = new Set(parsed)
       }
-    } catch (error) {
-      console.error("Failed to load shown toast sessions from localStorage:", error)
-    }
+      } catch (error) {
+        // Silently fail - localStorage access errors are non-critical
+      }
   }, [])
 
   // Track which notifications we've already shown as toasts (one toast per session_uuid)
@@ -54,9 +55,9 @@ export const NotificationManager: React.FC = () => {
       // Save to localStorage
       try {
         localStorage.setItem(SHOWN_TOAST_SESSIONS_KEY, JSON.stringify(Array.from(shownToastSessionsRef.current)))
-      } catch (error) {
-        console.error("Failed to save shown toast sessions to localStorage:", error)
-      }
+        } catch (error) {
+          // Silently fail - localStorage access errors are non-critical
+        }
       
       toast({
         title: "Yangi Murojaat",
@@ -94,18 +95,28 @@ export const NotificationManager: React.FC = () => {
         const wsBaseUrl = getWsBaseUrl()
         const wsUrl = `${wsBaseUrl}/ws/department/${departmentId}/?token=${encodeURIComponent(token)}`
         
-        console.log("NotificationManager: Connecting to department WebSocket:", wsUrl.replace(token, "***"))
+        logInfo('WEBSOCKET', 'Connecting to department WebSocket', { 
+          departmentId,
+          url: wsUrl.replace(token, "***")
+        }, { component: 'NotificationManager' });
+        
         const ws = new WebSocket(wsUrl)
         wsRef.current = ws
 
         ws.onopen = () => {
-          console.log("NotificationManager: Department WebSocket connected for department:", departmentId)
+          logInfo('WEBSOCKET', 'Department WebSocket connected', { departmentId }, { component: 'NotificationManager' });
         }
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
-            console.log("NotificationManager: WebSocket message received:", data)
+            // Only log important WebSocket messages (not every message to avoid log bloat)
+            if (data.type === "session.created" || data.type === "session.escalated") {
+              logInfo('WEBSOCKET', 'Important WebSocket message received', { 
+                type: data.type,
+                session_uuid: data.session?.session_uuid 
+              }, { component: 'NotificationManager' });
+            }
 
             // Handle session.created events (new unassigned sessions)
             if (data.type === "session.created" && data.session) {
@@ -123,16 +134,24 @@ export const NotificationManager: React.FC = () => {
               }
             }
           } catch (error) {
-            console.error("NotificationManager: Error parsing websocket message:", error)
+            logError('WEBSOCKET', 'Error parsing websocket message', error, { component: 'NotificationManager' });
           }
         }
 
         ws.onerror = (error) => {
-          console.error("NotificationManager: WebSocket error:", error)
+          logError('WEBSOCKET', 'Department WebSocket error', error, { 
+            departmentId,
+            component: 'NotificationManager' 
+          });
         }
 
         ws.onclose = (event) => {
-          console.log("NotificationManager: WebSocket closed:", event.code, event.reason)
+          logWarn('WEBSOCKET', 'Department WebSocket closed', { 
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            departmentId 
+          }, { component: 'NotificationManager' });
           // Attempt to reconnect after a delay if not intentionally closed
           if (event.code !== 1000 && mounted) {
             // Clear any existing reconnect timeout
@@ -153,18 +172,27 @@ export const NotificationManager: React.FC = () => {
         if (staffRole === 'VIP') {
           const setupVIPWebSocket = (authToken: string) => {
             const vipWsUrl = `${wsBaseUrl}/ws/vip/?token=${encodeURIComponent(authToken)}`
-            console.log("NotificationManager: Connecting to VIP WebSocket:", vipWsUrl.replace(authToken, "***"))
+            logInfo('WEBSOCKET', 'Connecting to VIP WebSocket', { 
+              url: vipWsUrl.replace(authToken, "***")
+            }, { component: 'NotificationManager' });
+            
             const vipWs = new WebSocket(vipWsUrl)
             vipWsRef.current = vipWs
 
             vipWs.onopen = () => {
-              console.log("NotificationManager: VIP WebSocket connected")
+              logInfo('WEBSOCKET', 'VIP WebSocket connected', {}, { component: 'NotificationManager' });
             }
 
             vipWs.onmessage = (event) => {
               try {
                 const data = JSON.parse(event.data)
-                console.log("NotificationManager: VIP WebSocket message received:", data)
+                // Only log important VIP WebSocket messages
+                if (data.type === "session.escalated" || data.type === "session.rerouted") {
+                  logInfo('WEBSOCKET', 'Important VIP WebSocket message received', { 
+                    type: data.type,
+                    session_uuid: data.session?.session_uuid 
+                  }, { component: 'NotificationManager' });
+                }
 
                 // Handle session.escalated events
                 if (data.type === "session.escalated" && data.session && mounted) {
@@ -227,16 +255,20 @@ export const NotificationManager: React.FC = () => {
                   }
                 }
               } catch (error) {
-                console.error("NotificationManager: Error parsing VIP websocket message:", error)
+                logError('WEBSOCKET', 'Error parsing VIP websocket message', error, { component: 'NotificationManager' });
               }
             }
 
             vipWs.onerror = (error) => {
-              console.error("NotificationManager: VIP WebSocket error:", error)
+              logError('WEBSOCKET', 'VIP WebSocket error', error, { component: 'NotificationManager' });
             }
 
             vipWs.onclose = (event) => {
-              console.log("NotificationManager: VIP WebSocket closed:", event.code, event.reason)
+              logWarn('WEBSOCKET', 'VIP WebSocket closed', { 
+                code: event.code,
+                reason: event.reason,
+                wasClean: event.wasClean 
+              }, { component: 'NotificationManager' });
               // Attempt to reconnect after a delay if not intentionally closed
               if (event.code !== 1000 && mounted) {
                 // Clear any existing reconnect timeout
@@ -254,7 +286,7 @@ export const NotificationManager: React.FC = () => {
                         setupVIPWebSocket(newToken)
                       }
                     } catch (error) {
-                      console.error("NotificationManager: Failed to reconnect VIP WebSocket:", error)
+                      logError('WEBSOCKET', 'Failed to reconnect VIP WebSocket', error, { component: 'NotificationManager' });
                     }
                   }
                 }, 3000)
@@ -265,7 +297,7 @@ export const NotificationManager: React.FC = () => {
           setupVIPWebSocket(token)
         }
       } catch (error) {
-        console.error("NotificationManager: Failed to setup WebSocket:", error)
+        logError('WEBSOCKET', 'Failed to setup WebSocket', error, { component: 'NotificationManager' });
       }
     }
 

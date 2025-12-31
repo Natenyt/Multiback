@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 const BACKEND_URL = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api';
 
@@ -72,8 +73,15 @@ async function proxyRequest(
     const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
     const backendUrl = `${cleanBackendUrl}/${backendPath}${queryString}`;
     
-    // Debug logging (remove in production if needed)
-    console.log(`[Proxy] ${method} ${backendUrl} (original: ${originalPath}, hasTrailing: ${hasTrailingSlash})`);
+    // Log proxy requests (only in development or when logging enabled)
+    if (process.env.NODE_ENV === 'development' || process.env.LOGGING_ENABLED === 'true') {
+      logInfo('PROXY', 'Proxying request to backend', { 
+        method,
+        backendUrl: backendUrl.replace(/token=[^&]*/, 'token=***'),
+        originalPath,
+        hasTrailingSlash 
+      }, { function: 'proxyRequest' });
+    }
 
     // Get headers from the request
     const headers: HeadersInit = {};
@@ -166,7 +174,7 @@ async function proxyRequest(
       });
     }
   } catch (error) {
-    console.error('Proxy error:', error);
+    logError('PROXY', 'Proxy request failed', error, { function: 'proxyRequest' });
     return NextResponse.json(
       { detail: 'Failed to proxy request to backend', error: String(error) },
       { status: 500 }

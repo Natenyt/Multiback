@@ -54,20 +54,20 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem={false}
-            disableTransitionOnChange
-            storageKey="ntmp-theme"
-          >
-            <ToastProvider>
-              <StaffProfileProvider>
-                {children}
-              </StaffProfileProvider>
-            </ToastProvider>
-            <Analytics />
-          </ThemeProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+          storageKey="ntmp-theme"
+        >
+          <ToastProvider>
+            <StaffProfileProvider>
+              {children}
+            </StaffProfileProvider>
+          </ToastProvider>
+          <Analytics />
+        </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>

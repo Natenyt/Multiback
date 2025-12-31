@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { AlertCircle } from 'lucide-react';
@@ -19,6 +19,7 @@ import {
   useFormField,
 } from '@/components/ui/form';
 import { staffLogin, storeAuthTokens, storeStaffUuid } from '../../dash_department/lib/api';
+import { logInfo, logError } from '@/lib/logger';
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Iltimos, maydonni to\'ldiring.'),
@@ -64,6 +65,7 @@ function CustomFormMessage({
 
 export default function LoginPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,6 +158,8 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      logInfo('AUTH', 'Login attempt started', { identifier: data.identifier }, { pathname, component: 'LoginPage' });
+      
       const response = await staffLogin(data);
       storeAuthTokens(response.access, response.refresh);
       
@@ -168,6 +172,12 @@ export default function LoginPage() {
           window.dispatchEvent(new Event('staff-uuid-available'));
         }
       }
+      
+      // Log successful login
+      logInfo('AUTH', 'Login successful', { 
+        user_uuid: response.user_uuid,
+        role: response.role || response.staff_role 
+      }, { pathname, component: 'LoginPage' });
       
       // Clear any existing dashboard caches to ensure fresh data for new user
       const { clearAllDashboardCaches } = await import("@/hooks/use-dashboard-data");
@@ -208,7 +218,9 @@ export default function LoginPage() {
       
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
+      setError(errorMessage);
+      logError('AUTH', 'Login failed', err, { pathname, component: 'LoginPage' });
     } finally {
       setIsLoading(false);
     }

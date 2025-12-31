@@ -1,4 +1,5 @@
 import { LoginRequest, LoginResponse, ApiError } from './types';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 // Use Next.js API proxy route instead of direct backend URL
 // This keeps BACKEND_PRIVATE_URL server-side only
@@ -17,21 +18,36 @@ export async function staffLogin(
     body: JSON.stringify(credentials),
   });
 
-  if (!response.ok) {
-    const errorData: ApiError = await response.json().catch(() => ({
-      detail: 'An error occurred during login',
-    }));
-    throw new Error(errorData.detail || errorData.message || errorData.error || 'Login failed');
-  }
+    if (!response.ok) {
+      const errorData: ApiError = await response.json().catch(() => ({
+        detail: 'An error occurred during login',
+      }));
+      const errorMessage = errorData.detail || errorData.message || errorData.error || 'Login failed';
+      logError('AUTH', 'Login API call failed', new Error(errorMessage), { 
+        status: response.status,
+        endpoint: '/auth/staff-login/' 
+      });
+      throw new Error(errorMessage);
+    }
 
-  const data: LoginResponse = await response.json();
-  return data;
+    const data: LoginResponse = await response.json();
+    logInfo('AUTH', 'Login API call successful', { 
+      hasAccessToken: !!data.access,
+      hasRefreshToken: !!data.refresh,
+      user_uuid: data.user_uuid 
+    });
+    return data;
 }
 
 export function storeAuthTokens(access: string, refresh: string): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('auth_token', access);
-    localStorage.setItem('refresh_token', refresh);
+    try {
+      localStorage.setItem('auth_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      logInfo('AUTH', 'Auth tokens stored', { hasAccessToken: !!access, hasRefreshToken: !!refresh });
+    } catch (error) {
+      logError('AUTH', 'Failed to store auth tokens', error);
+    }
   }
 }
 
@@ -62,7 +78,7 @@ function getTokenExpiration(token: string): number | null {
     const payload = JSON.parse(atob(parts[1]));
     return payload.exp || null;
   } catch (error) {
-    console.error('Error decoding token:', error);
+    logError('AUTH', 'Error decoding token', error, { function: 'getTokenExpiration' });
     return null;
   }
 }
@@ -155,9 +171,12 @@ async function refreshAccessToken(): Promise<string | null> {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Token refresh failed:', errorData);
+      logError('AUTH', 'Token refresh failed', new Error(JSON.stringify(errorData)), { 
+        status: response.status 
+      });
       // If refresh token is invalid, clear all tokens
       if (response.status === 401 || response.status === 403) {
+        logInfo('AUTH', 'Refresh token invalid, clearing tokens and redirecting to login');
         clearAuthTokens();
         // Redirect to login page
         if (typeof window !== 'undefined') {
@@ -177,7 +196,7 @@ async function refreshAccessToken(): Promise<string | null> {
     }
     return null;
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    logError('AUTH', 'Error refreshing token', error, { function: 'refreshAccessToken' });
     return null;
   }
 }
@@ -194,12 +213,12 @@ export async function getValidAuthToken(): Promise<string | null> {
   if (isTokenExpired(token)) {
     // If a refresh is already in progress, wait for it instead of starting a new one
     if (refreshPromise) {
-      console.log('Token refresh already in progress, waiting for existing refresh...');
+      logInfo('AUTH', 'Token refresh already in progress, waiting for existing refresh');
       return await refreshPromise;
     }
     
     // Start a new refresh and store the promise so other concurrent calls can wait for it
-    console.log('Token expired or expiring soon, refreshing...');
+    logInfo('AUTH', 'Token expired or expiring soon, refreshing token');
     refreshPromise = refreshAccessToken()
       .then((newToken) => {
         // Clear the promise after completion (success or failure)
@@ -249,7 +268,7 @@ async function authenticatedFetch(
   // If we get a 401, try refreshing the token once and retry
   // Use getValidAuthToken() which handles the lock, instead of calling refreshAccessToken() directly
   if (response.status === 401 && retryCount === 0) {
-    console.log('Got 401, attempting token refresh and retry...');
+    logWarn('API', 'Got 401, attempting token refresh and retry', { url }, { function: 'authenticatedFetch' });
     // Use getValidAuthToken() which will use the lock if refresh is needed
     // This ensures we don't create duplicate refresh requests
     const newToken = await getValidAuthToken();
@@ -351,16 +370,12 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
     });
 
     if (!response.ok) {
-      console.error(`Failed to fetch image: ${fetchUrl} (original: ${url}) - ${response.status} ${response.statusText}`);
-      // Try to get error details
-      try {
-        const errorText = await response.text();
-        if (errorText) {
-          console.error('Error response:', errorText.substring(0, 200)); // Limit length
-        }
-      } catch (e) {
-        // Ignore
-      }
+      logWarn('API', 'Failed to fetch image', { 
+        fetchUrl: fetchUrl.replace(/token=[^&]*/, 'token=***'),
+        originalUrl: url,
+        status: response.status,
+        statusText: response.statusText 
+      }, { function: 'fetchImage' });
       return null;
     }
 
@@ -387,9 +402,14 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
 
 export function clearAuthTokens(): void {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('staff_uuid');
+    try {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('staff_uuid');
+      logInfo('AUTH', 'Auth tokens cleared', {});
+    } catch (error) {
+      logError('AUTH', 'Failed to clear auth tokens', error);
+    }
   }
 }
 
@@ -1057,7 +1077,7 @@ export async function sendMessage(
   // If we get a 401, try refreshing the token once and retry
   // Use getValidAuthToken() which handles the lock, instead of calling refreshAccessToken() directly
   if (response.status === 401) {
-    console.log('Got 401 on sendMessage, attempting token refresh and retry...');
+    logWarn('API', 'Got 401 on sendMessage, attempting token refresh and retry', { sessionUuid }, { function: 'sendMessage' });
     // Use getValidAuthToken() which will use the lock if refresh is needed
     // This ensures we don't create duplicate refresh requests
     const newToken = await getValidAuthToken();

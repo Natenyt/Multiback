@@ -4,6 +4,7 @@ import * as React from "react"
 import { type Message, getTicketHistory, getAuthToken } from "@/dash_department/lib/api"
 import { CaseMessageBubble } from "./case-message-bubble"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { logInfo, logError, logWarn } from "@/lib/logger"
 
 import { getWsBaseUrl } from "@/lib/websocket-utils"
 
@@ -201,19 +202,32 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
     const wsBaseUrl = getWsBaseUrl()
     const wsUrl = `${wsBaseUrl}/ws/chat/${sessionUuid}/?token=${encodeURIComponent(token)}`
     
-    console.log("Connecting to websocket:", wsUrl.replace(token, "***"))
+    logInfo('WEBSOCKET', 'Connecting to chat WebSocket', { 
+      sessionUuid,
+      url: wsUrl.replace(token, "***")
+    }, { component: 'CaseMessageList' });
+    
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
-      console.log("WebSocket connected for session:", sessionUuid)
-      console.log("WebSocket readyState:", ws.readyState)
+      logInfo('WEBSOCKET', 'Chat WebSocket connected', { 
+        sessionUuid,
+        readyState: ws.readyState 
+      }, { component: 'CaseMessageList' });
     }
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log("WebSocket message received:", data)
+        // Only log important messages (message.created events)
+        if (data.type === "message.created") {
+          logInfo('WEBSOCKET', 'New message received via WebSocket', { 
+            type: data.type,
+            message_uuid: data.message?.message_uuid,
+            sessionUuid 
+          }, { component: 'CaseMessageList' });
+        }
 
         // Handle message.created events
         if (data.type === "message.created" && data.message) {
@@ -241,31 +255,36 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
           console.log("Received WebSocket message with type:", data.type, "Full data:", data)
         }
       } catch (error) {
-        console.error("Error parsing websocket message:", error, "Raw data:", event.data)
+        logError('WEBSOCKET', 'Error parsing websocket message', error, { 
+          sessionUuid,
+          component: 'CaseMessageList' 
+        });
       }
     }
 
     ws.onerror = (error) => {
-      console.error("WebSocket error:", error)
-      console.error("WebSocket error details:", {
-        type: error.type,
-        target: error.target,
-        currentTarget: error.currentTarget,
+      logError('WEBSOCKET', 'Chat WebSocket error', error, { 
+        sessionUuid,
         readyState: ws.readyState,
-        url: ws.url?.replace(/\?token=[^&]*/, '?token=***')
-      })
+        url: ws.url?.replace(/\?token=[^&]*/, '?token=***'),
+        component: 'CaseMessageList' 
+      });
     }
 
     ws.onclose = (event) => {
-      console.log("WebSocket closed:", {
+      logWarn('WEBSOCKET', 'Chat WebSocket closed', { 
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
-        sessionUuid: sessionUuid
-      })
+        sessionUuid 
+      }, { component: 'CaseMessageList' });
+      
       // Attempt to reconnect after 3 seconds if not a normal closure
       if (event.code !== 1000) {
-        console.log("WebSocket closed abnormally, will attempt reconnect...")
+        logInfo('WEBSOCKET', 'WebSocket closed abnormally, will attempt reconnect', { 
+          sessionUuid,
+          code: event.code 
+        }, { component: 'CaseMessageList' });
         // Clear any existing reconnect timeout
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current)
@@ -276,7 +295,7 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
           if (wsRef.current?.readyState === WebSocket.CLOSED) {
             // Trigger reconnect by re-running the effect
             // This is handled by the useEffect dependency on sessionUuid
-            console.log("Attempting to reconnect WebSocket...")
+            logInfo('WEBSOCKET', 'Attempting to reconnect WebSocket', { sessionUuid }, { component: 'CaseMessageList' });
           }
         }, 3000)
       }

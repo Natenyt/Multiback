@@ -43,14 +43,14 @@ export function clearAllDashboardCaches() {
   
   cacheValidationLock = true
   try {
-    cachedStaffUuid = null
-    dashboardStatsCache = null
-    demographicsCache = null
-    neighborhoodsCache = null
-    // Clear all entries in sessionsChartCache
-    Object.keys(sessionsChartCache).forEach(key => {
-      delete sessionsChartCache[key]
-    })
+  cachedStaffUuid = null
+  dashboardStatsCache = null
+  demographicsCache = null
+  neighborhoodsCache = null
+  // Clear all entries in sessionsChartCache
+  Object.keys(sessionsChartCache).forEach(key => {
+    delete sessionsChartCache[key]
+  })
   } finally {
     cacheValidationLock = false
   }
@@ -70,15 +70,15 @@ function isCacheValid(): boolean {
   
   cacheValidationLock = true
   try {
-    const currentStaffUuid = getStaffUuid()
-    
-    // If no cached UUID, cache is invalid
-    if (!cachedStaffUuid) {
-      return false
-    }
-    
-    // If no current UUID, cache is invalid (user logged out)
-    if (!currentStaffUuid) {
+  const currentStaffUuid = getStaffUuid()
+  
+  // If no cached UUID, cache is invalid
+  if (!cachedStaffUuid) {
+    return false
+  }
+  
+  // If no current UUID, cache is invalid (user logged out)
+  if (!currentStaffUuid) {
       // Clear cache while holding lock
       cachedStaffUuid = null
       dashboardStatsCache = null
@@ -87,23 +87,23 @@ function isCacheValid(): boolean {
       Object.keys(sessionsChartCache).forEach(key => {
         delete sessionsChartCache[key]
       })
-      return false
-    }
-    
-    // If current UUID doesn't match cached UUID, user has changed - clear cache
-    if (currentStaffUuid !== cachedStaffUuid) {
+    return false
+  }
+  
+  // If current UUID doesn't match cached UUID, user has changed - clear cache
+  if (currentStaffUuid !== cachedStaffUuid) {
       // Clear cache for old user while holding lock
-      dashboardStatsCache = null
-      demographicsCache = null
-      neighborhoodsCache = null
-      Object.keys(sessionsChartCache).forEach(key => {
-        delete sessionsChartCache[key]
-      })
-      cachedStaffUuid = null // Reset so new user's data gets cached
-      return false
-    }
-    
-    return true
+    dashboardStatsCache = null
+    demographicsCache = null
+    neighborhoodsCache = null
+    Object.keys(sessionsChartCache).forEach(key => {
+      delete sessionsChartCache[key]
+    })
+    cachedStaffUuid = null // Reset so new user's data gets cached
+    return false
+  }
+  
+  return true
   } finally {
     // Always release lock
     cacheValidationLock = false

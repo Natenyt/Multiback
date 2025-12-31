@@ -4,6 +4,8 @@ import * as React from "react"
 import { AlertTriangle, RefreshCw, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { logError } from "@/lib/logger"
+import { usePathname } from "next/navigation"
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -21,6 +23,8 @@ interface ErrorBoundaryProps {
  * Prevents the entire app from crashing when a component throws an error
  */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  private pathname: string | null = null;
+
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = {
@@ -39,17 +43,25 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error to console for debugging
-    console.error("ErrorBoundary caught an error:", error, errorInfo)
+    // Get current pathname if available
+    if (typeof window !== 'undefined') {
+      this.pathname = window.location.pathname;
+    }
+    
+    // Log error using structured logger
+    logError('ERROR_BOUNDARY', 'React component error caught', error, {
+      pathname: this.pathname || 'unknown',
+      component: 'ErrorBoundary',
+      errorInfo: {
+        componentStack: errorInfo.componentStack?.substring(0, 500), // Limit size
+      }
+    });
     
     // Update state with error details
     this.setState({
       error,
       errorInfo,
     })
-
-    // TODO: In production, you might want to log this to an error reporting service
-    // Example: logErrorToService(error, errorInfo)
   }
 
   handleReset = () => {

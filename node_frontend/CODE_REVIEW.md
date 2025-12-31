@@ -381,13 +381,52 @@ wsUrl = 'wss://185.247.118.219:8000';
 
 ## 🔵 BEST PRACTICES & CODE QUALITY
 
-### 16. **Console.log Statements in Production Code**
+### 16. **Console.log Statements in Production Code** ✅ FIXED
 **Location:** Multiple files
 
 **Issue:** Many `console.log` statements throughout the codebase that should be removed or use a logger in production.
 
 **Impact:** Low - Performance and security (information leakage)
-**Fix:** Use environment-based logging or remove
+
+**Fix Applied:**
+- ✅ Created environment-based JSON logger (`lib/logger.ts`)
+- ✅ Created API route to write logs to filesystem (`app/api/logs/route.ts`)
+- ✅ Logs written to `logs/frontend/` directory in JSON format
+- ✅ Only logs in development or when `NEXT_PUBLIC_LOGGING_ENABLED=true`
+- ✅ Replaced console.log in critical functions with structured logging
+- ✅ Logs important user journey events (authentication, WebSocket, errors)
+- ✅ JSON format for easy searching during outages
+
+**Logger Features:**
+- **Log Levels:** INFO, ERROR, WARN
+- **Format:** JSON with timestamp, category, message, data, user context
+- **Storage:** 
+  - Client-side: sessionStorage (last 50 logs for debugging)
+  - Server-side: `logs/frontend/frontend-YYYY-MM-DD.json` files
+- **Batching:** Logs sent to server in batches of 10, flushed every 5 seconds
+- **Auto-cleanup:** Files limited to 1000 entries, sessionStorage to 50 entries
+
+**Functions Updated with Logging:**
+- ✅ Authentication: Login, logout, token refresh, token storage
+- ✅ WebSocket: Connections, disconnections, errors, important messages
+- ✅ API: Errors, 401 responses, proxy failures
+- ✅ Error Boundary: Component errors with stack traces
+- ✅ Critical operations only (not every message/event)
+
+**Log Categories:**
+- `AUTH`: Authentication events (login, logout, token refresh)
+- `WEBSOCKET`: WebSocket connections and events
+- `API`: API call errors and important events
+- `ERROR_BOUNDARY`: React component errors
+- `PROXY`: Proxy route operations
+
+**Benefits:**
+- Structured JSON logs for easy searching
+- Environment-based (only logs when enabled)
+- Captures user journey story
+- Essential for debugging outages
+- No performance impact when disabled
+- Secure (no sensitive data in logs)
 
 ### 17. **Missing Type Safety in Some Places**
 **Location:** `app/api/proxy/[...path]/route.ts:164`

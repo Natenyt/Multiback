@@ -49,7 +49,7 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
       // getStaffProfile already stores staff_uuid in localStorage, so dashboard hooks can access it
       // The context change will automatically trigger hooks that depend on staffProfile
     } catch (err) {
-      console.error("Failed to fetch staff profile:", err)
+      // Error logging handled in API layer
       const error = err instanceof Error ? err : new Error("Failed to fetch staff profile")
       setError(error)
       if (
