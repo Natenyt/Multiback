@@ -49,12 +49,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
     
     // Log error using structured logger
+    // context parameter: pathname, component, function
+    // data parameter: additional error details like componentStack
     logError('ERROR_BOUNDARY', 'React component error caught', error, {
       pathname: this.pathname || 'unknown',
       component: 'ErrorBoundary',
-      errorInfo: {
-        componentStack: errorInfo.componentStack?.substring(0, 500), // Limit size
-      }
+    }, {
+      componentStack: errorInfo.componentStack?.substring(0, 500), // Limit size
     });
     
     // Update state with error details

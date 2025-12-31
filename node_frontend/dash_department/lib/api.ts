@@ -233,19 +233,27 @@ export async function getValidAuthToken(): Promise<string | null> {
     
     // Start a new refresh and store the promise so other concurrent calls can wait for it
     logInfo('AUTH', 'Token expired or expiring soon, refreshing token');
-    refreshPromise = refreshAccessToken()
-      .then((newToken) => {
-        // Clear the promise after completion (success or failure)
-        refreshPromise = null;
-        return newToken;
-      })
-      .catch((error) => {
-        // Clear the promise on error
-        refreshPromise = null;
-        throw error;
-      });
     
-    token = await refreshPromise;
+    // Wrap in try-catch to ensure promise is always cleared, even if refreshAccessToken throws synchronously
+    try {
+      refreshPromise = refreshAccessToken()
+        .then((newToken) => {
+          // Clear the promise after completion (success or failure)
+          refreshPromise = null;
+          return newToken;
+        })
+        .catch((error) => {
+          // Clear the promise on error
+          refreshPromise = null;
+          throw error;
+        });
+      
+      token = await refreshPromise;
+    } catch (error) {
+      // If refreshAccessToken throws synchronously (shouldn't happen, but safety check)
+      refreshPromise = null;
+      throw error;
+    }
   }
   
   return token;
@@ -486,9 +494,13 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
       // Note: Browser automatically revokes blob URLs on page unload,
       // but we track them for explicit cleanup if needed
       if (typeof window !== 'undefined') {
-        // Register cleanup on page unload as a safety measure
+        // Initialize blob URL tracking Set if it doesn't exist
         if (!(window as any).__blobUrls) {
           (window as any).__blobUrls = new Set<string>();
+        }
+        
+        // Register cleanup handler only once (not on every blob URL creation)
+        if (!(window as any).__blobUrlsCleanupRegistered) {
           window.addEventListener('beforeunload', () => {
             if ((window as any).__blobUrls) {
               (window as any).__blobUrls.forEach((url: string) => {
@@ -501,7 +513,9 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
               (window as any).__blobUrls.clear();
             }
           });
+          (window as any).__blobUrlsCleanupRegistered = true;
         }
+        
         (window as any).__blobUrls.add(blobUrl);
       }
       
