@@ -76,6 +76,50 @@ export function useDashboardStats() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const [refreshTrigger, setRefreshTrigger] = React.useState(0)
+  const [staffUuidTrigger, setStaffUuidTrigger] = React.useState(0)
+
+  // Listen for staff_uuid changes (when profile loads after login)
+  React.useEffect(() => {
+    const checkStaffUuid = () => {
+      const currentStaffUuid = getStaffUuid()
+      if (currentStaffUuid) {
+        setStaffUuidTrigger(prev => prev + 1)
+      }
+    }
+
+    // Check immediately
+    checkStaffUuid()
+
+    // Listen for storage changes (when staff_uuid is set)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'staff_uuid' && e.newValue) {
+        checkStaffUuid()
+      }
+    }
+
+    // Also listen for custom event when profile loads
+    const handleProfileLoaded = () => {
+      checkStaffUuid()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('staff-profile-loaded', handleProfileLoaded)
+
+    // Periodic check as fallback (only if staff_uuid not set yet)
+    const interval = setInterval(() => {
+      if (!getStaffUuid()) {
+        checkStaffUuid()
+      } else {
+        clearInterval(interval)
+      }
+    }, 500) // Check every 500ms until staff_uuid is available
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('staff-profile-loaded', handleProfileLoaded)
+      clearInterval(interval)
+    }
+  }, [])
 
   React.useEffect(() => {
     // Check if cache is valid for current user
@@ -89,16 +133,22 @@ export function useDashboardStats() {
       return
     }
 
-    // If no staff UUID, we can't fetch
+    // If no staff UUID, we can't fetch - but keep loading state if we expect it soon
     if (!currentStaffUuid) {
-      setIsLoading(false)
-      return
+      // Only stop loading if we've waited a reasonable time (profile should load quickly)
+      // Otherwise wait a bit for staff_uuid to become available
+      const timeout = setTimeout(() => {
+        setIsLoading(false)
+      }, 2000) // Wait 2 seconds for profile to load
+      
+      return () => clearTimeout(timeout)
     }
 
     let isMounted = true
     ;(async () => {
       try {
         setIsLoading(true)
+        setError(null)
         const data = await getDashboardStats()
         dashboardStatsCache = data
         cachedStaffUuid = currentStaffUuid
@@ -120,7 +170,7 @@ export function useDashboardStats() {
     return () => {
       isMounted = false
     }
-  }, [refreshTrigger])
+  }, [refreshTrigger, staffUuidTrigger])
 
   // Refresh function
   const refresh = React.useCallback(() => {
@@ -135,6 +185,46 @@ export function useSessionsChart(timeRange: string) {
   const [data, setData] = React.useState<SessionsChartDataPoint[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [staffUuidTrigger, setStaffUuidTrigger] = React.useState(0)
+
+  // Listen for staff_uuid changes (when profile loads after login)
+  React.useEffect(() => {
+    const checkStaffUuid = () => {
+      const currentStaffUuid = getStaffUuid()
+      if (currentStaffUuid) {
+        setStaffUuidTrigger(prev => prev + 1)
+      }
+    }
+
+    checkStaffUuid()
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'staff_uuid' && e.newValue) {
+        checkStaffUuid()
+      }
+    }
+
+    const handleProfileLoaded = () => {
+      checkStaffUuid()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('staff-profile-loaded', handleProfileLoaded)
+
+    const interval = setInterval(() => {
+      if (!getStaffUuid()) {
+        checkStaffUuid()
+      } else {
+        clearInterval(interval)
+      }
+    }, 500)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('staff-profile-loaded', handleProfileLoaded)
+      clearInterval(interval)
+    }
+  }, [])
 
   React.useEffect(() => {
     // Check if cache is valid for current user
@@ -148,10 +238,12 @@ export function useSessionsChart(timeRange: string) {
       return
     }
 
-    // If no staff UUID, we can't fetch
+    // If no staff UUID, wait a bit for it to become available
     if (!currentStaffUuid) {
-      setIsLoading(false)
-      return
+      const timeout = setTimeout(() => {
+        setIsLoading(false)
+      }, 2000)
+      return () => clearTimeout(timeout)
     }
 
     let isMounted = true
@@ -181,7 +273,7 @@ export function useSessionsChart(timeRange: string) {
     return () => {
       isMounted = false
     }
-  }, [timeRange])
+  }, [timeRange, staffUuidTrigger])
 
   return { data, isLoading, error }
 }
@@ -190,6 +282,46 @@ export function useDemographics() {
   const [data, setData] = React.useState<DemographicsResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
+  const [staffUuidTrigger, setStaffUuidTrigger] = React.useState(0)
+
+  // Listen for staff_uuid changes (when profile loads after login)
+  React.useEffect(() => {
+    const checkStaffUuid = () => {
+      const currentStaffUuid = getStaffUuid()
+      if (currentStaffUuid) {
+        setStaffUuidTrigger(prev => prev + 1)
+      }
+    }
+
+    checkStaffUuid()
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'staff_uuid' && e.newValue) {
+        checkStaffUuid()
+      }
+    }
+
+    const handleProfileLoaded = () => {
+      checkStaffUuid()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('staff-profile-loaded', handleProfileLoaded)
+
+    const interval = setInterval(() => {
+      if (!getStaffUuid()) {
+        checkStaffUuid()
+      } else {
+        clearInterval(interval)
+      }
+    }, 500)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('staff-profile-loaded', handleProfileLoaded)
+      clearInterval(interval)
+    }
+  }, [])
 
   React.useEffect(() => {
     // Check if cache is valid for current user
@@ -203,16 +335,19 @@ export function useDemographics() {
       return
     }
 
-    // If no staff UUID, we can't fetch
+    // If no staff UUID, wait a bit for it to become available
     if (!currentStaffUuid) {
-      setIsLoading(false)
-      return
+      const timeout = setTimeout(() => {
+        setIsLoading(false)
+      }, 2000)
+      return () => clearTimeout(timeout)
     }
 
     let isMounted = true
     ;(async () => {
       try {
         setIsLoading(true)
+        setError(null)
         const demographics = await getDemographics()
         demographicsCache = demographics
         cachedStaffUuid = currentStaffUuid
@@ -234,7 +369,7 @@ export function useDemographics() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [staffUuidTrigger])
 
   return { data, isLoading, error }
 }
@@ -243,6 +378,46 @@ export function useTopNeighborhoods() {
   const [data, setData] = React.useState<TopNeighborhood[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
+  const [staffUuidTrigger, setStaffUuidTrigger] = React.useState(0)
+
+  // Listen for staff_uuid changes (when profile loads after login)
+  React.useEffect(() => {
+    const checkStaffUuid = () => {
+      const currentStaffUuid = getStaffUuid()
+      if (currentStaffUuid) {
+        setStaffUuidTrigger(prev => prev + 1)
+      }
+    }
+
+    checkStaffUuid()
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'staff_uuid' && e.newValue) {
+        checkStaffUuid()
+      }
+    }
+
+    const handleProfileLoaded = () => {
+      checkStaffUuid()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('staff-profile-loaded', handleProfileLoaded)
+
+    const interval = setInterval(() => {
+      if (!getStaffUuid()) {
+        checkStaffUuid()
+      } else {
+        clearInterval(interval)
+      }
+    }, 500)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('staff-profile-loaded', handleProfileLoaded)
+      clearInterval(interval)
+    }
+  }, [])
 
   React.useEffect(() => {
     // Check if cache is valid for current user
@@ -256,16 +431,19 @@ export function useTopNeighborhoods() {
       return
     }
 
-    // If no staff UUID, we can't fetch
+    // If no staff UUID, wait a bit for it to become available
     if (!currentStaffUuid) {
-      setIsLoading(false)
-      return
+      const timeout = setTimeout(() => {
+        setIsLoading(false)
+      }, 2000)
+      return () => clearTimeout(timeout)
     }
 
     let isMounted = true
     ;(async () => {
       try {
         setIsLoading(true)
+        setError(null)
         const neighborhoods = await getTopNeighborhoods()
         neighborhoodsCache = neighborhoods
         cachedStaffUuid = currentStaffUuid
@@ -287,7 +465,7 @@ export function useTopNeighborhoods() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [staffUuidTrigger])
 
   return { data, isLoading, error }
 }
