@@ -1,3 +1,47 @@
+# ⚠️ IMPORTANT LEGAL NOTICE
+
+**PRIVATE AND PROPRIETARY SOFTWARE**
+
+This repository contains **PRIVATE AND CONFIDENTIAL** software that is the exclusive property of:
+- **Davlat Eshnazarov** (Owner)
+- **Narpay District Government** (Region Government)
+
+## 🔒 Access Restrictions
+
+- **CLONING IS STRICTLY PROHIBITED** without explicit written permission from the owner
+- **FORKING IS NOT ALLOWED** under any circumstances
+- **DISTRIBUTION IS RESTRICTED** to authorized personnel only
+- **REPRODUCTION OR COPYING** of any part of this codebase is forbidden
+
+## ✅ Authorized Access
+
+If you are reading this README.md file, it means the repository owner has granted you **review access only**. This does NOT grant you permission to:
+- Clone or download this repository
+- Fork this repository
+- Copy, modify, or redistribute any code
+- Use this software for any purpose without explicit authorization
+
+## ⚖️ Legal Consequences
+
+**WARNING**: Unauthorized access, cloning, copying, or distribution of this software may result in:
+- **Heavy legal charges** in court
+- **Criminal prosecution** for intellectual property theft
+- **Civil liability** for damages
+- **Legal action** by both the owner and the Region Government
+
+## 📋 Terms of Review
+
+By accessing this repository, you acknowledge that:
+1. This is private, proprietary software
+2. You have been granted **review-only** access
+3. Any unauthorized use is strictly prohibited
+4. You will not attempt to clone, fork, or copy this repository
+5. You understand the legal consequences of unauthorized use
+
+**Please be cautious and respectful when working with this repository.**
+
+---
+
 # NTMP - Narpay Tumani Murojaatlari Portali
 
 **AI-Powered Government Messaging Platform**
@@ -6,11 +50,11 @@ A comprehensive civic support platform that bridges citizens and district govern
 
 <!-- TODO: Add dashboard preview image -->
 ![Dashboard Preview](docs/images/dashboard-preview.png)
-*Staff Dashboard Interface - Add screenshot here*
+*Staff Dashboard Interface*
 
 <!-- TODO: Add bot interface preview image -->
 ![Bot Interface Preview](docs/images/dashboard-bot-interface-preview.png)
-*Telegram Bot Interface - Add screenshot here*
+*Telegram Bot Interface*
 
 ---
 
@@ -592,7 +636,50 @@ Contributions are welcome! Please follow these steps:
 
 ## 📄 License
 
-Restring License
+**PRIVATE PROPRIETARY LICENSE**
+
+This software and all associated code, documentation, and materials are **PRIVATE AND PROPRIETARY**.
+
+### Ownership
+
+This project is the exclusive property of:
+- **Davlat Eshnazarov** (Primary Owner)
+- **Narpay District Government** (Co-owner)
+
+### Restrictions
+
+All rights reserved. No part of this software may be:
+- **Cloned** without explicit written permission from Davlat Eshnazarov
+- **Forked** under any circumstances
+- **Copied, modified, or distributed** without authorization
+- **Used commercially or non-commercially** without proper licensing
+- **Reverse engineered** or decompiled
+- **Shared** with unauthorized third parties
+
+### Authorized Use
+
+Use of this software is restricted to:
+- Authorized personnel explicitly granted access by the owner
+- Review purposes only (as indicated by README access)
+- Development and maintenance by authorized developers
+
+### Legal Protection
+
+This software is protected by:
+- Intellectual property laws
+- Copyright laws
+- Trade secret protection
+- Contract law
+
+**Unauthorized use, cloning, or distribution will result in legal action and prosecution.**
+
+### Contact for Licensing
+
+For licensing inquiries or permission requests, contact:
+- **Owner**: Davlat Eshnazarov
+- **Support**: https://t.me/nathan_2net
+
+**© 2024-2025 Davlat Eshnazarov & Narpay District Government. All Rights Reserved.**
 
 ---
 
@@ -623,7 +710,7 @@ For support, please contact https://t.me/nathan_2net or open an issue in the rep
 
 ---
 
-**Last Updated**: December 2024
+**Last Updated**: December 31 2025
 
 **Project Status**: Active Development
 
