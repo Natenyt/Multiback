@@ -1,14 +1,26 @@
-version: "3.8"
-
 services:
+  mysql:
+    image: mysql:8.4
+    container_name: mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "971412811"
+      MYSQL_DATABASE: "gov_db"
+    volumes:
+      - ./containers/mysql_data:/var/lib/mysql
+    networks:
+      - civic_network
+
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant
     ports:
-      - "127.0.0.1:6333:6333" # HTTP API (localhost only)
-      - "127.0.0.1:6334:6334" # gRPC API (localhost only)
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
-      - ./qdrant_storage:/qdrant/storage
+      - ./containers/qdrant_storage:/qdrant/storage
     networks:
       - civic_network
     restart: unless-stopped
@@ -17,9 +29,9 @@ services:
     image: redis:alpine
     container_name: redis_cache
     ports:
-      - "127.0.0.1:6379:6379" # localhost only
+      - "127.0.0.1:6379:6379"
     volumes:
-      - ./redis_data:/data
+      - ./containers/redis_data:/data
     networks:
       - civic_network
     restart: unless-stopped

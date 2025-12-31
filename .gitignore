@@ -1,20 +1,78 @@
-venv
-/venv
-pylance
-pylance
-/django_backend/venv
-__pycache__
-django_backend\__pycache__
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
 
-migrations
+# Virtual environments
+venv/
+/venv
+/django_backend/venv
+env/
+ENV/
+.venv
+
+# Django
+*.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Django media and static files
+django_backend/media/
+django_backend/staticfiles/
+media/
+staticfiles/
+
+# Container data
+containers/mysql_data/
+containers/redis_data/
+containers/qdrant_storage/
+containers/qdrant_storage/raft_state.json
+
+# Environment variables
 .env
-# Ignore all Django migration files except package initializer
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.pylance
+.DS_Store
+
+# Migrations (keep structure, ignore content)
 django_backend/*/migrations/*.py
 !django_backend/*/migrations/__init__.py
 
-# Ignore compiled migrations
-django_backend*/migrations/*.py
-qdrant_storage
-qdrant_storage/raft_state.json
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
+# Backup files
+*.sql
+*.bak
+*.backup
+*.old
+
+# OS files
+Thumbs.db
+.DS_Store

@@ -13,12 +13,129 @@ database operations without requiring code changes.
 """
 import logging
 from django.db.backends.mysql.base import DatabaseWrapper as MySQLDatabaseWrapper
+from django.db.backends.utils import CursorWrapper
 from django.db.utils import OperationalError
 
 logger = logging.getLogger(__name__)
 
 # MySQL error codes that indicate connection loss
 CONNECTION_ERROR_CODES = (2006, 2013, 4031)
+
+
+class ReconnectingCursorWrapper(CursorWrapper):
+    """
+    Custom cursor wrapper that automatically reconnects on connection errors.
+    
+    Extends Django's CursorWrapper to catch connection errors and automatically
+    reconnect before retrying the operation.
+    """
+    
+    def execute(self, sql, params=None):
+        """
+        Execute SQL with automatic reconnection on connection errors.
+        
+        If a connection error occurs, this method automatically:
+        1. Closes the stale connection
+        2. Creates a new connection
+        3. Retries the query
+        4. Returns the result seamlessly
+        
+        The user code never sees the error - it's completely transparent.
+        """
+        try:
+            return super().execute(sql, params)
+        except OperationalError as e:
+            error_code = e.args[0] if e.args else None
+            
+            # Check if this is a connection error we should retry
+            if error_code in CONNECTION_ERROR_CODES:
+                logger.warning(
+                    f"MySQL connection error {error_code} during execute. "
+                    f"Automatically reconnecting and retrying query (transparent to user)..."
+                )
+                
+                # Close the stale connection
+                try:
+                    self.db.close()
+                except Exception as close_error:
+                    logger.debug(f"Error closing stale connection: {close_error}")
+                
+                # Force a new connection - this creates a fresh connection to MySQL
+                self.db.ensure_connection()
+                
+                # Verify connection was created successfully
+                if self.db.connection is None:
+                    logger.error("Failed to establish new connection after error")
+                    raise OperationalError("Failed to reconnect to database")
+                
+                # Create a new raw cursor from the connection
+                # self.cursor is the raw database cursor (set by CursorWrapper.__init__)
+                try:
+                    self.cursor = self.db.connection.cursor()
+                except Exception as cursor_error:
+                    logger.error(f"Failed to create new cursor after reconnection: {cursor_error}")
+                    raise OperationalError("Failed to reconnect to database")
+                
+                # Retry the operation - this will succeed with the new connection
+                # The user code (bot handler) will receive the result as if nothing happened
+                try:
+                    return super().execute(sql, params)
+                except OperationalError as retry_error:
+                    # If retry also fails, log and re-raise (shouldn't happen normally)
+                    logger.error(f"Query failed even after reconnection: {retry_error}")
+                    raise
+            else:
+                # Re-raise if it's not a connection error (don't retry other errors)
+                raise
+    
+    def executemany(self, sql, param_list):
+        """
+        Execute SQL multiple times with automatic reconnection on connection errors.
+        
+        Same transparent reconnection behavior as execute() - user code never sees errors.
+        """
+        try:
+            return super().executemany(sql, param_list)
+        except OperationalError as e:
+            error_code = e.args[0] if e.args else None
+            
+            # Check if this is a connection error we should retry
+            if error_code in CONNECTION_ERROR_CODES:
+                logger.warning(
+                    f"MySQL connection error {error_code} during executemany. "
+                    f"Automatically reconnecting and retrying (transparent to user)..."
+                )
+                
+                # Close the stale connection
+                try:
+                    self.db.close()
+                except Exception as close_error:
+                    logger.debug(f"Error closing stale connection: {close_error}")
+                
+                # Force a new connection
+                self.db.ensure_connection()
+                
+                # Verify connection was created successfully
+                if self.db.connection is None:
+                    logger.error("Failed to establish new connection after error")
+                    raise OperationalError("Failed to reconnect to database")
+                
+                # Create a new raw cursor from the connection
+                try:
+                    self.cursor = self.db.connection.cursor()
+                except Exception as cursor_error:
+                    logger.error(f"Failed to create new cursor after reconnection: {cursor_error}")
+                    raise OperationalError("Failed to reconnect to database")
+                
+                # Retry the operation
+                try:
+                    return super().executemany(sql, param_list)
+                except OperationalError as retry_error:
+                    logger.error(f"Executemany failed even after reconnection: {retry_error}")
+                    raise
+            else:
+                # Re-raise if it's not a connection error
+                raise
 
 
 class DatabaseWrapper(MySQLDatabaseWrapper):
@@ -36,126 +153,18 @@ class DatabaseWrapper(MySQLDatabaseWrapper):
     def _cursor(self, name=None):
         """
         Create a cursor with automatic reconnection on connection errors.
-        Override _cursor to wrap the cursor with reconnection logic.
+        Override _cursor to use our custom cursor wrapper instead of the default CursorWrapper.
         """
-        cursor = super()._cursor(name)
-        return ReconnectingCursorWrapper(cursor, self)
-
-
-class ReconnectingCursorWrapper:
-    """
-    Wraps a database cursor to automatically handle connection errors.
-    
-    When a connection error occurs, this wrapper:
-    1. Closes the stale connection
-    2. Forces Django to create a new connection
-    3. Retries the operation once
-    
-    This wrapper properly implements the cursor protocol including context manager support.
-    """
-    
-    def __init__(self, cursor, connection_wrapper):
-        self._cursor = cursor
-        self._connection_wrapper = connection_wrapper
-    
-    def __getattr__(self, name):
-        """
-        Delegate all attribute access to the wrapped cursor.
-        """
-        return getattr(self._cursor, name)
-    
-    def __iter__(self):
-        """
-        Delegate iteration to the wrapped cursor.
-        """
-        return iter(self._cursor)
-    
-    def __enter__(self):
-        """
-        Support context manager protocol.
-        """
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Support context manager protocol.
-        """
-        return self._cursor.__exit__(exc_type, exc_val, exc_tb)
-    
-    def close(self):
-        """
-        Close the cursor.
-        """
-        return self._cursor.close()
-    
-    def _execute_with_reconnect(self, operation, sql, params=None):
-        """
-        Execute a database operation with automatic reconnection on connection errors.
+        # Ensure connection exists - this is critical before creating a cursor
+        self.ensure_connection()
         
-        Args:
-            operation: The cursor method to call ('execute' or 'executemany')
-            sql: SQL query string
-            params: Query parameters (single set for execute, list for executemany)
-        """
-        try:
-            # Try the operation first
-            if operation == 'execute':
-                return self._cursor.execute(sql, params)
-            elif operation == 'executemany':
-                return self._cursor.executemany(sql, params)
-        except OperationalError as e:
-            error_code = e.args[0] if e.args else None
-            
-            # Check if this is a connection error we should retry
-            if error_code in CONNECTION_ERROR_CODES:
-                logger.warning(
-                    f"MySQL connection error {error_code} during {operation}. "
-                    f"Reconnecting and retrying..."
-                )
-                
-                # Close the stale connection
-                try:
-                    self._connection_wrapper.close()
-                except Exception as close_error:
-                    logger.debug(f"Error closing stale connection: {close_error}")
-                
-                # Force a new connection - this will create a fresh connection
-                self._connection_wrapper.ensure_connection()
-                
-                # Get a new cursor from the new connection
-                # Use the connection's cursor() method to get a fresh cursor
-                # This is safe because we've already ensured a new connection
-                if self._connection_wrapper.connection:
-                    try:
-                        new_cursor = self._connection_wrapper.connection.cursor()
-                        self._cursor = new_cursor
-                    except Exception as cursor_error:
-                        logger.error(f"Failed to create new cursor after reconnection: {cursor_error}")
-                        raise OperationalError("Failed to reconnect to database")
-                
-                # Retry the operation with the new cursor
-                try:
-                    if operation == 'execute':
-                        return self._cursor.execute(sql, params)
-                    elif operation == 'executemany':
-                        return self._cursor.executemany(sql, params)
-                except OperationalError as retry_error:
-                    # If retry also fails, log and re-raise
-                    logger.error(f"Database operation failed after reconnection: {retry_error}")
-                    raise
-            else:
-                # Re-raise if it's not a connection error
-                raise
-    
-    def execute(self, sql, params=None):
-        """
-        Execute SQL with automatic reconnection on connection errors.
-        """
-        return self._execute_with_reconnect('execute', sql, params)
-    
-    def executemany(self, sql, param_list):
-        """
-        Execute SQL multiple times with automatic reconnection on connection errors.
-        """
-        return self._execute_with_reconnect('executemany', sql, param_list)
-
+        # Verify connection exists (defensive check)
+        if self.connection is None:
+            # Force connection if ensure_connection didn't work
+            self.connect()
+        
+        # Get the raw cursor from the parent's create_cursor method
+        # This requires self.connection to be set
+        cursor = super().create_cursor(name)
+        # Wrap it with our reconnecting wrapper instead of the default CursorWrapper
+        return ReconnectingCursorWrapper(cursor, self)
