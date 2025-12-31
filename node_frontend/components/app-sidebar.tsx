@@ -49,6 +49,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
 import { useStaffProfile } from "@/contexts/staff-profile-context"
+import { clearAuthTokens } from "@/dash_department/lib/api"
+import { clearAllDashboardCaches } from "@/hooks/use-dashboard-data"
 
 // Menu items with Lucide icons
 const menuItems = [
@@ -86,7 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isCollapsed = state === "collapsed"
   const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions, escalatedNotifications } = useNotifications()
   const { setAuthError } = useAuthError()
-  const { staffProfile, isLoading, error } = useStaffProfile()
+  const { staffProfile, isLoading, error, clearProfile } = useStaffProfile()
   const [escalatedCount, setEscalatedCount] = React.useState(0)
   const unreadCount = getUnreadCount()
   const hasAssigned = hasAssignedSessions()
@@ -162,6 +164,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [error, setAuthError])
 
   const handleLogout = () => {
+    // Clear all caches and state before logout
+    clearAllDashboardCaches()
+    clearProfile()
+    clearAuthTokens()
+    
+    // Navigate to login page
     router.push("/login")
   }
 

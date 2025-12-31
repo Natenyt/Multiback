@@ -445,13 +445,13 @@ WebSocket support is provided via Django Channels with ASGI. The ASGI applicatio
 ### For Citizens
 
 #### Via Telegram Bot
-1. Search for the bot on Telegram
+1. Search for the bot on Telegram (bot_link: https://t.me/narpaytumanhokimligi_bot)
 2. Start a conversation with `/start`
 3. Send your message or inquiry
 4. Receive automatic routing to appropriate department
 5. Chat with department staff in real-time
 
-#### Via Web Portal
+#### Via Web Portal - INACTIVE
 1. Visit the web portal
 2. Click "Send an Appeal"
 3. Authenticate with phone number (OTP verification)

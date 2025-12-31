@@ -6,6 +6,7 @@ import {
   getSessionsChart,
   getDemographics,
   getTopNeighborhoods,
+  getStaffUuid,
   type DashboardStatsResponse,
   type SessionsChartDataPoint,
   type DemographicsResponse,
@@ -13,6 +14,8 @@ import {
 } from "@/dash_department/lib/api"
 
 // Simple in-memory caches that live for the lifetime of the tab
+// Track which user's data is cached
+let cachedStaffUuid: string | null = null
 let dashboardStatsCache: DashboardStatsResponse | null = null
 let demographicsCache: DemographicsResponse | null = null
 let neighborhoodsCache: TopNeighborhood[] | null = null
@@ -23,19 +26,82 @@ export function invalidateDashboardStats() {
   dashboardStatsCache = null
 }
 
+// Function to clear ALL dashboard caches (used on logout)
+export function clearAllDashboardCaches() {
+  cachedStaffUuid = null
+  dashboardStatsCache = null
+  demographicsCache = null
+  neighborhoodsCache = null
+  // Clear all entries in sessionsChartCache
+  Object.keys(sessionsChartCache).forEach(key => {
+    delete sessionsChartCache[key]
+  })
+}
+
+// Helper function to check if cache is for current user
+// Returns true if cache is valid for current user, false otherwise
+// Also clears cache if user has changed
+function isCacheValid(): boolean {
+  const currentStaffUuid = getStaffUuid()
+  
+  // If no cached UUID, cache is invalid
+  if (!cachedStaffUuid) {
+    return false
+  }
+  
+  // If no current UUID, cache is invalid (user logged out)
+  if (!currentStaffUuid) {
+    clearAllDashboardCaches()
+    return false
+  }
+  
+  // If current UUID doesn't match cached UUID, user has changed - clear cache
+  if (currentStaffUuid !== cachedStaffUuid) {
+    // Clear cache for old user but keep cachedStaffUuid update for next check
+    dashboardStatsCache = null
+    demographicsCache = null
+    neighborhoodsCache = null
+    Object.keys(sessionsChartCache).forEach(key => {
+      delete sessionsChartCache[key]
+    })
+    cachedStaffUuid = null // Reset so new user's data gets cached
+    return false
+  }
+  
+  return true
+}
+
 export function useDashboardStats() {
-  const [stats, setStats] = React.useState<DashboardStatsResponse | null>(dashboardStatsCache)
-  const [isLoading, setIsLoading] = React.useState(!dashboardStatsCache)
+  const [stats, setStats] = React.useState<DashboardStatsResponse | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const [refreshTrigger, setRefreshTrigger] = React.useState(0)
 
   React.useEffect(() => {
+    // Check if cache is valid for current user
+    const cacheValid = isCacheValid()
+    const currentStaffUuid = getStaffUuid()
+    
+    // If cache is valid and exists, use it
+    if (cacheValid && dashboardStatsCache) {
+      setStats(dashboardStatsCache)
+      setIsLoading(false)
+      return
+    }
+
+    // If no staff UUID, we can't fetch
+    if (!currentStaffUuid) {
+      setIsLoading(false)
+      return
+    }
+
     let isMounted = true
     ;(async () => {
       try {
         setIsLoading(true)
         const data = await getDashboardStats()
         dashboardStatsCache = data
+        cachedStaffUuid = currentStaffUuid
         if (isMounted) {
           setStats(data)
         }
@@ -66,16 +132,24 @@ export function useDashboardStats() {
 }
 
 export function useSessionsChart(timeRange: string) {
-  const [data, setData] = React.useState<SessionsChartDataPoint[]>(
-    sessionsChartCache[timeRange] ?? []
-  )
-  const [isLoading, setIsLoading] = React.useState(!sessionsChartCache[timeRange])
+  const [data, setData] = React.useState<SessionsChartDataPoint[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    // If we already have cached data for this range, just use it
-    if (sessionsChartCache[timeRange]) {
+    // Check if cache is valid for current user
+    const cacheValid = isCacheValid()
+    const currentStaffUuid = getStaffUuid()
+    
+    // If cache is valid and exists for this range, use it
+    if (cacheValid && sessionsChartCache[timeRange]) {
       setData(sessionsChartCache[timeRange] || [])
+      setIsLoading(false)
+      return
+    }
+
+    // If no staff UUID, we can't fetch
+    if (!currentStaffUuid) {
       setIsLoading(false)
       return
     }
@@ -87,6 +161,7 @@ export function useSessionsChart(timeRange: string) {
         setError(null)
         const chartData = await getSessionsChart(timeRange)
         sessionsChartCache[timeRange] = chartData
+        cachedStaffUuid = currentStaffUuid
         if (isMounted) {
           setData(chartData)
         }
@@ -112,12 +187,27 @@ export function useSessionsChart(timeRange: string) {
 }
 
 export function useDemographics() {
-  const [data, setData] = React.useState<DemographicsResponse | null>(demographicsCache)
-  const [isLoading, setIsLoading] = React.useState(!demographicsCache)
+  const [data, setData] = React.useState<DemographicsResponse | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
 
   React.useEffect(() => {
-    if (demographicsCache) return
+    // Check if cache is valid for current user
+    const cacheValid = isCacheValid()
+    const currentStaffUuid = getStaffUuid()
+    
+    // If cache is valid and exists, use it
+    if (cacheValid && demographicsCache) {
+      setData(demographicsCache)
+      setIsLoading(false)
+      return
+    }
+
+    // If no staff UUID, we can't fetch
+    if (!currentStaffUuid) {
+      setIsLoading(false)
+      return
+    }
 
     let isMounted = true
     ;(async () => {
@@ -125,6 +215,7 @@ export function useDemographics() {
         setIsLoading(true)
         const demographics = await getDemographics()
         demographicsCache = demographics
+        cachedStaffUuid = currentStaffUuid
         if (isMounted) {
           setData(demographics)
         }
@@ -149,12 +240,27 @@ export function useDemographics() {
 }
 
 export function useTopNeighborhoods() {
-  const [data, setData] = React.useState<TopNeighborhood[]>(neighborhoodsCache || [])
-  const [isLoading, setIsLoading] = React.useState(!neighborhoodsCache)
+  const [data, setData] = React.useState<TopNeighborhood[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
 
   React.useEffect(() => {
-    if (neighborhoodsCache) return
+    // Check if cache is valid for current user
+    const cacheValid = isCacheValid()
+    const currentStaffUuid = getStaffUuid()
+    
+    // If cache is valid and exists, use it
+    if (cacheValid && neighborhoodsCache) {
+      setData(neighborhoodsCache)
+      setIsLoading(false)
+      return
+    }
+
+    // If no staff UUID, we can't fetch
+    if (!currentStaffUuid) {
+      setIsLoading(false)
+      return
+    }
 
     let isMounted = true
     ;(async () => {
@@ -162,6 +268,7 @@ export function useTopNeighborhoods() {
         setIsLoading(true)
         const neighborhoods = await getTopNeighborhoods()
         neighborhoodsCache = neighborhoods
+        cachedStaffUuid = currentStaffUuid
         if (isMounted) {
           setData(neighborhoods)
         }

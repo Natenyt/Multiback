@@ -146,6 +146,10 @@ export default function LoginPage() {
       const response = await staffLogin(data);
       storeAuthTokens(response.access, response.refresh);
       
+      // Clear any existing dashboard caches to ensure fresh data for new user
+      const { clearAllDashboardCaches } = await import("@/hooks/use-dashboard-data");
+      clearAllDashboardCaches();
+      
       // Get saved theme from localStorage before navigation
       const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('ntmp-theme') : null;
       
