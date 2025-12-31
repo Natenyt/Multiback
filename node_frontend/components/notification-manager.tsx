@@ -106,7 +106,7 @@ export const NotificationManager: React.FC = () => {
         wsRef.current = ws
 
         ws.onopen = () => {
-          logInfo('WEBSOCKET', 'Department WebSocket connected', { departmentId }, { component: 'NotificationManager' });
+          logInfo('WEBSOCKET', 'Department WebSocket connected', { component: 'NotificationManager' }, { departmentId });
         }
 
         ws.onmessage = (event) => {
@@ -142,18 +142,19 @@ export const NotificationManager: React.FC = () => {
 
         ws.onerror = (error) => {
           logError('WEBSOCKET', 'Department WebSocket error', error, { 
-            departmentId,
             component: 'NotificationManager' 
+          }, {
+            departmentId
           });
         }
 
         ws.onclose = (event) => {
-          logWarn('WEBSOCKET', 'Department WebSocket closed', { 
+          logWarn('WEBSOCKET', 'Department WebSocket closed', { component: 'NotificationManager' }, { 
             code: event.code,
             reason: event.reason,
             wasClean: event.wasClean,
             departmentId 
-          }, { component: 'NotificationManager' });
+          });
           // Attempt to reconnect after a delay if not intentionally closed
           if (event.code !== 1000 && mounted) {
             // Clear any existing reconnect timeout
