@@ -72,7 +72,15 @@ export default function LoginPage() {
   // When navigating away, ThemeProvider will restore the user's saved theme
   useEffect(() => {
     // Store the current theme from localStorage before forcing dark
-    const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('ntmp-theme') : null;
+    let savedTheme: string | null = null;
+    if (typeof window !== 'undefined') {
+      try {
+        savedTheme = localStorage.getItem('ntmp-theme');
+      } catch (error) {
+        // localStorage may be disabled (private browsing, etc.)
+        console.warn('Failed to read theme from localStorage:', error);
+      }
+    }
     
     // Immediately add dark class for login page
     document.documentElement.classList.add('dark');
@@ -111,7 +119,12 @@ export default function LoginPage() {
       clearInterval(intervalId);
       // When leaving login page, restore the saved theme
       if (typeof window !== 'undefined') {
-        const currentSavedTheme = localStorage.getItem('ntmp-theme');
+        let currentSavedTheme: string | null = null;
+        try {
+          currentSavedTheme = localStorage.getItem('ntmp-theme');
+        } catch (error) {
+          console.warn('Failed to read theme from localStorage:', error);
+        }
         // Remove dark class that was forced by login page
         document.documentElement.classList.remove('dark');
         // Apply the saved theme
@@ -161,7 +174,14 @@ export default function LoginPage() {
       clearAllDashboardCaches();
       
       // Get saved theme from localStorage before navigation
-      const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('ntmp-theme') : null;
+      let savedTheme: string | null = null;
+      if (typeof window !== 'undefined') {
+        try {
+          savedTheme = localStorage.getItem('ntmp-theme');
+        } catch (error) {
+          console.warn('Failed to read theme from localStorage:', error);
+        }
+      }
       
       // Remove dark class and restore saved theme before navigation
       if (typeof window !== 'undefined') {

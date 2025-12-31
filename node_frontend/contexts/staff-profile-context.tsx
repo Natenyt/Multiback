@@ -71,6 +71,9 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
   }, [loadProfile])
 
   // Initial load on mount
+  // Note: loadProfile is included in dependency array even though it's a useCallback with empty deps.
+  // This is intentional and correct - React's exhaustive-deps rule requires it, and since loadProfile
+  // is stable (memoized with useCallback), this effect will only run once on mount.
   React.useEffect(() => {
     loadProfile()
   }, [loadProfile])

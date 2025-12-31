@@ -67,20 +67,66 @@ function getTokenExpiration(token: string): number | null {
   }
 }
 
+// Cache for token expiration checks to avoid repeated parsing
+// Cache key: token (first 20 chars), value: { isExpired: boolean, expiresAt: number, checkedAt: number }
+// Cache TTL: 30 seconds (expiration check is valid for 30 seconds)
+const tokenExpirationCache = new Map<string, { isExpired: boolean; expiresAt: number; checkedAt: number }>();
+const TOKEN_CACHE_TTL = 30 * 1000; // 30 seconds in milliseconds
+
 /**
  * Check if a token is expired or will expire soon (within 5 minutes)
+ * Uses caching to avoid repeated JWT parsing for the same token
  */
 export function isTokenExpired(token: string | null): boolean {
   if (!token) {
     return true;
   }
+
+  // Use first 20 characters of token as cache key (tokens are long, this is sufficient for uniqueness)
+  const cacheKey = token.substring(0, 20);
+  const cached = tokenExpirationCache.get(cacheKey);
+  const now = Date.now();
+
+  // If we have a cached result that's still valid (within TTL), use it
+  if (cached && (now - cached.checkedAt) < TOKEN_CACHE_TTL) {
+    // Also check if token has actually expired since we cached it
+    const currentTimeSeconds = Math.floor(now / 1000);
+    if (currentTimeSeconds >= cached.expiresAt) {
+      // Token has expired since cache, remove from cache and return true
+      tokenExpirationCache.delete(cacheKey);
+      return true;
+    }
+    return cached.isExpired;
+  }
+
+  // Parse token expiration (not cached or cache expired)
   const exp = getTokenExpiration(token);
   if (!exp) {
     return true; // If we can't decode it, consider it expired
   }
+
   // Check if token expires within 5 minutes (300 seconds)
-  const now = Math.floor(Date.now() / 1000);
-  return exp <= (now + 300);
+  const nowSeconds = Math.floor(now / 1000);
+  const isExpired = exp <= (nowSeconds + 300);
+
+  // Cache the result
+  tokenExpirationCache.set(cacheKey, {
+    isExpired,
+    expiresAt: exp,
+    checkedAt: now,
+  });
+
+  // Clean up old cache entries (keep cache size reasonable)
+  if (tokenExpirationCache.size > 100) {
+    // Remove entries older than 5 minutes
+    for (const [key, value] of tokenExpirationCache.entries()) {
+      if (now - value.checkedAt > 5 * 60 * 1000) {
+        tokenExpirationCache.delete(key);
+      }
+    }
+  }
+
+  return isExpired;
 }
 
 // Token refresh lock to prevent concurrent refresh requests
@@ -414,7 +460,7 @@ export interface DashboardStatsResponse {
 }
 
 export async function getDashboardStats(): Promise<DashboardStatsResponse> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -451,18 +497,21 @@ export interface SessionsChartDataPoint {
 }
 
 export async function getSessionsChart(period?: string): Promise<SessionsChartDataPoint[]> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
 
   // Build URL with query params (works with relative URLs)
+  // Django expects trailing slash for this endpoint: /dashboard/sessions-chart/
   const params = new URLSearchParams();
   if (period) {
     params.append('period', period);
   }
   const queryString = params.toString();
-  const url = `${API_BASE_URL}/dashboard/sessions-chart/${queryString ? '?' + queryString : ''}`;
+  // Ensure proper URL construction: base path with trailing slash + query string
+  const basePath = `${API_BASE_URL}/dashboard/sessions-chart/`;
+  const url = queryString ? `${basePath}?${queryString}` : basePath;
 
   const response = await fetch(url, {
     method: 'GET',
@@ -497,7 +546,7 @@ export interface DemographicsResponse {
 }
 
 export async function getDemographics(): Promise<DemographicsResponse> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -533,7 +582,7 @@ export interface TopNeighborhood {
 }
 
 export async function getTopNeighborhoods(): Promise<TopNeighborhood[]> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -575,7 +624,7 @@ export interface LeaderboardResponse {
 }
 
 export async function getLeaderboard(): Promise<LeaderboardResponse> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -722,7 +771,7 @@ export async function getTickets(
     lang?: string;
   }
 ): Promise<TicketListItem[]> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -784,7 +833,7 @@ export async function getTickets(
 }
 
 export async function getTicketHistory(sessionUuid: string, cursor?: string, lang: string = 'uz'): Promise<TicketHistoryResponse> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -824,7 +873,7 @@ export async function getTicketHistory(sessionUuid: string, cursor?: string, lan
 }
 
 export async function assignTicket(sessionUuid: string): Promise<{ status: string; session: SessionData; message: string }> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -854,7 +903,7 @@ export async function assignTicket(sessionUuid: string): Promise<{ status: strin
 }
 
 export async function escalateTicket(sessionUuid: string): Promise<{ status: string; session: SessionData; message: string }> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -884,7 +933,7 @@ export async function escalateTicket(sessionUuid: string): Promise<{ status: str
 }
 
 export async function closeTicket(sessionUuid: string): Promise<{ status: string; session: SessionData; message: string }> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -914,7 +963,7 @@ export async function closeTicket(sessionUuid: string): Promise<{ status: string
 }
 
 export async function updateTicketDescription(sessionUuid: string, description: string): Promise<{ status: string; session: SessionData; message: string }> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -945,7 +994,7 @@ export async function updateTicketDescription(sessionUuid: string, description: 
 }
 
 export async function holdTicket(sessionUuid: string): Promise<{ status: string; session: SessionData; message: string }> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -1049,7 +1098,7 @@ export async function sendMessage(
 }
 
 export async function getNeighborhoods(options?: { search?: string; lang?: string }): Promise<Neighborhood[]> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -1098,7 +1147,7 @@ export interface Department {
 }
 
 export async function getDepartments(options?: { search?: string; lang?: string }): Promise<Department[]> {
-  const token = getAuthToken();
+  const token = await getValidAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
   }

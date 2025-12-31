@@ -33,7 +33,13 @@ export default function DashboardLayout({
     }
     
     // Ensure theme is restored from localStorage after navigation from login
-    const savedTheme = localStorage.getItem('ntmp-theme');
+    let savedTheme: string | null = null;
+    try {
+      savedTheme = localStorage.getItem('ntmp-theme');
+    } catch (error) {
+      // localStorage may be disabled (private browsing, etc.)
+      console.warn('Failed to read theme from localStorage:', error);
+    }
     if (savedTheme) {
       if (savedTheme === 'dark') {
         document.documentElement.classList.add('dark');

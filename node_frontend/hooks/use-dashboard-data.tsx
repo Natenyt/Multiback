@@ -22,54 +22,92 @@ let demographicsCache: DemographicsResponse | null = null
 let neighborhoodsCache: TopNeighborhood[] | null = null
 const sessionsChartCache: Record<string, SessionsChartDataPoint[] | undefined> = {}
 
+// Lock to prevent race conditions when validating/clearing cache
+// Ensures only one cache validation/clearing operation happens at a time
+let cacheValidationLock = false
+
 // Function to invalidate dashboard stats cache
 export function invalidateDashboardStats() {
   dashboardStatsCache = null
 }
 
 // Function to clear ALL dashboard caches (used on logout)
+// This function is safe to call from anywhere and uses the lock
 export function clearAllDashboardCaches() {
-  cachedStaffUuid = null
-  dashboardStatsCache = null
-  demographicsCache = null
-  neighborhoodsCache = null
-  // Clear all entries in sessionsChartCache
-  Object.keys(sessionsChartCache).forEach(key => {
-    delete sessionsChartCache[key]
-  })
+  // Acquire lock
+  if (cacheValidationLock) {
+    // If lock is held, wait a bit and try again (simple retry mechanism)
+    setTimeout(() => clearAllDashboardCaches(), 10)
+    return
+  }
+  
+  cacheValidationLock = true
+  try {
+    cachedStaffUuid = null
+    dashboardStatsCache = null
+    demographicsCache = null
+    neighborhoodsCache = null
+    // Clear all entries in sessionsChartCache
+    Object.keys(sessionsChartCache).forEach(key => {
+      delete sessionsChartCache[key]
+    })
+  } finally {
+    cacheValidationLock = false
+  }
 }
 
 // Helper function to check if cache is for current user
 // Returns true if cache is valid for current user, false otherwise
 // Also clears cache if user has changed
+// Uses locking to prevent race conditions when multiple hooks call it simultaneously
 function isCacheValid(): boolean {
-  const currentStaffUuid = getStaffUuid()
-  
-  // If no cached UUID, cache is invalid
-  if (!cachedStaffUuid) {
+  // Acquire lock to prevent concurrent cache validation/clearing
+  if (cacheValidationLock) {
+    // If another operation is in progress, return false to be safe
+    // The calling hook will wait and retry on next render
     return false
   }
   
-  // If no current UUID, cache is invalid (user logged out)
-  if (!currentStaffUuid) {
-    clearAllDashboardCaches()
-    return false
+  cacheValidationLock = true
+  try {
+    const currentStaffUuid = getStaffUuid()
+    
+    // If no cached UUID, cache is invalid
+    if (!cachedStaffUuid) {
+      return false
+    }
+    
+    // If no current UUID, cache is invalid (user logged out)
+    if (!currentStaffUuid) {
+      // Clear cache while holding lock
+      cachedStaffUuid = null
+      dashboardStatsCache = null
+      demographicsCache = null
+      neighborhoodsCache = null
+      Object.keys(sessionsChartCache).forEach(key => {
+        delete sessionsChartCache[key]
+      })
+      return false
+    }
+    
+    // If current UUID doesn't match cached UUID, user has changed - clear cache
+    if (currentStaffUuid !== cachedStaffUuid) {
+      // Clear cache for old user while holding lock
+      dashboardStatsCache = null
+      demographicsCache = null
+      neighborhoodsCache = null
+      Object.keys(sessionsChartCache).forEach(key => {
+        delete sessionsChartCache[key]
+      })
+      cachedStaffUuid = null // Reset so new user's data gets cached
+      return false
+    }
+    
+    return true
+  } finally {
+    // Always release lock
+    cacheValidationLock = false
   }
-  
-  // If current UUID doesn't match cached UUID, user has changed - clear cache
-  if (currentStaffUuid !== cachedStaffUuid) {
-    // Clear cache for old user but keep cachedStaffUuid update for next check
-    dashboardStatsCache = null
-    demographicsCache = null
-    neighborhoodsCache = null
-    Object.keys(sessionsChartCache).forEach(key => {
-      delete sessionsChartCache[key]
-    })
-    cachedStaffUuid = null // Reset so new user's data gets cached
-    return false
-  }
-  
-  return true
 }
 
 export function useDashboardStats() {

@@ -107,9 +107,16 @@ async function proxyRequest(
         delete headers['Content-Type'];
       } else {
         // For JSON, get the body as text and parse
-        const body = await request.text();
-        if (body) {
-          requestOptions.body = body;
+        // Wrap in try-catch in case body is already consumed or unavailable
+        try {
+          const body = await request.text();
+          if (body) {
+            requestOptions.body = body;
+          }
+        } catch (bodyError) {
+          console.error('Failed to read request body:', bodyError);
+          // If body reading fails, continue without body (some requests may not need it)
+          // This prevents the entire proxy request from failing
         }
       }
     }

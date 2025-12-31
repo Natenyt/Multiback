@@ -5,33 +5,7 @@ import { type Message, getTicketHistory, getAuthToken } from "@/dash_department/
 import { CaseMessageBubble } from "./case-message-bubble"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-// WebSocket URL - needs to be public since WebSockets require direct connection
-// For HTTPS pages, must use wss:// (secure WebSocket)
-// Set NEXT_PUBLIC_WS_URL in Vercel (e.g., wss://185.247.118.219:8000 for HTTPS)
-const getWsBaseUrl = (): string => {
-  let wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-  
-  // If no env var, use defaults
-  if (!wsUrl) {
-    // Auto-detect: if page is HTTPS, use wss://, otherwise ws://
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-      // For HTTPS, use secure WebSocket (wss://)
-      wsUrl = 'wss://185.247.118.219:8000';
-    } else {
-      // For HTTP (local development), use ws://
-      wsUrl = 'ws://localhost:8000';
-    }
-  }
-  
-  // If page is HTTPS but URL is ws://, convert to wss://
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    if (wsUrl.startsWith('ws://')) {
-      wsUrl = wsUrl.replace('ws://', 'wss://');
-    }
-  }
-  
-  return wsUrl;
-}
+import { getWsBaseUrl } from "@/lib/websocket-utils"
 
 interface CaseMessageListProps {
   messages: Message[]

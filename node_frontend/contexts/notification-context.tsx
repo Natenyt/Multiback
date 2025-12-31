@@ -294,6 +294,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
+  // Only include state values in dependencies, not callbacks
+  // Callbacks are already memoized with useCallback and are stable
+  // Including them would cause unnecessary re-renders
   const value = React.useMemo(
     () => ({
       notifications,
@@ -321,7 +324,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       hasEscalatedSessions,
       clearEscalatedSessions,
     }),
-    [notifications, escalatedNotifications, assignedSessions, closedSessions, escalatedSessions, addNotification, addEscalatedNotification, markAsRead, markAllAsRead, markEscalatedAsRead, getUnreadCount, clearNotifications, addAssignedSession, removeAssignedSession, hasAssignedSessions, clearAssignedSessions, addClosedSession, removeClosedSession, hasClosedSessions, clearClosedSessions, addEscalatedSession, removeEscalatedSession, hasEscalatedSessions, clearEscalatedSessions]
+    // Only include state values that actually change
+    // Callbacks are stable (memoized with useCallback with empty deps or proper deps)
+    [notifications, escalatedNotifications, assignedSessions, closedSessions, escalatedSessions]
   )
 
   return (
