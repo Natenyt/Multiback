@@ -49,6 +49,9 @@ export const NotificationManager: React.FC = () => {
   const staffRoleRef = React.useRef<string | null>(null)
   const shownToastSessionsRef = React.useRef<Set<string>>(new Set())
   const shownEscalatedToastSessionsRef = React.useRef<Set<string>>(new Set())
+  // Store timeout IDs for proper cleanup
+  const reconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  const vipReconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // Load shown toast sessions from localStorage on mount
   React.useEffect(() => {
@@ -159,7 +162,13 @@ export const NotificationManager: React.FC = () => {
           console.log("NotificationManager: WebSocket closed:", event.code, event.reason)
           // Attempt to reconnect after a delay if not intentionally closed
           if (event.code !== 1000 && mounted) {
-            setTimeout(() => {
+            // Clear any existing reconnect timeout
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current)
+            }
+            // Store timeout ID for cleanup
+            reconnectTimeoutRef.current = setTimeout(() => {
+              reconnectTimeoutRef.current = null // Clear ref after timeout fires
               if (mounted && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
                 setupWebSocket()
               }
@@ -257,7 +266,13 @@ export const NotificationManager: React.FC = () => {
               console.log("NotificationManager: VIP WebSocket closed:", event.code, event.reason)
               // Attempt to reconnect after a delay if not intentionally closed
               if (event.code !== 1000 && mounted) {
-                setTimeout(async () => {
+                // Clear any existing reconnect timeout
+                if (vipReconnectTimeoutRef.current) {
+                  clearTimeout(vipReconnectTimeoutRef.current)
+                }
+                // Store timeout ID for cleanup
+                vipReconnectTimeoutRef.current = setTimeout(async () => {
+                  vipReconnectTimeoutRef.current = null // Clear ref after timeout fires
                   if (mounted && (!vipWsRef.current || vipWsRef.current.readyState === WebSocket.CLOSED)) {
                     // Reconnect VIP websocket
                     try {
@@ -285,6 +300,16 @@ export const NotificationManager: React.FC = () => {
 
     return () => {
       mounted = false
+      // Clear any pending reconnection timeouts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
+      }
+      if (vipReconnectTimeoutRef.current) {
+        clearTimeout(vipReconnectTimeoutRef.current)
+        vipReconnectTimeoutRef.current = null
+      }
+      // Close WebSocket connections
       if (wsRef.current) {
         if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
           wsRef.current.close(1000, "Component unmounting")

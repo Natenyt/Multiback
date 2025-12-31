@@ -30,40 +30,71 @@ This review covers stability, logic, and potential issues in the Next.js fronten
 - Single `setTimeout` fallback (500ms) instead of continuous polling
 - All cleanup properly handled with `clearTimeout`
 
-### 2. **Race Condition: Token Refresh in Multiple Places**
+### 2. **Race Condition: Token Refresh in Multiple Places** ✅ FIXED
 **Location:** `dash_department/lib/api.ts:137-147`, `176-199`
 
 **Issue:** Multiple concurrent API calls can trigger token refresh simultaneously, leading to race conditions where multiple refresh requests are sent.
 
 **Impact:** High - Can cause authentication failures and unnecessary API calls
-**Fix:** Implement a token refresh lock/mutex to ensure only one refresh happens at a time
 
-### 3. **WebSocket Memory Leak: Reconnection Logic**
+**Fix Applied:**
+- ✅ Implemented Promise-based mutex/lock mechanism using `refreshPromise`
+- ✅ All concurrent calls to `getValidAuthToken()` now wait for the same refresh promise
+- ✅ Updated `authenticatedFetch()` to use `getValidAuthToken()` instead of calling `refreshAccessToken()` directly
+- ✅ Updated `sendMessage()` to use `getValidAuthToken()` instead of calling `refreshAccessToken()` directly
+- ✅ Made `refreshAccessToken()` private (module-scoped) to prevent direct calls
+- ✅ Proper cleanup of refresh promise after completion (success or failure)
+
+**How It Works:**
+- When token needs refresh, first call creates a promise and stores it in `refreshPromise`
+- Concurrent calls check if `refreshPromise` exists and wait for it instead of creating new requests
+- After refresh completes (success or failure), `refreshPromise` is cleared
+- This ensures only one refresh request is sent to the backend at a time
+
+### 3. **WebSocket Memory Leak: Reconnection Logic** ✅ FIXED
 **Location:** `components/notification-manager.tsx:161-167`, `components/case-message-list.tsx:291-299`
 
 **Issue:** WebSocket reconnection logic uses `setTimeout` without proper cleanup tracking. If component unmounts during reconnection delay, the timeout still fires and attempts to reconnect.
 
-```typescript
-// Line 161-167 in notification-manager.tsx
-if (event.code !== 1000 && mounted) {
-  setTimeout(() => {
-    if (mounted && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
-      setupWebSocket() // Can be called after unmount
-    }
-  }, 3000)
-}
-```
-
 **Impact:** High - Memory leaks and potential crashes
-**Fix:** Store timeout IDs in refs and clear them in cleanup
 
-### 4. **Missing Error Boundary**
+**Fix Applied:**
+- ✅ Added refs to store timeout IDs: `reconnectTimeoutRef`, `vipReconnectTimeoutRef`
+- ✅ Clear existing timeouts before creating new ones (prevents accumulation)
+- ✅ Clear all timeouts in cleanup function
+- ✅ Set timeout ref to null after timeout fires (prevents double cleanup)
+- ✅ Applied fix to both `notification-manager.tsx` and `case-message-list.tsx`
+
+**Changes Made:**
+- Added `reconnectTimeoutRef` and `vipReconnectTimeoutRef` refs
+- Store timeout ID when creating reconnection timeout
+- Clear timeout in cleanup function before component unmounts
+- Clear timeout before creating new one (prevents multiple pending timeouts)
+
+### 4. **Missing Error Boundary** ✅ FIXED
 **Location:** `app/layout.tsx`
 
 **Issue:** No React Error Boundary to catch and handle component errors gracefully. Unhandled errors will crash the entire app.
 
 **Impact:** High - Poor user experience on errors
-**Fix:** Add Error Boundary component wrapping the app
+
+**Fix Applied:**
+- ✅ Created `ErrorBoundary` component (`components/error-boundary.tsx`)
+- ✅ Integrated Error Boundary in root layout wrapping entire app
+- ✅ Graceful error UI with user-friendly messages in Uzbek
+- ✅ Error reset functionality to allow recovery
+- ✅ Home navigation button for easy recovery
+- ✅ Development mode shows technical details for debugging
+- ✅ Production mode shows user-friendly messages only
+
+**Features:**
+- Catches all React component errors in the tree
+- Prevents entire app from crashing
+- Shows user-friendly error message
+- Provides "Try Again" button to reset error state
+- Provides "Go Home" button for navigation
+- Logs errors to console for debugging
+- Shows technical details in development mode only
 
 ---
 

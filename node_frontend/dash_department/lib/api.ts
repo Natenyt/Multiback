@@ -83,10 +83,15 @@ export function isTokenExpired(token: string | null): boolean {
   return exp <= (now + 300);
 }
 
+// Token refresh lock to prevent concurrent refresh requests
+// This ensures only one refresh happens at a time, even if multiple calls request it simultaneously
+let refreshPromise: Promise<string | null> | null = null;
+
 /**
  * Refresh the access token using the refresh token
+ * This function is protected by a mutex to prevent concurrent refresh requests
  */
-export async function refreshAccessToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     console.warn('No refresh token available');
@@ -133,14 +138,35 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 /**
  * Get a valid access token, refreshing if necessary
+ * This function uses a mutex to ensure only one refresh happens at a time,
+ * even when called concurrently from multiple places
  */
 export async function getValidAuthToken(): Promise<string | null> {
   let token = getAuthToken();
   
   // If token is expired or will expire soon, refresh it
   if (isTokenExpired(token)) {
+    // If a refresh is already in progress, wait for it instead of starting a new one
+    if (refreshPromise) {
+      console.log('Token refresh already in progress, waiting for existing refresh...');
+      return await refreshPromise;
+    }
+    
+    // Start a new refresh and store the promise so other concurrent calls can wait for it
     console.log('Token expired or expiring soon, refreshing...');
-    token = await refreshAccessToken();
+    refreshPromise = refreshAccessToken()
+      .then((newToken) => {
+        // Clear the promise after completion (success or failure)
+        refreshPromise = null;
+        return newToken;
+      })
+      .catch((error) => {
+        // Clear the promise on error
+        refreshPromise = null;
+        throw error;
+      });
+    
+    token = await refreshPromise;
   }
   
   return token;
@@ -148,13 +174,14 @@ export async function getValidAuthToken(): Promise<string | null> {
 
 /**
  * Make an authenticated fetch request with automatic token refresh on 401
+ * Uses the same token refresh locking mechanism to prevent concurrent refreshes
  */
 async function authenticatedFetch(
   url: string,
   options: RequestInit = {},
   retryCount = 0
 ): Promise<Response> {
-  // Get valid token (will refresh if needed)
+  // Get valid token (will refresh if needed, using the lock mechanism)
   let token = await getValidAuthToken();
   
   if (!token) {
@@ -174,9 +201,12 @@ async function authenticatedFetch(
   });
 
   // If we get a 401, try refreshing the token once and retry
+  // Use getValidAuthToken() which handles the lock, instead of calling refreshAccessToken() directly
   if (response.status === 401 && retryCount === 0) {
     console.log('Got 401, attempting token refresh and retry...');
-    const newToken = await refreshAccessToken();
+    // Use getValidAuthToken() which will use the lock if refresh is needed
+    // This ensures we don't create duplicate refresh requests
+    const newToken = await getValidAuthToken();
     if (newToken) {
       // Retry with new token
       const retryHeaders = new Headers(options.headers);
@@ -976,9 +1006,12 @@ export async function sendMessage(
   });
 
   // If we get a 401, try refreshing the token once and retry
+  // Use getValidAuthToken() which handles the lock, instead of calling refreshAccessToken() directly
   if (response.status === 401) {
     console.log('Got 401 on sendMessage, attempting token refresh and retry...');
-    const newToken = await refreshAccessToken();
+    // Use getValidAuthToken() which will use the lock if refresh is needed
+    // This ensures we don't create duplicate refresh requests
+    const newToken = await getValidAuthToken();
     if (newToken) {
       // Retry with new token
       response = await fetch(`${API_BASE_URL}/tickets/${sessionUuid}/send/`, {

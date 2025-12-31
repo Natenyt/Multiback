@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/hooks/use-toast";
 import { StaffProfileProvider } from "@/contexts/staff-profile-context";
 import { Analytics } from "@vercel/analytics/next";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,20 +53,22 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-          storageKey="ntmp-theme"
-        >
-          <ToastProvider>
-            <StaffProfileProvider>
-              {children}
-            </StaffProfileProvider>
-          </ToastProvider>
-          <Analytics />
-        </ThemeProvider>
+        <ErrorBoundary>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            disableTransitionOnChange
+            storageKey="ntmp-theme"
+          >
+            <ToastProvider>
+              <StaffProfileProvider>
+                {children}
+              </StaffProfileProvider>
+            </ToastProvider>
+            <Analytics />
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

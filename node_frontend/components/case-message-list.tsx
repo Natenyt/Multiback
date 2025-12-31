@@ -48,6 +48,8 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
   const prevScrollHeightRef = React.useRef(0)
   const isLoadingRef = React.useRef(false)
   const wsRef = React.useRef<WebSocket | null>(null)
+  // Store timeout ID for proper cleanup
+  const reconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // Extract cursor from next URL
   const extractCursorFromUrl = (url: string | null): string | null => {
@@ -290,7 +292,13 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
       // Attempt to reconnect after 3 seconds if not a normal closure
       if (event.code !== 1000) {
         console.log("WebSocket closed abnormally, will attempt reconnect...")
-        setTimeout(() => {
+        // Clear any existing reconnect timeout
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current)
+        }
+        // Store timeout ID for cleanup
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectTimeoutRef.current = null // Clear ref after timeout fires
           if (wsRef.current?.readyState === WebSocket.CLOSED) {
             // Trigger reconnect by re-running the effect
             // This is handled by the useEffect dependency on sessionUuid
@@ -302,6 +310,12 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
 
     // Cleanup on unmount
     return () => {
+      // Clear any pending reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
+      }
+      // Close WebSocket connection
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close(1000, "Component unmounting")
       }
