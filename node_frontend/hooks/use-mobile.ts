@@ -15,5 +15,7 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  // Return false explicitly when undefined (initial state) to avoid confusion
+  // !!isMobile would return false for undefined, but we want to be explicit
+  return isMobile === undefined ? false : isMobile
 }

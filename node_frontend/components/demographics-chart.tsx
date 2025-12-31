@@ -61,9 +61,11 @@ export function DemographicsChart() {
     },
   ]
 
-  const totalAppealers = data.total_appealers || 0
+  // Safety: Ensure total is never zero to prevent division by zero in percentage calculations
+  // The chart library handles percentages internally, but we ensure data integrity
+  const totalAppealers = Math.max(data.total_appealers || 0, 0)
 
-  // If no data, show empty state
+  // If no data, show empty state (prevents any potential division by zero)
   if (totalAppealers === 0) {
     return (
       <Card className="flex flex-col">

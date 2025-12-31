@@ -1,6 +1,17 @@
 import { LoginRequest, LoginResponse, ApiError } from './types';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 
+/**
+ * Extract error message from API error response
+ * Handles different error response formats consistently
+ * @param errorData - The error response object from API
+ * @param defaultMessage - Default message if no error message found
+ * @returns The error message string
+ */
+function extractErrorMessage(errorData: ApiError, defaultMessage: string): string {
+  return errorData.detail || errorData.message || errorData.error || defaultMessage;
+}
+
 // Use Next.js API proxy route instead of direct backend URL
 // This keeps BACKEND_PRIVATE_URL server-side only
 const API_BASE_URL = typeof window !== 'undefined' 
@@ -22,8 +33,8 @@ export async function staffLogin(
       const errorData: ApiError = await response.json().catch(() => ({
         detail: 'An error occurred during login',
       }));
-      const errorMessage = errorData.detail || errorData.message || errorData.error || 'Login failed';
-      logError('AUTH', 'Login API call failed', new Error(errorMessage), { 
+      const errorMessage = extractErrorMessage(errorData, 'Login failed');
+      logError('AUTH', 'Login API call failed', new Error(errorMessage), {}, {
         status: response.status,
         endpoint: '/auth/staff-login/' 
       });
@@ -121,9 +132,12 @@ export function isTokenExpired(token: string | null): boolean {
     return true; // If we can't decode it, consider it expired
   }
 
-  // Check if token expires within 5 minutes (300 seconds)
+  // Token expiration constants
+  const TOKEN_EXPIRATION_BUFFER_SECONDS = 300; // 5 minutes in seconds
+  
+  // Check if token expires within the buffer period
   const nowSeconds = Math.floor(now / 1000);
-  const isExpired = exp <= (nowSeconds + 300);
+  const isExpired = exp <= (nowSeconds + TOKEN_EXPIRATION_BUFFER_SECONDS);
 
   // Cache the result
   tokenExpirationCache.set(cacheKey, {
@@ -171,7 +185,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      logError('AUTH', 'Token refresh failed', new Error(JSON.stringify(errorData)), { 
+      logError('AUTH', 'Token refresh failed', new Error(JSON.stringify(errorData)), {}, {
         status: response.status 
       });
       // If refresh token is invalid, clear all tokens
@@ -241,6 +255,39 @@ export async function getValidAuthToken(): Promise<string | null> {
  * Make an authenticated fetch request with automatic token refresh on 401
  * Uses the same token refresh locking mechanism to prevent concurrent refreshes
  */
+/**
+ * Performs an authenticated fetch request with automatic token refresh and retry logic.
+ * 
+ * This function handles authentication, token expiration, and automatic retry on 401 errors.
+ * It uses a lock mechanism to prevent concurrent token refresh requests.
+ * 
+ * **Retry Logic:**
+ * - On 401 response, automatically refreshes token and retries once
+ * - Uses `getValidAuthToken()` which handles concurrent refresh requests via lock mechanism
+ * - If refresh fails, clears tokens and redirects to login page
+ * - Prevents infinite retry loops by only retrying once (retryCount === 0)
+ * 
+ * **Token Management:**
+ * - Automatically adds `Authorization: Bearer <token>` header
+ * - Uses `getValidAuthToken()` which checks expiration and refreshes if needed
+ * - Token refresh is thread-safe via Promise-based mutex
+ * 
+ * @param url - The URL to fetch from
+ * @param options - Standard fetch options (method, body, headers, etc.)
+ * @param retryCount - Internal counter to prevent infinite retry loops (default: 0)
+ * @returns Promise resolving to the Response object
+ * 
+ * @throws {Error} If no authentication token is found
+ * @throws {Error} If authentication fails after token refresh attempt
+ * 
+ * @example
+ * ```typescript
+ * const response = await authenticatedFetch('/api/proxy/dashboard/stats/', {
+ *   method: 'GET',
+ * });
+ * const data = await response.json();
+ * ```
+ */
 async function authenticatedFetch(
   url: string,
   options: RequestInit = {},
@@ -297,8 +344,45 @@ async function authenticatedFetch(
 }
 
 /**
- * Fetch an authenticated image and convert it to a blob URL
- * This is needed because <img> tags can't send authentication headers
+ * Fetches an authenticated image and converts it to a blob URL.
+ * 
+ * This function is necessary because HTML `<img>` tags cannot send custom headers,
+ * so we must fetch the image via JavaScript with authentication headers and create
+ * a blob URL for the image element to use.
+ * 
+ * **URL Transformation Logic:**
+ * - Full URLs (http://, https://): Extracts path and routes through Next.js proxy
+ *   - If path starts with `/api/`, removes `/api` prefix and routes to `/api/proxy`
+ *   - Otherwise, routes entire path through `/api/proxy`
+ *   - Preserves query parameters from original URL
+ * - Relative URLs starting with `/api/`: Routes through proxy by removing `/api` prefix
+ * - Relative URLs starting with `/media/`: Routes through proxy as-is
+ * - Other relative URLs: Routes through proxy with appropriate path handling
+ * 
+ * **Authentication:**
+ * - Adds `Authorization: Bearer <token>` header to the fetch request
+ * - Uses `getAuthToken()` (non-refreshing) since images are typically cached
+ * 
+ * **Error Handling:**
+ * - Returns `null` if token is unavailable
+ * - Returns `null` if fetch fails (logs warning)
+ * - Returns `null` if response is not an image
+ * 
+ * @param url - The image URL (can be full URL, relative URL, or media path)
+ * @returns Promise resolving to blob URL string, or `null` if fetch fails
+ * 
+ * @example
+ * ```typescript
+ * const blobUrl = await fetchAuthenticatedImage('/media/avatars/user123.jpg');
+ * if (blobUrl) {
+ *   imgElement.src = blobUrl;
+ * }
+ * ```
+ * 
+ * **Security Note:**
+ * - All requests are routed through Next.js proxy to avoid CORS issues
+ * - Token is sent in Authorization header, not in URL (unlike WebSocket connections)
+ * - Blob URLs are automatically revoked when page unloads
  */
 export async function fetchAuthenticatedImage(url: string): Promise<string | null> {
   const token = getAuthToken();
@@ -393,9 +477,41 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
     }
 
     const blob = await response.blob();
-    return URL.createObjectURL(blob);
+    
+    // Create blob URL with error handling
+    try {
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Store blob URL for cleanup on page unload
+      // Note: Browser automatically revokes blob URLs on page unload,
+      // but we track them for explicit cleanup if needed
+      if (typeof window !== 'undefined') {
+        // Register cleanup on page unload as a safety measure
+        if (!(window as any).__blobUrls) {
+          (window as any).__blobUrls = new Set<string>();
+          window.addEventListener('beforeunload', () => {
+            if ((window as any).__blobUrls) {
+              (window as any).__blobUrls.forEach((url: string) => {
+                try {
+                  URL.revokeObjectURL(url);
+                } catch (e) {
+                  // Silently fail if URL is already revoked
+                }
+              });
+              (window as any).__blobUrls.clear();
+            }
+          });
+        }
+        (window as any).__blobUrls.add(blobUrl);
+      }
+      
+      return blobUrl;
+    } catch (blobError) {
+      logError('API', 'Failed to create blob URL', blobError, { function: 'fetchAuthenticatedImage' });
+      return null;
+    }
   } catch (error) {
-    console.error('Error fetching authenticated image:', error);
+    logError('API', 'Error fetching authenticated image', error, { function: 'fetchAuthenticatedImage' });
     return null;
   }
 }
@@ -455,7 +571,7 @@ export async function getStaffProfile(): Promise<StaffProfileResponse> {
       detail: 'Failed to fetch staff profile',
     }));
     // Check for specific token invalidation messages
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch staff profile';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch staff profile');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens(); // Clear tokens if invalid
       throw new Error('Authentication failed. Please log in again.'); // Throw a specific error
@@ -497,7 +613,7 @@ export async function getDashboardStats(): Promise<DashboardStatsResponse> {
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch dashboard stats',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch dashboard stats';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch dashboard stats');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -545,7 +661,7 @@ export async function getSessionsChart(period?: string): Promise<SessionsChartDa
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch sessions chart data',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch sessions chart data';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch sessions chart data');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -583,7 +699,7 @@ export async function getDemographics(): Promise<DemographicsResponse> {
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch demographics data',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch demographics data';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch demographics data');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -619,7 +735,7 @@ export async function getTopNeighborhoods(): Promise<TopNeighborhood[]> {
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch top neighborhoods data',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch top neighborhoods data';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch top neighborhoods data');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -661,7 +777,7 @@ export async function getLeaderboard(): Promise<LeaderboardResponse> {
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch leaderboard data',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch leaderboard data';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch leaderboard data');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -840,7 +956,7 @@ export async function getTickets(
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch tickets',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch tickets';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch tickets');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -880,7 +996,7 @@ export async function getTicketHistory(sessionUuid: string, cursor?: string, lan
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch ticket history',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch ticket history';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch ticket history');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -910,7 +1026,7 @@ export async function assignTicket(sessionUuid: string): Promise<{ status: strin
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to assign ticket',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to assign ticket';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to assign ticket');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -940,7 +1056,7 @@ export async function escalateTicket(sessionUuid: string): Promise<{ status: str
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to escalate ticket',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to escalate ticket';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to escalate ticket');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -970,7 +1086,7 @@ export async function closeTicket(sessionUuid: string): Promise<{ status: string
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to close ticket',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to close ticket';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to close ticket');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -1001,7 +1117,7 @@ export async function updateTicketDescription(sessionUuid: string, description: 
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to update description',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to update description';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to update description');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -1031,7 +1147,7 @@ export async function holdTicket(sessionUuid: string): Promise<{ status: string;
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to hold ticket',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to hold ticket';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to hold ticket');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -1105,7 +1221,7 @@ export async function sendMessage(
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to send message',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to send message';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to send message');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -1147,7 +1263,7 @@ export async function getNeighborhoods(options?: { search?: string; lang?: strin
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch neighborhoods',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch neighborhoods';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch neighborhoods');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -1196,7 +1312,7 @@ export async function getDepartments(options?: { search?: string; lang?: string 
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to fetch departments',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to fetch departments';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to fetch departments');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');
@@ -1228,7 +1344,7 @@ export async function trainCorrection(request: TrainCorrectionRequest): Promise<
     const errorData: ApiError = await response.json().catch(() => ({
       detail: 'Failed to train correction',
     }));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 'Failed to train correction';
+      const errorMessage = extractErrorMessage(errorData, 'Failed to train correction');
     if (response.status === 401 || errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('not valid')) {
       clearAuthTokens();
       throw new Error('Authentication failed. Please log in again.');

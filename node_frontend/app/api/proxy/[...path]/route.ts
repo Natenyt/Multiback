@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 
+/**
+ * Safely serialize an error object to a string
+ * Handles Error objects, plain objects, and primitives
+ */
+function serializeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || error.toString();
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (typeof error === 'object' && error !== null) {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
+}
+
 const BACKEND_URL = process.env.BACKEND_PRIVATE_URL || 'http://localhost:8000/api';
 
 export async function GET(
@@ -176,7 +197,7 @@ async function proxyRequest(
   } catch (error) {
     logError('PROXY', 'Proxy request failed', error, { function: 'proxyRequest' });
     return NextResponse.json(
-      { detail: 'Failed to proxy request to backend', error: String(error) },
+      { detail: 'Failed to proxy request to backend', error: serializeError(error) },
       { status: 500 }
     );
   }

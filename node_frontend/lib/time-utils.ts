@@ -1,9 +1,23 @@
 /**
  * Formats an ISO timestamp to "X daqiqa oldin", "X soat oldin", etc. in Uzbek
+ * 
+ * @param timestamp - ISO timestamp string
+ * @returns Formatted time ago string, or "hozir" if timestamp is invalid
  */
 export function formatTimeAgo(timestamp: string): string {
+  // Validate timestamp before parsing
+  if (!timestamp || typeof timestamp !== 'string') {
+    return "hozir"
+  }
+
   const now = new Date()
   const past = new Date(timestamp)
+  
+  // Check if date parsing resulted in invalid date
+  if (isNaN(past.getTime())) {
+    return "hozir"
+  }
+  
   const diffInMs = now.getTime() - past.getTime()
   const diffInSeconds = Math.floor(diffInMs / 1000)
   const diffInMinutes = Math.floor(diffInSeconds / 60)

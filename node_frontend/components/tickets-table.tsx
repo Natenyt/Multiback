@@ -51,12 +51,14 @@ export function TicketsTable({
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchInput, setSearchInput] = React.useState("") // Local input value
   const [search, setSearch] = React.useState("") // Debounced search value for API
-  const [neighborhoodId, setNeighborhoodId] = React.useState<number | undefined>()
+  const [neighborhoodIdInput, setNeighborhoodIdInput] = React.useState<number | undefined>() // Local filter value
+  const [neighborhoodId, setNeighborhoodId] = React.useState<number | undefined>() // Debounced filter value for API
   const [sortField, setSortField] = React.useState<"session_id" | "created_at">("created_at")
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">("desc")
   const wsRef = React.useRef<WebSocket | null>(null)
   const [departmentId, setDepartmentId] = React.useState<number | null>(null)
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  const neighborhoodTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   const fetchTickets = React.useCallback(async () => {
     try {
@@ -142,6 +144,26 @@ export function TicketsTable({
       }
     }
   }, [searchInput])
+
+  // Debounce neighborhood filter - update filter state after user stops changing for 500ms
+  React.useEffect(() => {
+    // Clear existing timeout
+    if (neighborhoodTimeoutRef.current) {
+      clearTimeout(neighborhoodTimeoutRef.current)
+    }
+    
+    // Set new timeout to update filter after 500ms of no changes
+    neighborhoodTimeoutRef.current = setTimeout(() => {
+      setNeighborhoodId(neighborhoodIdInput)
+    }, 500)
+    
+    // Cleanup timeout on unmount or when neighborhoodIdInput changes
+    return () => {
+      if (neighborhoodTimeoutRef.current) {
+        clearTimeout(neighborhoodTimeoutRef.current)
+      }
+    }
+  }, [neighborhoodIdInput])
 
   React.useEffect(() => {
     fetchTickets()

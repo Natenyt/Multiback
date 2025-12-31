@@ -60,6 +60,40 @@ export function clearAllDashboardCaches() {
 // Returns true if cache is valid for current user, false otherwise
 // Also clears cache if user has changed
 // Uses locking to prevent race conditions when multiple hooks call it simultaneously
+/**
+ * Validates if the dashboard cache is still valid for the current user.
+ * 
+ * This function uses a lock mechanism to prevent race conditions when multiple
+ * hooks try to validate/clear the cache simultaneously.
+ * 
+ * **Cache Invalidation Logic:**
+ * - Cache is invalid if no cached staff UUID exists
+ * - Cache is invalid if current user is logged out (no current UUID)
+ * - Cache is invalid if current UUID doesn't match cached UUID (user changed)
+ * - When cache is invalid, it's cleared atomically while holding the lock
+ * 
+ * **Lock Mechanism:**
+ * - Uses `cacheValidationLock` boolean flag to prevent concurrent operations
+ * - If lock is held, returns `false` to be safe (calling hook will retry)
+ * - Lock is always released in `finally` block to prevent deadlocks
+ * - Ensures thread-safe cache operations across multiple concurrent hooks
+ * 
+ * **Cache Clearing:**
+ * - Clears all dashboard caches: stats, demographics, neighborhoods, sessions chart
+ * - Resets cached staff UUID to allow new user's data to be cached
+ * - All clearing operations happen atomically while lock is held
+ * 
+ * @returns `true` if cache is valid for current user, `false` otherwise
+ * 
+ * @example
+ * ```typescript
+ * if (isCacheValid()) {
+ *   // Use cached data
+ * } else {
+ *   // Fetch fresh data
+ * }
+ * ```
+ */
 function isCacheValid(): boolean {
   // Acquire lock to prevent concurrent cache validation/clearing
   if (cacheValidationLock) {

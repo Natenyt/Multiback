@@ -8,8 +8,10 @@ import { formatTimeAgo } from "@/lib/time-utils"
 import { getAuthToken, getValidAuthToken } from "@/dash_department/lib/api"
 import { getStaffProfile } from "@/dash_department/lib/api"
 import { logInfo, logError, logWarn } from "@/lib/logger"
-
 import { getWsBaseUrl } from "@/lib/websocket-utils"
+
+// WebSocket reconnection constants
+const WEBSOCKET_RECONNECT_DELAY_MS = 3000; // 3 seconds
 
 const SHOWN_TOAST_SESSIONS_KEY = 'shown_toast_sessions'
 
@@ -164,7 +166,7 @@ export const NotificationManager: React.FC = () => {
               if (mounted && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
                 setupWebSocket()
               }
-            }, 3000)
+            }, WEBSOCKET_RECONNECT_DELAY_MS)
           }
         }
 

@@ -6,6 +6,10 @@ import { CaseMessageBubble } from "./case-message-bubble"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { logInfo, logError, logWarn } from "@/lib/logger"
 
+// WebSocket and message grouping constants
+const WEBSOCKET_RECONNECT_DELAY_MS = 3000; // 3 seconds
+const MESSAGE_GROUPING_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
 import { getWsBaseUrl } from "@/lib/websocket-utils"
 
 interface CaseMessageListProps {
@@ -84,9 +88,8 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
     const previousTime = new Date(previousMessage.created_at).getTime()
     const timeDiffMs = Math.abs(currentTime - previousTime)
     
-    // Group if time difference is less than 5 minutes (5 * 60 * 1000 ms)
-    const FIVE_MINUTES_MS = 5 * 60 * 1000
-    return timeDiffMs < FIVE_MINUTES_MS
+    // Group if time difference is less than the threshold
+    return timeDiffMs < MESSAGE_GROUPING_THRESHOLD_MS
   }
 
   // Check if message is grouped with the next message
@@ -256,18 +259,18 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
         }
       } catch (error) {
         logError('WEBSOCKET', 'Error parsing websocket message', error, { 
-          sessionUuid,
           component: 'CaseMessageList' 
-        });
+        }, { sessionUuid });
       }
     }
 
     ws.onerror = (error) => {
       logError('WEBSOCKET', 'Chat WebSocket error', error, { 
+        component: 'CaseMessageList' 
+      }, {
         sessionUuid,
         readyState: ws.readyState,
-        url: ws.url?.replace(/\?token=[^&]*/, '?token=***'),
-        component: 'CaseMessageList' 
+        url: ws.url?.replace(/\?token=[^&]*/, '?token=***')
       });
     }
 
@@ -297,7 +300,7 @@ export function CaseMessageList({ messages: initialMessages, initialNextCursor, 
             // This is handled by the useEffect dependency on sessionUuid
             logInfo('WEBSOCKET', 'Attempting to reconnect WebSocket', { sessionUuid }, { component: 'CaseMessageList' });
           }
-        }, 3000)
+        }, WEBSOCKET_RECONNECT_DELAY_MS)
       }
     }
 

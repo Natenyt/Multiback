@@ -46,6 +46,9 @@ const CLOSED_SESSIONS_STORAGE_KEY = 'closed_sessions'
 const ESCALATED_SESSIONS_STORAGE_KEY = 'escalated_sessions'
 const ESCALATED_NOTIFICATIONS_STORAGE_KEY = 'escalated_notifications'
 
+// Performance: Limit stored notifications to prevent large localStorage operations
+const MAX_STORED_NOTIFICATIONS = 100 // Store only last 100 notifications
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = React.useState<Notification[]>([])
   const [escalatedNotifications, setEscalatedNotifications] = React.useState<Notification[]>([])
@@ -100,9 +103,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [])
 
   // Save notifications to localStorage whenever they change
+  // Performance: Only store last N notifications to prevent large localStorage operations
   React.useEffect(() => {
     try {
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications))
+      // Limit stored notifications to prevent large localStorage operations
+      const notificationsToStore = notifications.slice(0, MAX_STORED_NOTIFICATIONS)
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notificationsToStore))
     } catch (error) {
       console.error("Failed to save notifications to localStorage:", error)
     }
@@ -136,9 +142,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [escalatedSessions])
 
   // Save escalated notifications to localStorage whenever they change
+  // Performance: Only store last N notifications to prevent large localStorage operations
   React.useEffect(() => {
     try {
-      localStorage.setItem(ESCALATED_NOTIFICATIONS_STORAGE_KEY, JSON.stringify(escalatedNotifications))
+      // Limit stored notifications to prevent large localStorage operations
+      const notificationsToStore = escalatedNotifications.slice(0, MAX_STORED_NOTIFICATIONS)
+      localStorage.setItem(ESCALATED_NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notificationsToStore))
     } catch (error) {
       console.error("Failed to save escalated notifications to localStorage:", error)
     }
@@ -294,9 +303,26 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
+  // Performance: Convert Sets to sorted arrays for stable comparison
+  // Sets are compared by reference, so new Set instances cause unnecessary re-renders
+  // Converting to sorted arrays allows proper value-based comparison
+  const assignedSessionsArray = React.useMemo(
+    () => Array.from(assignedSessions).sort(),
+    [assignedSessions]
+  )
+  const closedSessionsArray = React.useMemo(
+    () => Array.from(closedSessions).sort(),
+    [closedSessions]
+  )
+  const escalatedSessionsArray = React.useMemo(
+    () => Array.from(escalatedSessions).sort(),
+    [escalatedSessions]
+  )
+
   // Only include state values in dependencies, not callbacks
   // Callbacks are already memoized with useCallback and are stable
   // Including them would cause unnecessary re-renders
+  // Performance: Use arrays instead of Sets for stable comparison
   const value = React.useMemo(
     () => ({
       notifications,
@@ -326,7 +352,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }),
     // Only include state values that actually change
     // Callbacks are stable (memoized with useCallback with empty deps or proper deps)
-    [notifications, escalatedNotifications, assignedSessions, closedSessions, escalatedSessions]
+    // Performance: Use arrays for Sets to enable value-based comparison instead of reference comparison
+    [notifications, escalatedNotifications, assignedSessionsArray, closedSessionsArray, escalatedSessionsArray]
   )
 
   return (
