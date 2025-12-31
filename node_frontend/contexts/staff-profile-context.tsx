@@ -19,6 +19,17 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const pathname = usePathname()
+  
+  // Use refs to track state for event handlers (avoids stale closures)
+  const staffProfileRef = React.useRef<StaffProfileResponse | null>(null)
+  const isLoadingRef = React.useRef<boolean>(true)
+  const loadProfileRef = React.useRef<(() => Promise<void>) | null>(null)
+
+  // Keep refs in sync with state
+  React.useEffect(() => {
+    staffProfileRef.current = staffProfile
+    isLoadingRef.current = isLoading
+  }, [staffProfile, isLoading])
 
   const loadProfile = React.useCallback(async () => {
     // If there is no auth token yet (e.g. user is not logged in), don't treat it as an error.
@@ -54,6 +65,11 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
+  // Store loadProfile in ref for event handlers
+  React.useEffect(() => {
+    loadProfileRef.current = loadProfile
+  }, [loadProfile])
+
   // Initial load on mount
   React.useEffect(() => {
     loadProfile()
@@ -65,59 +81,68 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
     if (pathname?.startsWith('/dashboard')) {
       const token = getAuthToken()
       // If we have a token but no profile (and not currently loading), refresh
-      if (token && !staffProfile && !isLoading) {
+      if (token && !staffProfileRef.current && !isLoadingRef.current) {
         loadProfile()
       }
     }
-  }, [pathname, staffProfile, isLoading, loadProfile])
+  }, [pathname, loadProfile])
 
-  // Listen for storage changes (when token is set after login in same window)
-  // Storage events only fire for other tabs/windows, so we need a custom approach
+  // Set up event listeners early (on mount) to catch events even if fired before navigation
+  // This is more reliable than waiting for pathname changes
   React.useEffect(() => {
-    // Custom event listener for when token is set (can be dispatched from login page)
-    const handleTokenSet = () => {
+    // Helper function to check if profile should be loaded
+    const shouldLoadProfile = (): boolean => {
       const token = getAuthToken()
-      if (token && !staffProfile && !isLoading) {
-        loadProfile()
+      return !!(token && !staffProfileRef.current && !isLoadingRef.current)
+    }
+
+    // Custom event listener for when token is set (dispatched from login page)
+    const handleTokenSet = () => {
+      if (shouldLoadProfile() && loadProfileRef.current) {
+        loadProfileRef.current()
       }
     }
 
-    // Listen for custom 'auth-token-set' event
-    window.addEventListener('auth-token-set', handleTokenSet)
-
-    // Also listen for storage events (for cross-tab scenarios)
+    // Listen for storage events (for cross-tab scenarios)
+    // Note: storage events only fire for OTHER tabs/windows, not the current one
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'auth_token' && e.newValue && !staffProfile) {
-        loadProfile()
-      }
-      if (e.key === 'auth_token' && !e.newValue && staffProfile) {
-        setStaffProfile(null)
-        setError(null)
+      if (e.key === 'auth_token') {
+        if (e.newValue && !staffProfileRef.current) {
+          // Token was set in another tab
+          if (loadProfileRef.current) {
+            loadProfileRef.current()
+          }
+        } else if (!e.newValue && staffProfileRef.current) {
+          // Token was removed in another tab
+          setStaffProfile(null)
+          setError(null)
+        }
       }
     }
+
+    // Set up event listeners immediately (they'll catch events even if fired early)
+    window.addEventListener('auth-token-set', handleTokenSet)
     window.addEventListener('storage', handleStorageChange)
 
-    // Periodic check as fallback (only when on dashboard and we have token but no profile)
-    // This is a safety net in case the event doesn't fire
-    let checkInterval: NodeJS.Timeout | null = null
-    if (pathname?.startsWith('/dashboard')) {
-      checkInterval = setInterval(() => {
-        const token = getAuthToken()
-        // Only check if we have token but no profile (and not loading)
-        if (token && !staffProfile && !isLoading) {
-          loadProfile()
+    // One-time delayed check as a fallback (instead of continuous polling)
+    // This handles edge cases where events might be missed due to timing
+    // Only runs once after a short delay, not continuously
+    const fallbackTimeout = setTimeout(() => {
+      // Only check if we're on dashboard and still need to load profile
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname
+        if (currentPath.startsWith('/dashboard') && shouldLoadProfile() && loadProfileRef.current) {
+          loadProfileRef.current()
         }
-      }, 1000) // Check every 1 second, but only when conditions are met
-    }
+      }
+    }, 500) // Single check after 500ms, not continuous polling
 
     return () => {
       window.removeEventListener('auth-token-set', handleTokenSet)
       window.removeEventListener('storage', handleStorageChange)
-      if (checkInterval) {
-        clearInterval(checkInterval)
-      }
+      clearTimeout(fallbackTimeout)
     }
-  }, [pathname, staffProfile, isLoading, loadProfile])
+  }, []) // Empty deps - set up once on mount, use refs for current state
 
   const clearProfile = React.useCallback(() => {
     setStaffProfile(null)
