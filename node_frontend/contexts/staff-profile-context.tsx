@@ -35,10 +35,8 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
     try {
       const profile = await getStaffProfile()
       setStaffProfile(profile)
-      // Dispatch event when profile is loaded so dashboard hooks know to fetch data
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('staff-profile-loaded'))
-      }
+      // getStaffProfile already stores staff_uuid in localStorage, so dashboard hooks can access it
+      // The context change will automatically trigger hooks that depend on staffProfile
     } catch (err) {
       console.error("Failed to fetch staff profile:", err)
       const error = err instanceof Error ? err : new Error("Failed to fetch staff profile")

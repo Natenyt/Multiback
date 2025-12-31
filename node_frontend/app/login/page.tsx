@@ -18,7 +18,7 @@ import {
   FormLabel,
   useFormField,
 } from '@/components/ui/form';
-import { staffLogin, storeAuthTokens } from '../../dash_department/lib/api';
+import { staffLogin, storeAuthTokens, storeStaffUuid } from '../../dash_department/lib/api';
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Iltimos, maydonni to\'ldiring.'),
@@ -145,6 +145,16 @@ export default function LoginPage() {
     try {
       const response = await staffLogin(data);
       storeAuthTokens(response.access, response.refresh);
+      
+      // Store staff_uuid immediately from login response (user_uuid = staff_uuid)
+      // This allows dashboard hooks to start fetching data right away
+      if (response.user_uuid) {
+        storeStaffUuid(response.user_uuid);
+        // Dispatch event immediately so dashboard hooks can start fetching
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('staff-uuid-available'));
+        }
+      }
       
       // Clear any existing dashboard caches to ensure fresh data for new user
       const { clearAllDashboardCaches } = await import("@/hooks/use-dashboard-data");
