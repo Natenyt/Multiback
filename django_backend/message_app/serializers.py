@@ -3,6 +3,7 @@ from django.urls import reverse
 from message_app.models import Session, Message, MessageContent
 from support_tools.models import Neighborhood
 from django.contrib.auth import get_user_model
+from users.utils import get_avatar_url
 
 User = get_user_model()
 
@@ -157,13 +158,8 @@ class MessageSerializer(serializers.ModelSerializer):
     def get_sender(self, obj):
         if obj.sender:
             s = obj.sender
-            avatar = None
-            try:
-                avatar = s.avatar.url if getattr(s, 'avatar', None) else None
-            except Exception:
-                avatar = None
             request = self.context.get('request')
-            avatar_url = request.build_absolute_uri(avatar) if (request and avatar) else avatar
+            avatar_url = get_avatar_url(s, request)
             return {
                 "user_uuid": str(s.user_uuid),
                 "full_name": s.full_name,
@@ -214,13 +210,8 @@ class SessionSerializer(serializers.ModelSerializer):
     def get_assigned_staff(self, obj):
         if obj.assigned_staff:
             s = obj.assigned_staff
-            avatar = None
-            try:
-                avatar = s.avatar.url if getattr(s, 'avatar', None) else None
-            except Exception:
-                avatar = None
             request = self.context.get('request')
-            avatar_url = request.build_absolute_uri(avatar) if (request and avatar) else avatar
+            avatar_url = get_avatar_url(s, request)
             return {
                 "user_uuid": str(s.user_uuid),
                 "full_name": s.full_name,
@@ -230,13 +221,8 @@ class SessionSerializer(serializers.ModelSerializer):
 
     def get_citizen(self, obj):
         u = obj.citizen
-        avatar = None
-        try:
-            avatar = u.avatar.url if getattr(u, 'avatar', None) else None
-        except Exception:
-            avatar = None
         request = self.context.get('request')
-        avatar_url = request.build_absolute_uri(avatar) if (request and avatar) else avatar
+        avatar_url = get_avatar_url(u, request)
         return {
             "user_uuid": str(u.user_uuid),
             "full_name": u.full_name,

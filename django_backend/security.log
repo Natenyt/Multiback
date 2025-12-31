@@ -459,3 +459,80 @@ Traceback (most recent call last):
   File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/http/request.py", line 205, in get_host
     raise DisallowedHost(msg)
 django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'httpbin.org'. You may need to add 'httpbin.org' to ALLOWED_HOSTS.
+WARNING 2025-12-31 09:12:45,434 🚨 SUSPICIOUS REQUEST BLOCKED: GET /.env from IP: 64.227.141.189 | User-Agent: Mozilla/5.0; Keydrop.io/1.0(onlyscans.com/about);
+WARNING 2025-12-31 09:12:45,747 🚨 SUSPICIOUS REQUEST BLOCKED: GET /.git/config from IP: 64.227.141.189 | User-Agent: Mozilla/5.0; Keydrop.io/1.0(onlyscans.com/about);
+ERROR 2025-12-31 10:29:07,007 Invalid HTTP_HOST header: 'api.ipify.org'. You may need to add 'api.ipify.org' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 321, in __acall__
+    response = await sync_to_async(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/graveyard/security_middleware.py", line 53, in process_request
+    if host and host not in request.get_host():
+                            ^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/http/request.py", line 205, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'api.ipify.org'. You may need to add 'api.ipify.org' to ALLOWED_HOSTS.
+ERROR 2025-12-31 10:29:10,588 Invalid HTTP_HOST header: 'www.shadowserver.org'. You may need to add 'www.shadowserver.org' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 321, in __acall__
+    response = await sync_to_async(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/graveyard/security_middleware.py", line 53, in process_request
+    if host and host not in request.get_host():
+                            ^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/http/request.py", line 205, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'www.shadowserver.org'. You may need to add 'www.shadowserver.org' to ALLOWED_HOSTS.
+ERROR 2025-12-31 12:09:32,262 Invalid HTTP_HOST header: 'google.com:443'. You may need to add 'google.com' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 321, in __acall__
+    response = await sync_to_async(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/graveyard/security_middleware.py", line 53, in process_request
+    if host and host not in request.get_host():
+                            ^^^^^^^^^^^^^^^^^^
+  File "/root/Multiback/django_backend/venv/lib/python3.12/site-packages/django/http/request.py", line 205, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'google.com:443'. You may need to add 'google.com' to ALLOWED_HOSTS.

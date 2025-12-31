@@ -9,6 +9,7 @@ from datetime import timedelta, datetime
 from django.db.models import Sum, Count, Q
 from django.contrib.auth import get_user_model
 from django.db.models.functions import TruncDate
+from users.utils import get_avatar_url
 import logging
 
 logger = logging.getLogger(__name__)
@@ -120,18 +121,8 @@ def dashboard_leaderboard(request):
             if staff_profile.department:
                 department_name = staff_profile.department.name_uz or "Unknown"
 
-            # Get avatar URL (same behavior as before)
-            avatar_url = None
-            if hasattr(staff_user, "avatar") and staff_user.avatar:
-                try:
-                    avatar_url = request.build_absolute_uri(staff_user.avatar.url)
-                except Exception as e:  # pragma: no cover - defensive
-                    logger.warning(
-                        "Failed to get avatar URL for user %s: %s",
-                        getattr(staff_user, "user_uuid", "unknown"),
-                        e,
-                    )
-                    avatar_url = None
+            # Get avatar URL using the new endpoint
+            avatar_url = get_avatar_url(staff_user, request)
 
             leaderboard_data.append(
                 {
@@ -184,13 +175,8 @@ def staff_profile(request):
         department_name = getattr(profile.department, f'name_{lang_code}', profile.department.name_uz) or "Unknown"
         department_name_uz = profile.department.name_uz or "Unknown"
     
-    # Get avatar URL
-    avatar_url = None
-    if user.avatar:
-        try:
-            avatar_url = request.build_absolute_uri(user.avatar.url)
-        except Exception:
-            avatar_url = None
+    # Get avatar URL using the new endpoint
+    avatar_url = get_avatar_url(user, request)
     
     # Handle email
     email = user.email if user.email else "emailnot@registered.com"

@@ -1,6 +1,7 @@
 """
 Utility functions for user-related operations.
 """
+from django.urls import reverse
 
 # Comprehensive lists of Uzbek male and female names
 # These are common Uzbek names - the list can be extended
@@ -72,17 +73,29 @@ def detect_gender_from_name(full_name: str) -> str:
     return 'U'
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def get_avatar_url(user, request=None):
+    """
+    Get avatar URL for a user.
+    Uses the new avatar serving endpoint which works in both DEBUG and production.
+    
+    Args:
+        user: User instance with avatar field
+        request: Optional request object to build absolute URL
+        
+    Returns:
+        Absolute URL to avatar image, or None if user has no avatar
+    """
+    if not user or not hasattr(user, 'avatar') or not user.avatar:
+        return None
+    
+    try:
+        # Use the new avatar endpoint
+        avatar_path = reverse('serve_avatar', kwargs={'user_uuid': user.user_uuid})
+        
+        if request:
+            return request.build_absolute_uri(avatar_path)
+        else:
+            # Return relative URL if no request context
+            return avatar_path
+    except Exception:
+        return None
