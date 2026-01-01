@@ -39,10 +39,10 @@ export default function DashboardPage() {
         <p className={`${poppins.className} font-medium`} style={{ fontSize: '30px' }}>
           Xush kelibsiz!
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-stretch gap-2">
           <Button 
             variant="outline" 
-            className="cursor-default hover:bg-accent hover:text-accent-foreground"
+            className="cursor-default hover:bg-accent hover:text-accent-foreground !whitespace-nowrap flex items-center justify-center h-full"
             onClick={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
           >
@@ -51,13 +51,12 @@ export default function DashboardPage() {
           {staffProfile?.department_name_uz && (
             <Button 
               variant="outline" 
-              className="cursor-default hover:bg-accent hover:text-accent-foreground"
+              className="cursor-default hover:bg-accent hover:text-accent-foreground !whitespace-normal text-left h-full"
               onClick={(e) => e.preventDefault()}
               onMouseDown={(e) => e.preventDefault()}
+              style={{ maxWidth: '400px' }}
             >
-              {staffProfile.department_name_uz.length > 100 
-                ? `${staffProfile.department_name_uz.substring(0, 100)}...` 
-                : staffProfile.department_name_uz}
+              {staffProfile.department_name_uz}
             </Button>
           )}
         </div>

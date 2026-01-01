@@ -116,10 +116,12 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
             loadProfileRef.current()
       }
         } else if (!e.newValue && staffProfileRef.current) {
-          // Token was removed in another tab
-        setStaffProfile(null)
-        setError(null)
-      }
+          // Token was removed in another tab - clear profile and refs
+          setStaffProfile(null)
+          setError(null)
+          staffProfileRef.current = null
+          isLoadingRef.current = true
+        }
     }
     }
 
@@ -150,6 +152,9 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
   const clearProfile = React.useCallback(() => {
     setStaffProfile(null)
     setError(null)
+    // Also clear refs to ensure they're reset
+    staffProfileRef.current = null
+    isLoadingRef.current = true
   }, [])
 
   const value = React.useMemo(

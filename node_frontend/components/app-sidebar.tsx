@@ -170,6 +170,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // Clear token expiration cache
     clearTokenExpirationCache()
     
+    // Clear staff profile context (clears job_title, department_name, role, etc.)
+    // This must be called BEFORE navigation to ensure profile is cleared
+    clearProfile()
+    
     // Clear all notification caches
     clearNotifications()
     clearAssignedSessions()
@@ -197,8 +201,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     router.replace("/login")
     
     // Clear dashboard caches in the background after navigation starts
-    // We skip clearProfile() because it causes visible state updates
-    // Navigation will unmount components anyway, so profile state doesn't need clearing
     // Using requestIdleCallback for background cleanup without blocking
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
       requestIdleCallback(() => {

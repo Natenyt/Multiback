@@ -34,6 +34,7 @@ export function AuthErrorHandler() {
   const handleLogin = () => {
     // Always hide the popup and clear any cached staff profile/error
     clearAuthError()
+    // Clear profile FIRST to ensure all profile-dependent UI is cleared
     clearProfile()
 
     // Best-effort cleanup of all caches (ignore any unexpected errors)
