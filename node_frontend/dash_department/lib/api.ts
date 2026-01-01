@@ -101,6 +101,14 @@ const tokenExpirationCache = new Map<string, { isExpired: boolean; expiresAt: nu
 const TOKEN_CACHE_TTL = 30 * 1000; // 30 seconds in milliseconds
 
 /**
+ * Clear the token expiration cache
+ * This should be called on logout to ensure no cached token data remains
+ */
+export function clearTokenExpirationCache(): void {
+  tokenExpirationCache.clear();
+}
+
+/**
  * Check if a token is expired or will expire soon (within 5 minutes)
  * Uses caching to avoid repeated JWT parsing for the same token
  */

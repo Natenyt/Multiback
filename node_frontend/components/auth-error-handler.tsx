@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation"
 import { AlertCircle, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { clearAuthTokens } from "@/dash_department/lib/api"
+import { clearAuthTokens, clearTokenExpirationCache } from "@/dash_department/lib/api"
+import { clearAllDashboardCaches } from "@/hooks/use-dashboard-data"
 import { useAuthError } from "@/contexts/auth-error-context"
 import { useStaffProfile } from "@/contexts/staff-profile-context"
+import { useNotifications } from "@/contexts/notification-context"
 
 export function AuthErrorHandler() {
   const router = useRouter()
   const { authError, clearAuthError } = useAuthError()
   const { clearProfile } = useStaffProfile()
+  const { clearNotifications, clearAssignedSessions, clearClosedSessions, clearEscalatedSessions } = useNotifications()
 
   if (!authError) return null
 
@@ -33,11 +36,33 @@ export function AuthErrorHandler() {
     clearAuthError()
     clearProfile()
 
-    // Best-effort token cleanup (ignore any unexpected errors)
+    // Best-effort cleanup of all caches (ignore any unexpected errors)
     try {
       clearAuthTokens()
+      clearTokenExpirationCache()
+      clearAllDashboardCaches()
+      clearNotifications()
+      clearAssignedSessions()
+      clearClosedSessions()
+      clearEscalatedSessions()
+      
+      // Revoke all blob URLs to free memory
+      if (typeof window !== 'undefined' && (window as any).__blobUrls) {
+        try {
+          (window as any).__blobUrls.forEach((url: string) => {
+            try {
+              URL.revokeObjectURL(url)
+            } catch (e) {
+              // Silently fail if URL is already revoked
+            }
+          })
+          ;(window as any).__blobUrls.clear()
+        } catch (error) {
+          console.error("Failed to revoke blob URLs:", error)
+        }
+      }
     } catch (e) {
-      console.error("Failed to clear auth tokens:", e)
+      console.error("Failed to clear caches:", e)
     }
 
     router.push("/login")

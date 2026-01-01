@@ -49,7 +49,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
 import { useStaffProfile } from "@/contexts/staff-profile-context"
-import { clearAuthTokens } from "@/dash_department/lib/api"
+import { clearAuthTokens, clearTokenExpirationCache } from "@/dash_department/lib/api"
 import { clearAllDashboardCaches } from "@/hooks/use-dashboard-data"
 
 // Menu items with Lucide icons
@@ -86,7 +86,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions, escalatedNotifications } = useNotifications()
+  const { getUnreadCount, hasAssignedSessions, clearAssignedSessions, hasClosedSessions, clearClosedSessions, escalatedNotifications, clearNotifications, clearEscalatedSessions } = useNotifications()
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error, clearProfile } = useStaffProfile()
   const [escalatedCount, setEscalatedCount] = React.useState(0)
@@ -166,6 +166,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const handleLogout = () => {
     // Clear auth tokens immediately (needed for security)
     clearAuthTokens()
+    
+    // Clear token expiration cache
+    clearTokenExpirationCache()
+    
+    // Clear all notification caches
+    clearNotifications()
+    clearAssignedSessions()
+    clearClosedSessions()
+    clearEscalatedSessions()
+    
+    // Revoke all blob URLs to free memory
+    if (typeof window !== 'undefined' && (window as any).__blobUrls) {
+      try {
+        (window as any).__blobUrls.forEach((url: string) => {
+          try {
+            URL.revokeObjectURL(url)
+          } catch (e) {
+            // Silently fail if URL is already revoked
+          }
+        })
+        ;(window as any).__blobUrls.clear()
+      } catch (error) {
+        console.error("Failed to revoke blob URLs:", error)
+      }
+    }
     
     // Navigate to login page IMMEDIATELY for instant logout experience
     // Using router.replace for faster navigation (no history entry)
