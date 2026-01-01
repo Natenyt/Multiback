@@ -55,8 +55,8 @@ export default function DashboardPage() {
               onClick={(e) => e.preventDefault()}
               onMouseDown={(e) => e.preventDefault()}
             >
-              {staffProfile.department_name_uz.length > 60 
-                ? `${staffProfile.department_name_uz.substring(0, 60)}...` 
+              {staffProfile.department_name_uz.length > 150
+                ? `${staffProfile.department_name_uz.substring(0, 150)}...` 
                 : staffProfile.department_name_uz}
             </Button>
           )}
