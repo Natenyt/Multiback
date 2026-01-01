@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
@@ -220,6 +220,7 @@ export function SessionsChart() {
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} />
+            <YAxis hide={true} domain={[0, 'auto']} />
             <XAxis
               dataKey="date"
               tickLine={false}
