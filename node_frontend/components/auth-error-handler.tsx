@@ -41,44 +41,76 @@ export function AuthErrorHandler() {
     // Navigate to login page immediately
     router.push("/login")
     
-    // Clear all caches and state AFTER navigation starts to avoid visible UI changes
-    // Use setTimeout with 0ms to ensure this runs after navigation begins
-    setTimeout(() => {
-      try {
-        // Clear profile after navigation so user doesn't see it disappear
-        clearProfile()
-        
-        // Clear token expiration cache (in-memory, no UI impact)
-        clearTokenExpirationCache()
-        
-        // Clear all notification caches (localStorage + state)
-        clearNotifications()
-        clearAssignedSessions()
-        clearClosedSessions()
-        clearEscalatedSessions()
-        
-        // Revoke all blob URLs to free memory (no UI impact)
-        if (typeof window !== 'undefined' && (window as any).__blobUrls) {
-          try {
-            (window as any).__blobUrls.forEach((url: string) => {
-              try {
-                URL.revokeObjectURL(url)
-              } catch (e) {
-                // Silently fail if URL is already revoked
-              }
-            })
-            ;(window as any).__blobUrls.clear()
-          } catch (error) {
-            console.error("Failed to revoke blob URLs:", error)
+    // Clear all caches and state AFTER navigation completes to avoid visible UI changes
+    // We DON'T clear profile state here - it will clear naturally when component unmounts
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        try {
+          clearTokenExpirationCache()
+          clearNotifications()
+          clearAssignedSessions()
+          clearClosedSessions()
+          clearEscalatedSessions()
+          
+          if ((window as any).__blobUrls) {
+            try {
+              (window as any).__blobUrls.forEach((url: string) => {
+                try {
+                  URL.revokeObjectURL(url)
+                } catch (e) {
+                  // Silently fail
+                }
+              })
+              ;(window as any).__blobUrls.clear()
+            } catch (error) {
+              console.error("Failed to revoke blob URLs:", error)
+            }
           }
+          
+          clearAllDashboardCaches()
+          
+          // Only clear profile if we're on login page
+          if (window.location.pathname === '/login') {
+            clearProfile()
+          }
+        } catch (e) {
+          console.error("Failed to clear caches:", e)
         }
-        
-        // Clear dashboard caches in the background
-        clearAllDashboardCaches()
-      } catch (e) {
-        console.error("Failed to clear caches:", e)
-      }
-    }, 0)
+      }, { timeout: 500 })
+    } else {
+      setTimeout(() => {
+        try {
+          clearTokenExpirationCache()
+          clearNotifications()
+          clearAssignedSessions()
+          clearClosedSessions()
+          clearEscalatedSessions()
+          
+          if (typeof window !== 'undefined' && (window as any).__blobUrls) {
+            try {
+              (window as any).__blobUrls.forEach((url: string) => {
+                try {
+                  URL.revokeObjectURL(url)
+                } catch (e) {
+                  // Silently fail
+                }
+              })
+              ;(window as any).__blobUrls.clear()
+            } catch (error) {
+              console.error("Failed to revoke blob URLs:", error)
+            }
+          }
+          
+          clearAllDashboardCaches()
+          
+          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+            clearProfile()
+          }
+        } catch (e) {
+          console.error("Failed to clear caches:", e)
+        }
+      }, 300)
+    }
   }
 
   return (

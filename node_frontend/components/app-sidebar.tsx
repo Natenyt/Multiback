@@ -170,46 +170,82 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     
     // Navigate to login page IMMEDIATELY for instant logout experience
     // Using router.replace for faster navigation (no history entry)
-    // Navigation happens asynchronously, so we can clear state after it starts
     router.replace("/login")
     
-    // Clear all caches and state AFTER navigation starts to avoid visible UI changes
-    // Use setTimeout with 0ms to ensure this runs after navigation begins
-    // This prevents the user from seeing profile/notifications disappear
-    setTimeout(() => {
-      // Clear token expiration cache (in-memory, no UI impact)
-      clearTokenExpirationCache()
-      
-      // Clear staff profile context (clears job_title, department_name, role, etc.)
-      // Done after navigation so user doesn't see it disappear
-      clearProfile()
-      
-      // Clear all notification caches (localStorage + state)
-      // Done after navigation so user doesn't see notifications disappear
-      clearNotifications()
-      clearAssignedSessions()
-      clearClosedSessions()
-      clearEscalatedSessions()
-      
-      // Revoke all blob URLs to free memory (no UI impact)
-      if (typeof window !== 'undefined' && (window as any).__blobUrls) {
-        try {
-          (window as any).__blobUrls.forEach((url: string) => {
-            try {
-              URL.revokeObjectURL(url)
-            } catch (e) {
-              // Silently fail if URL is already revoked
-            }
-          })
-          ;(window as any).__blobUrls.clear()
-        } catch (error) {
-          console.error("Failed to revoke blob URLs:", error)
+    // Clear all caches and state AFTER navigation completes to avoid visible UI changes
+    // We DON'T clear profile state here - it will clear naturally when:
+    // 1. Component unmounts after navigation, OR
+    // 2. Profile context detects no token on next check
+    // This prevents visible flash of profile disappearing
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        // Clear token expiration cache (in-memory, no UI impact)
+        clearTokenExpirationCache()
+        
+        // Clear all notification caches (localStorage + state)
+        // These are less visible, but still clear after navigation
+        clearNotifications()
+        clearAssignedSessions()
+        clearClosedSessions()
+        clearEscalatedSessions()
+        
+        // Revoke all blob URLs to free memory (no UI impact)
+        if ((window as any).__blobUrls) {
+          try {
+            (window as any).__blobUrls.forEach((url: string) => {
+              try {
+                URL.revokeObjectURL(url)
+              } catch (e) {
+                // Silently fail if URL is already revoked
+              }
+            })
+            ;(window as any).__blobUrls.clear()
+          } catch (error) {
+            console.error("Failed to revoke blob URLs:", error)
+          }
         }
-      }
-      
-      // Clear dashboard caches in the background
-      clearAllDashboardCaches()
-    }, 0)
+        
+        // Clear dashboard caches in the background
+        clearAllDashboardCaches()
+        
+        // Clear profile state only after navigation has completed
+        // Check if we're on login page to ensure navigation happened
+        if (window.location.pathname === '/login') {
+          clearProfile()
+        }
+      }, { timeout: 500 })
+    } else {
+      // Fallback: use setTimeout with longer delay to ensure navigation started
+      setTimeout(() => {
+        clearTokenExpirationCache()
+        clearNotifications()
+        clearAssignedSessions()
+        clearClosedSessions()
+        clearEscalatedSessions()
+        
+        if ((window as any).__blobUrls) {
+          try {
+            (window as any).__blobUrls.forEach((url: string) => {
+              try {
+                URL.revokeObjectURL(url)
+              } catch (e) {
+                // Silently fail
+              }
+            })
+            ;(window as any).__blobUrls.clear()
+          } catch (error) {
+            console.error("Failed to revoke blob URLs:", error)
+          }
+        }
+        
+        clearAllDashboardCaches()
+        
+        // Only clear profile if we're on login page
+        if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+          clearProfile()
+        }
+      }, 300)
+    }
   }
 
   const getInitials = (name: string) => {
