@@ -169,7 +169,7 @@ export function SessionsChart() {
       <CardContent className="px-[16px] pt-4 sm:px-[32px] sm:pt-6 overflow-hidden">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full [&_svg]:overflow-visible"
+          className="aspect-auto h-[250px] w-full"
         >
           <AreaChart
             key={timeRange}
