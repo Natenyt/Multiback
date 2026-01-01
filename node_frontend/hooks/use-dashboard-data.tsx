@@ -31,6 +31,32 @@ export function invalidateDashboardStats() {
   dashboardStatsCache = null
 }
 
+// Function to invalidate all dashboard data caches (stats, demographics, neighborhoods, chart)
+// This is used when WebSocket events occur (session created, assigned, closed, etc.)
+// It keeps the staff UUID intact (unlike clearAllDashboardCaches which clears it on logout)
+export function invalidateAllDashboardData() {
+  // Acquire lock to prevent race conditions
+  if (cacheValidationLock) {
+    // If lock is held, wait a bit and try again (simple retry mechanism)
+    setTimeout(() => invalidateAllDashboardData(), 10)
+    return
+  }
+  
+  cacheValidationLock = true
+  try {
+    dashboardStatsCache = null
+    demographicsCache = null
+    neighborhoodsCache = null
+    // Clear all entries in sessionsChartCache
+    Object.keys(sessionsChartCache).forEach(key => {
+      delete sessionsChartCache[key]
+    })
+    // Note: We do NOT clear cachedStaffUuid here - that's only cleared on logout
+  } finally {
+    cacheValidationLock = false
+  }
+}
+
 // Function to clear ALL dashboard caches (used on logout)
 // This function is safe to call from anywhere and uses the lock
 export function clearAllDashboardCaches() {

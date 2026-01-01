@@ -19,7 +19,7 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const pathname = usePathname()
-  
+
   // Use refs to track state for event handlers (avoids stale closures)
   const staffProfileRef = React.useRef<StaffProfileResponse | null>(null)
   const isLoadingRef = React.useRef<boolean>(true)
@@ -114,13 +114,13 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
           // Token was set in another tab
           if (loadProfileRef.current) {
             loadProfileRef.current()
-          }
+      }
         } else if (!e.newValue && staffProfileRef.current) {
           // Token was removed in another tab
-          setStaffProfile(null)
-          setError(null)
-        }
+        setStaffProfile(null)
+        setError(null)
       }
+    }
     }
 
     // Set up event listeners immediately (they'll catch events even if fired early)
@@ -137,7 +137,7 @@ export function StaffProfileProvider({ children }: { children: React.ReactNode }
         if (currentPath.startsWith('/dashboard') && shouldLoadProfile() && loadProfileRef.current) {
           loadProfileRef.current()
         }
-      }
+        }
     }, 500) // Single check after 500ms, not continuous polling
 
     return () => {

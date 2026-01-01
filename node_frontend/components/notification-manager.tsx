@@ -9,6 +9,7 @@ import { getAuthToken, getValidAuthToken } from "@/dash_department/lib/api"
 import { getStaffProfile } from "@/dash_department/lib/api"
 import { logInfo, logError, logWarn } from "@/lib/logger"
 import { getWsBaseUrl } from "@/lib/websocket-utils"
+import { invalidateAllDashboardData } from "@/hooks/use-dashboard-data"
 
 // WebSocket reconnection constants
 const WEBSOCKET_RECONNECT_DELAY_MS = 3000; // 3 seconds
@@ -133,7 +134,21 @@ export const NotificationManager: React.FC = () => {
                     "Unknown",
                   created_at: newSession.created_at,
                 })
+                // Invalidate dashboard cache to refresh statistics
+                invalidateAllDashboardData()
               }
+            }
+
+            // Handle session.assigned events (session assigned to staff)
+            if (data.type === "session.assigned" && data.session) {
+              // Invalidate dashboard cache to refresh statistics
+              invalidateAllDashboardData()
+            }
+
+            // Handle session.closed events (session closed)
+            if (data.type === "session.closed" && data.session) {
+              // Invalidate dashboard cache to refresh statistics
+              invalidateAllDashboardData()
             }
           } catch (error) {
             logError('WEBSOCKET', 'Error parsing websocket message', error, { component: 'NotificationManager' });
@@ -228,6 +243,8 @@ export const NotificationManager: React.FC = () => {
                       duration: 5000,
                     })
                   }
+                  // Invalidate dashboard cache to refresh statistics
+                  invalidateAllDashboardData()
                 }
 
                 // Handle session.rerouted events
@@ -256,6 +273,8 @@ export const NotificationManager: React.FC = () => {
                       duration: 5000,
                     })
                   }
+                  // Invalidate dashboard cache to refresh statistics
+                  invalidateAllDashboardData()
                 }
               } catch (error) {
                 logError('WEBSOCKET', 'Error parsing VIP websocket message', error, { component: 'NotificationManager' });

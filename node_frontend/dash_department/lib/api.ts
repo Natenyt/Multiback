@@ -29,32 +29,32 @@ export async function staffLogin(
     body: JSON.stringify(credentials),
   });
 
-    if (!response.ok) {
-      const errorData: ApiError = await response.json().catch(() => ({
-        detail: 'An error occurred during login',
-      }));
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      detail: 'An error occurred during login',
+    }));
       const errorMessage = extractErrorMessage(errorData, 'Login failed');
       logError('AUTH', 'Login API call failed', new Error(errorMessage), {}, {
         status: response.status,
         endpoint: '/auth/staff-login/' 
       });
       throw new Error(errorMessage);
-    }
+  }
 
-    const data: LoginResponse = await response.json();
+  const data: LoginResponse = await response.json();
     logInfo('AUTH', 'Login API call successful', { 
       hasAccessToken: !!data.access,
       hasRefreshToken: !!data.refresh,
       user_uuid: data.user_uuid 
     });
-    return data;
+  return data;
 }
 
 export function storeAuthTokens(access: string, refresh: string): void {
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem('auth_token', access);
-      localStorage.setItem('refresh_token', refresh);
+    localStorage.setItem('auth_token', access);
+    localStorage.setItem('refresh_token', refresh);
       logInfo('AUTH', 'Auth tokens stored', { hasAccessToken: !!access, hasRefreshToken: !!refresh });
     } catch (error) {
       logError('AUTH', 'Failed to store auth tokens', error);
@@ -152,7 +152,7 @@ export function isTokenExpired(token: string | null): boolean {
     for (const [key, value] of tokenExpirationCache.entries()) {
       if (now - value.checkedAt > 5 * 60 * 1000) {
         tokenExpirationCache.delete(key);
-      }
+}
     }
   }
 
@@ -533,9 +533,9 @@ export async function fetchAuthenticatedImage(url: string): Promise<string | nul
 export function clearAuthTokens(): void {
   if (typeof window !== 'undefined') {
     try {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('staff_uuid');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('staff_uuid');
       logInfo('AUTH', 'Auth tokens cleared', {});
     } catch (error) {
       logError('AUTH', 'Failed to clear auth tokens', error);

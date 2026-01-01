@@ -351,7 +351,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             : ""
                         }`}
                       >
-                      <span className="shrink-0 !transition-none">
+                      <span className={`shrink-0 !transition-none ${isCollapsed ? 'relative' : ''}`}>
                         {item.title === "Asadbek AI" ? (
                           <Image
                             src="/AI.svg"
@@ -363,11 +363,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         ) : item.icon ? (
                           <item.icon className="h-[18px] w-[18px]" />
                         ) : null}
+                        {/* Circles positioned on top-right of icon when collapsed */}
+                        {isCollapsed && showGreenCircle && (
+                          <span className="absolute h-2 w-2 rounded-full bg-green-500 -top-0.5 -right-0.5" />
+                        )}
+                        {isCollapsed && showBlueCircle && (
+                          <span className="absolute h-2 w-2 rounded-full bg-blue-500 -top-0.5 -right-0.5" />
+                        )}
+                        {isCollapsed && showGrayCircle && (
+                          <span className="absolute h-2 w-2 rounded-full bg-gray-500 -top-0.5 -right-0.5" />
+                        )}
                       </span>
                         <span className="group-data-[collapsible=icon]:hidden">
                           {item.title}
                         </span>
-                        {showGreenCircle && (
+                        {/* Circles positioned on right side when expanded */}
+                        {!isCollapsed && showGreenCircle && (
                           <span 
                             className="absolute right-2 h-4 w-4 rounded-full bg-green-500"
                             style={{ 
@@ -376,7 +387,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             }}
                           />
                         )}
-                        {showBlueCircle && (
+                        {!isCollapsed && showBlueCircle && (
                           <span 
                             className="absolute right-2 h-4 w-4 rounded-full bg-blue-500"
                             style={{ 
@@ -385,7 +396,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             }}
                           />
                         )}
-                        {showGrayCircle && (
+                        {!isCollapsed && showGrayCircle && (
                           <span 
                             className="absolute right-2 h-4 w-4 rounded-full bg-gray-500"
                             style={{ 

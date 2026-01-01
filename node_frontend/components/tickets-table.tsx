@@ -22,7 +22,7 @@ import {
 import { MoreVertical, ArrowUpDown } from "lucide-react"
 import { getTickets, type TicketListItem, getStaffProfile, getAuthToken } from "@/dash_department/lib/api"
 import { useToast } from "@/hooks/use-toast"
-
+import { invalidateAllDashboardData } from "@/hooks/use-dashboard-data"
 import { getWsBaseUrl } from "@/lib/websocket-utils"
 
 interface TicketsTableProps {
@@ -258,6 +258,8 @@ export function TicketsTable({
                 citizen_name: newSession.citizen?.full_name || 'Unknown',
                 created_at: newSession.created_at,
               })
+            // Invalidate dashboard cache to refresh statistics
+            invalidateAllDashboardData()
           }
         }
 
@@ -268,6 +270,8 @@ export function TicketsTable({
             // Remove the session if it was in our list
             return prev.filter((t) => t.session_id !== assignedSession.session_uuid)
           })
+          // Invalidate dashboard cache to refresh statistics
+          invalidateAllDashboardData()
         }
       } catch (error) {
         console.error("Error parsing websocket message:", error)
