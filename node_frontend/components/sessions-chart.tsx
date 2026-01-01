@@ -169,7 +169,7 @@ export function SessionsChart() {
       <CardContent className="px-[16px] pt-4 sm:px-[32px] sm:pt-6 overflow-hidden">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className="aspect-auto h-[270px] w-full"
         >
           <AreaChart
             key={timeRange}
@@ -178,7 +178,7 @@ export function SessionsChart() {
               top: 10,
               right: 0,
               left: 0,
-              bottom: 0,
+              bottom: 20,
             }}
           >
             <defs>
