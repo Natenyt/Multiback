@@ -42,7 +42,7 @@ export default function DashboardPage() {
         <div className="flex items-stretch gap-2">
           <Button 
             variant="outline" 
-            className="cursor-default hover:bg-accent hover:text-accent-foreground !whitespace-nowrap flex items-center justify-center h-full"
+            className="cursor-default hover:bg-accent hover:text-accent-foreground !whitespace-nowrap !h-auto self-stretch flex items-center justify-center"
             onClick={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
           >
@@ -51,10 +51,10 @@ export default function DashboardPage() {
           {staffProfile?.department_name_uz && (
             <Button 
               variant="outline" 
-              className="cursor-default hover:bg-accent hover:text-accent-foreground !whitespace-normal text-left h-full"
+              className="cursor-default hover:bg-accent hover:text-accent-foreground !whitespace-normal text-left !h-auto self-stretch flex items-center"
               onClick={(e) => e.preventDefault()}
               onMouseDown={(e) => e.preventDefault()}
-              style={{ maxWidth: '400px' }}
+              style={{ maxWidth: '520px' }}
             >
               {staffProfile.department_name_uz}
             </Button>

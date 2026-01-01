@@ -165,53 +165,51 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const handleLogout = () => {
     // Clear auth tokens immediately (needed for security)
+    // This is safe to do synchronously as it only affects localStorage
     clearAuthTokens()
-    
-    // Clear token expiration cache
-    clearTokenExpirationCache()
-    
-    // Clear staff profile context (clears job_title, department_name, role, etc.)
-    // This must be called BEFORE navigation to ensure profile is cleared
-    clearProfile()
-    
-    // Clear all notification caches
-    clearNotifications()
-    clearAssignedSessions()
-    clearClosedSessions()
-    clearEscalatedSessions()
-    
-    // Revoke all blob URLs to free memory
-    if (typeof window !== 'undefined' && (window as any).__blobUrls) {
-      try {
-        (window as any).__blobUrls.forEach((url: string) => {
-          try {
-            URL.revokeObjectURL(url)
-          } catch (e) {
-            // Silently fail if URL is already revoked
-          }
-        })
-        ;(window as any).__blobUrls.clear()
-      } catch (error) {
-        console.error("Failed to revoke blob URLs:", error)
-      }
-    }
     
     // Navigate to login page IMMEDIATELY for instant logout experience
     // Using router.replace for faster navigation (no history entry)
+    // Navigation happens asynchronously, so we can clear state after it starts
     router.replace("/login")
     
-    // Clear dashboard caches in the background after navigation starts
-    // Using requestIdleCallback for background cleanup without blocking
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      requestIdleCallback(() => {
-        clearAllDashboardCaches()
-      }, { timeout: 100 })
-    } else {
-      // Fallback for browsers without requestIdleCallback
-      requestAnimationFrame(() => {
-        clearAllDashboardCaches()
-      })
-    }
+    // Clear all caches and state AFTER navigation starts to avoid visible UI changes
+    // Use setTimeout with 0ms to ensure this runs after navigation begins
+    // This prevents the user from seeing profile/notifications disappear
+    setTimeout(() => {
+      // Clear token expiration cache (in-memory, no UI impact)
+      clearTokenExpirationCache()
+      
+      // Clear staff profile context (clears job_title, department_name, role, etc.)
+      // Done after navigation so user doesn't see it disappear
+      clearProfile()
+      
+      // Clear all notification caches (localStorage + state)
+      // Done after navigation so user doesn't see notifications disappear
+      clearNotifications()
+      clearAssignedSessions()
+      clearClosedSessions()
+      clearEscalatedSessions()
+      
+      // Revoke all blob URLs to free memory (no UI impact)
+      if (typeof window !== 'undefined' && (window as any).__blobUrls) {
+        try {
+          (window as any).__blobUrls.forEach((url: string) => {
+            try {
+              URL.revokeObjectURL(url)
+            } catch (e) {
+              // Silently fail if URL is already revoked
+            }
+          })
+          ;(window as any).__blobUrls.clear()
+        } catch (error) {
+          console.error("Failed to revoke blob URLs:", error)
+        }
+      }
+      
+      // Clear dashboard caches in the background
+      clearAllDashboardCaches()
+    }, 0)
   }
 
   const getInitials = (name: string) => {

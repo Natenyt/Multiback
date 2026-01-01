@@ -34,39 +34,51 @@ export function AuthErrorHandler() {
   const handleLogin = () => {
     // Always hide the popup and clear any cached staff profile/error
     clearAuthError()
-    // Clear profile FIRST to ensure all profile-dependent UI is cleared
-    clearProfile()
-
-    // Best-effort cleanup of all caches (ignore any unexpected errors)
-    try {
-      clearAuthTokens()
-      clearTokenExpirationCache()
-      clearAllDashboardCaches()
-      clearNotifications()
-      clearAssignedSessions()
-      clearClosedSessions()
-      clearEscalatedSessions()
-      
-      // Revoke all blob URLs to free memory
-      if (typeof window !== 'undefined' && (window as any).__blobUrls) {
-        try {
-          (window as any).__blobUrls.forEach((url: string) => {
-            try {
-              URL.revokeObjectURL(url)
-            } catch (e) {
-              // Silently fail if URL is already revoked
-            }
-          })
-          ;(window as any).__blobUrls.clear()
-        } catch (error) {
-          console.error("Failed to revoke blob URLs:", error)
-        }
-      }
-    } catch (e) {
-      console.error("Failed to clear caches:", e)
-    }
-
+    
+    // Clear auth tokens immediately (security)
+    clearAuthTokens()
+    
+    // Navigate to login page immediately
     router.push("/login")
+    
+    // Clear all caches and state AFTER navigation starts to avoid visible UI changes
+    // Use setTimeout with 0ms to ensure this runs after navigation begins
+    setTimeout(() => {
+      try {
+        // Clear profile after navigation so user doesn't see it disappear
+        clearProfile()
+        
+        // Clear token expiration cache (in-memory, no UI impact)
+        clearTokenExpirationCache()
+        
+        // Clear all notification caches (localStorage + state)
+        clearNotifications()
+        clearAssignedSessions()
+        clearClosedSessions()
+        clearEscalatedSessions()
+        
+        // Revoke all blob URLs to free memory (no UI impact)
+        if (typeof window !== 'undefined' && (window as any).__blobUrls) {
+          try {
+            (window as any).__blobUrls.forEach((url: string) => {
+              try {
+                URL.revokeObjectURL(url)
+              } catch (e) {
+                // Silently fail if URL is already revoked
+              }
+            })
+            ;(window as any).__blobUrls.clear()
+          } catch (error) {
+            console.error("Failed to revoke blob URLs:", error)
+          }
+        }
+        
+        // Clear dashboard caches in the background
+        clearAllDashboardCaches()
+      } catch (e) {
+        console.error("Failed to clear caches:", e)
+      }
+    }, 0)
   }
 
   return (
