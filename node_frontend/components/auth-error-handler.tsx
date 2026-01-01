@@ -41,76 +41,76 @@ export function AuthErrorHandler() {
     // Navigate to login page immediately
     router.push("/login")
     
-    // Clear all caches and state AFTER navigation completes to avoid visible UI changes
-    // We DON'T clear profile state here - it will clear naturally when component unmounts
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      requestIdleCallback(() => {
+    // Clear non-visible caches immediately (no UI impact)
+    try {
+      clearTokenExpirationCache()
+      
+      if (typeof window !== 'undefined' && (window as any).__blobUrls) {
         try {
-          clearTokenExpirationCache()
-          clearNotifications()
-          clearAssignedSessions()
-          clearClosedSessions()
-          clearEscalatedSessions()
-          
-          if ((window as any).__blobUrls) {
+          (window as any).__blobUrls.forEach((url: string) => {
             try {
-              (window as any).__blobUrls.forEach((url: string) => {
-                try {
-                  URL.revokeObjectURL(url)
-                } catch (e) {
-                  // Silently fail
-                }
-              })
-              ;(window as any).__blobUrls.clear()
-            } catch (error) {
-              console.error("Failed to revoke blob URLs:", error)
+              URL.revokeObjectURL(url)
+            } catch (e) {
+              // Silently fail
             }
-          }
-          
-          clearAllDashboardCaches()
-          
-          // Only clear profile if we're on login page
-          if (window.location.pathname === '/login') {
-            clearProfile()
-          }
-        } catch (e) {
-          console.error("Failed to clear caches:", e)
+          })
+          ;(window as any).__blobUrls.clear()
+        } catch (error) {
+          console.error("Failed to revoke blob URLs:", error)
         }
-      }, { timeout: 500 })
-    } else {
-      setTimeout(() => {
-        try {
-          clearTokenExpirationCache()
-          clearNotifications()
-          clearAssignedSessions()
-          clearClosedSessions()
-          clearEscalatedSessions()
-          
-          if (typeof window !== 'undefined' && (window as any).__blobUrls) {
-            try {
-              (window as any).__blobUrls.forEach((url: string) => {
-                try {
-                  URL.revokeObjectURL(url)
-                } catch (e) {
-                  // Silently fail
-                }
-              })
-              ;(window as any).__blobUrls.clear()
-            } catch (error) {
-              console.error("Failed to revoke blob URLs:", error)
-            }
-          }
-          
-          clearAllDashboardCaches()
-          
-          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-            clearProfile()
-          }
-        } catch (e) {
-          console.error("Failed to clear caches:", e)
-        }
-      }, 300)
+      }
+      
+      clearAllDashboardCaches()
+    } catch (e) {
+      console.error("Failed to clear non-visible caches:", e)
     }
+    
+    // For profile and notifications, wait until we're actually on login page
+    const clearVisibleState = () => {
+      try {
+        clearNotifications()
+        clearAssignedSessions()
+        clearClosedSessions()
+        clearEscalatedSessions()
+        clearProfile()
+      } catch (e) {
+        console.error("Failed to clear visible state:", e)
+      }
+    }
+    
+    // Poll to check if we're on login page before clearing visible state
+    let pollCount = 0
+    const maxPolls = 100 // Maximum 10 seconds (100 * 100ms)
+    const pollInterval = 100 // Check every 100ms
+    
+    const checkAndClear = () => {
+      if (typeof window === 'undefined') {
+        setTimeout(clearVisibleState, 1000)
+        return
+      }
+      
+      const currentPath = window.location.pathname
+      
+      if (currentPath === '/login') {
+        // We're on login page, safe to clear visible state
+        // Polling stops here - no more setTimeout calls
+        clearVisibleState()
+        return // Explicitly stop polling
+      } else if (pollCount < maxPolls) {
+        // Not on login page yet, keep polling
+        pollCount++
+        setTimeout(checkAndClear, pollInterval)
+      } else {
+        // Maximum polls reached, clear anyway as fallback
+        // Polling stops here - no more setTimeout calls
+        clearVisibleState()
+        return // Explicitly stop polling
+      }
+    }
+    
+    // Start polling after a short initial delay
+    // Polling automatically stops when we reach /login or max polls
+    setTimeout(checkAndClear, pollInterval)
   }
 
   return (

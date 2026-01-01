@@ -172,80 +172,77 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // Using router.replace for faster navigation (no history entry)
     router.replace("/login")
     
-    // Clear all caches and state AFTER navigation completes to avoid visible UI changes
-    // We DON'T clear profile state here - it will clear naturally when:
-    // 1. Component unmounts after navigation, OR
-    // 2. Profile context detects no token on next check
-    // This prevents visible flash of profile disappearing
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      requestIdleCallback(() => {
-        // Clear token expiration cache (in-memory, no UI impact)
-        clearTokenExpirationCache()
-        
-        // Clear all notification caches (localStorage + state)
-        // These are less visible, but still clear after navigation
-        clearNotifications()
-        clearAssignedSessions()
-        clearClosedSessions()
-        clearEscalatedSessions()
-        
-        // Revoke all blob URLs to free memory (no UI impact)
-        if ((window as any).__blobUrls) {
+    // Clear non-visible caches immediately (no UI impact)
+    clearTokenExpirationCache()
+    
+    // Revoke all blob URLs to free memory (no UI impact)
+    if (typeof window !== 'undefined' && (window as any).__blobUrls) {
+      try {
+        (window as any).__blobUrls.forEach((url: string) => {
           try {
-            (window as any).__blobUrls.forEach((url: string) => {
-              try {
-                URL.revokeObjectURL(url)
-              } catch (e) {
-                // Silently fail if URL is already revoked
-              }
-            })
-            ;(window as any).__blobUrls.clear()
-          } catch (error) {
-            console.error("Failed to revoke blob URLs:", error)
+            URL.revokeObjectURL(url)
+          } catch (e) {
+            // Silently fail if URL is already revoked
           }
-        }
-        
-        // Clear dashboard caches in the background
-        clearAllDashboardCaches()
-        
-        // Clear profile state only after navigation has completed
-        // Check if we're on login page to ensure navigation happened
-        if (window.location.pathname === '/login') {
-          clearProfile()
-        }
-      }, { timeout: 500 })
-    } else {
-      // Fallback: use setTimeout with longer delay to ensure navigation started
-      setTimeout(() => {
-        clearTokenExpirationCache()
-        clearNotifications()
-        clearAssignedSessions()
-        clearClosedSessions()
-        clearEscalatedSessions()
-        
-        if ((window as any).__blobUrls) {
-          try {
-            (window as any).__blobUrls.forEach((url: string) => {
-              try {
-                URL.revokeObjectURL(url)
-              } catch (e) {
-                // Silently fail
-              }
-            })
-            ;(window as any).__blobUrls.clear()
-          } catch (error) {
-            console.error("Failed to revoke blob URLs:", error)
-          }
-        }
-        
-        clearAllDashboardCaches()
-        
-        // Only clear profile if we're on login page
-        if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-          clearProfile()
-        }
-      }, 300)
+        })
+        ;(window as any).__blobUrls.clear()
+      } catch (error) {
+        console.error("Failed to revoke blob URLs:", error)
+      }
     }
+    
+    // Clear dashboard caches in the background (no UI impact)
+    clearAllDashboardCaches()
+    
+    // For profile and notifications, wait until we're actually on login page
+    // This prevents visible flash even with slow internet connections
+    const clearVisibleState = () => {
+      // Clear all notification caches (localStorage + state)
+      clearNotifications()
+      clearAssignedSessions()
+      clearClosedSessions()
+      clearEscalatedSessions()
+      
+      // Clear profile state - this must happen to clear job_title, department_name, etc.
+      clearProfile()
+    }
+    
+    // Poll to check if we're on login page before clearing visible state
+    // This handles slow internet connections where navigation might take several seconds
+    let pollCount = 0
+    const maxPolls = 100 // Maximum 10 seconds (100 * 100ms)
+    const pollInterval = 100 // Check every 100ms
+    
+    const checkAndClear = () => {
+      if (typeof window === 'undefined') {
+        // Fallback: clear after timeout if window is not available
+        setTimeout(clearVisibleState, 1000)
+        return
+      }
+      
+      const currentPath = window.location.pathname
+      
+      if (currentPath === '/login') {
+        // We're on login page, safe to clear visible state
+        // Polling stops here - no more setTimeout calls
+        clearVisibleState()
+        return // Explicitly stop polling
+      } else if (pollCount < maxPolls) {
+        // Not on login page yet, keep polling
+        pollCount++
+        setTimeout(checkAndClear, pollInterval)
+      } else {
+        // Maximum polls reached, clear anyway as fallback
+        // This ensures caches are cleared even if navigation somehow fails
+        // Polling stops here - no more setTimeout calls
+        clearVisibleState()
+        return // Explicitly stop polling
+      }
+    }
+    
+    // Start polling after a short initial delay
+    // Polling automatically stops when we reach /login or max polls
+    setTimeout(checkAndClear, pollInterval)
   }
 
   const getInitials = (name: string) => {
