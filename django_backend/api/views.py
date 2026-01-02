@@ -6,6 +6,9 @@ from django.urls import reverse
 from django.conf import settings
 import requests
 import os
+import json
+from pathlib import Path
+from datetime import datetime
 
 from ai_endpoints.models import InjectionLog, AIAnalysis # Keep imports from ai_endpoints models as they are defined there
 from message_app.models import Session, Message
@@ -348,5 +351,88 @@ def train_correction(request):
         logger.error(f"Full traceback: {traceback.format_exc()}")
         return Response(
             {"status": "error", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+@permission_classes([AllowAny])  # Frontend logs - allow any, but could add authentication if needed
+def frontend_logs(request):
+    """
+    Endpoint to receive frontend logs from Vercel-hosted Next.js app.
+    Writes logs to logs/frontend/ directory on the VPS.
+    """
+    try:
+        # Get logs array from request
+        logs = request.data
+        
+        # Ensure logs is an array
+        if not isinstance(logs, list):
+            return Response(
+                {"error": "Expected array of log entries"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(logs) == 0:
+            return Response({
+                "message": "No logs to write",
+                "count": 0
+            })
+        
+        # Get BASE_DIR (django_backend directory)
+        # Go up one level to reach Multiback root, then logs/frontend
+        base_dir = Path(__file__).resolve().parent.parent.parent  # Goes to Multiback root
+        logs_dir = base_dir / 'logs' / 'frontend'
+        
+        # Create logs directory if it doesn't exist
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate filename with timestamp (one file per day)
+        today = datetime.now().strftime('%Y-%m-%d')
+        filename = f'frontend-{today}.json'
+        filepath = logs_dir / filename
+        
+        # Read existing logs if file exists
+        existing_logs = []
+        if filepath.exists():
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    if content:
+                        existing_logs = json.loads(content)
+                        # Validate it's an array
+                        if not isinstance(existing_logs, list):
+                            existing_logs = []
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Failed to read existing log file {filepath}: {e}")
+                existing_logs = []
+        
+        # Append new logs
+        all_logs = existing_logs + logs
+        
+        # Keep only last 1000 entries per file to prevent file bloat
+        trimmed_logs = all_logs[-1000:]
+        
+        # Write to file
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(trimmed_logs, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"Successfully wrote {len(logs)} log entries to {filepath}")
+            
+            return Response({
+                "message": "Logs written successfully",
+                "count": len(logs)
+            })
+        except IOError as e:
+            logger.error(f"Failed to write log file {filepath}: {e}")
+            return Response(
+                {"error": "Failed to write logs to file"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    except Exception as e:
+        logger.error(f"Error processing frontend logs: {e}", exc_info=True)
+        return Response(
+            {"error": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

@@ -4,7 +4,7 @@
  * Logs important application events in JSON format for easy searching during outages.
  * 
  * Console Logging: Only logs to browser console when NEXT_PUBLIC_LOGGING_ENABLED=true
- * File Logging: Always writes logs to server (logs/frontend/) regardless of environment
+ * File Logging: Always writes logs to Django backend (logs/frontend/) regardless of environment
  * 
  * Log Levels:
  * - INFO: Important user journey events (authentication, navigation, key actions)
@@ -95,7 +95,9 @@ const flushLogs = async (): Promise<void> => {
     logBuffer = [];
     
     try {
-      const response = await fetch('/api/logs', {
+      // Send logs to Django backend (not Next.js API route)
+      // Use the proxy endpoint to forward to Django backend
+      const response = await fetch('/api/proxy/internal/frontend-logs/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,12 +106,30 @@ const flushLogs = async (): Promise<void> => {
       });
       
       if (!response.ok) {
+        // Log the error for debugging
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('[LOGGER] Failed to send logs to server:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          logCount: logsToSend.length
+        });
+        
         // If sending fails, put logs back in buffer (up to limit)
         // Keep only most recent logs to prevent buffer bloat
         const logsToKeep = logsToSend.slice(-50);
         logBuffer = [...logsToKeep, ...logBuffer].slice(0, LOG_BUFFER_MAX_SIZE);
+      } else {
+        // Success - optionally log in development
+        if (process.env.NODE_ENV === 'development') {
+          const result = await response.json().catch(() => ({}));
+          console.log('[LOGGER] Successfully sent logs to Django backend:', result);
+        }
       }
     } catch (error) {
+      // Log network errors
+      console.error('[LOGGER] Network error sending logs to server:', error);
+      
       // If sending fails, put logs back in buffer (up to limit)
       const logsToKeep = logsToSend.slice(-50);
       logBuffer = [...logsToKeep, ...logBuffer].slice(0, LOG_BUFFER_MAX_SIZE);
@@ -134,13 +154,14 @@ if (typeof window !== 'undefined' && !flushIntervalId) {
         // sendBeacon has size limit (~64KB), so we may need to split
         if (logsJson.length < 60000) {
           const blob = new Blob([logsJson], { type: 'application/json' });
-          navigator.sendBeacon('/api/logs', blob);
+          // Use Django backend endpoint via proxy
+          navigator.sendBeacon('/api/proxy/internal/frontend-logs/', blob);
         } else {
           // If too large, send only recent logs
           const recentLogs = logBuffer.slice(-20);
           const recentJson = JSON.stringify(recentLogs);
           const blob = new Blob([recentJson], { type: 'application/json' });
-          navigator.sendBeacon('/api/logs', blob);
+          navigator.sendBeacon('/api/proxy/internal/frontend-logs/', blob);
         }
       } catch {
         // Fallback to async fetch (may not complete before page closes)
