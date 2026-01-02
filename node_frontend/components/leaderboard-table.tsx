@@ -132,7 +132,7 @@ export function LeaderboardTable() {
                 </th>
                 <th className="py-4 pr-8 text-sm font-medium text-muted-foreground">
                   <div className="flex justify-end">
-                    <div className="text-right" style={{ minWidth: '120px' }}>
+                    <div className="text-right whitespace-nowrap min-w-[180px]">
                       Yechilgan murojaatlar soni
                     </div>
                   </div>
