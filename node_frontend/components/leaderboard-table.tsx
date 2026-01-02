@@ -130,9 +130,9 @@ export function LeaderboardTable() {
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
                   Bo'lim
                 </th>
-                <th className="py-4 pr-6 text-sm font-medium text-muted-foreground">
+                <th className="py-4 pr-8 text-sm font-medium text-muted-foreground">
                   <div className="flex justify-end">
-                    <div className="text-right" style={{ minWidth: '130px' }}>
+                    <div className="text-right" style={{ minWidth: '120px' }}>
                       Yechilgan murojaatlar soni
                     </div>
                   </div>
