@@ -31,6 +31,9 @@ django_backend/staticfiles/
 media/
 staticfiles/
 
+# Logs
+logs/
+
 # Container data
 containers/mysql_data/
 containers/redis_data/

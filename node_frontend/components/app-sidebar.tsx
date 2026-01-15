@@ -49,7 +49,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useNotifications } from "@/contexts/notification-context"
 import { useAuthError } from "@/contexts/auth-error-context"
 import { useStaffProfile } from "@/contexts/staff-profile-context"
-import { clearAuthTokens, clearTokenExpirationCache } from "@/dash_department/lib/api"
+import { clearAuthTokens, clearTokenExpirationCache, fetchAuthenticatedImage } from "@/dash_department/lib/api"
 import { clearAllDashboardCaches } from "@/hooks/use-dashboard-data"
 
 // Menu items with Lucide icons
@@ -90,6 +90,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setAuthError } = useAuthError()
   const { staffProfile, isLoading, error, clearProfile } = useStaffProfile()
   const [escalatedCount, setEscalatedCount] = React.useState(0)
+  const [avatarBlobUrl, setAvatarBlobUrl] = React.useState<string | null>(null)
+  const avatarBlobUrlRef = React.useRef<string | null>(null)
   const unreadCount = getUnreadCount()
   const hasAssigned = hasAssignedSessions()
   const hasClosed = hasClosedSessions()
@@ -120,6 +122,49 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       setEscalatedCount(0)
     }
   }, [staffProfile?.role])
+
+  // Fetch avatar image and convert to blob URL (same approach as leaderboard)
+  React.useEffect(() => {
+    // Cleanup previous blob URL if it exists
+    if (avatarBlobUrlRef.current) {
+      try {
+        URL.revokeObjectURL(avatarBlobUrlRef.current)
+      } catch (e) {
+        // Silently fail if URL is already revoked
+      }
+      avatarBlobUrlRef.current = null
+    }
+
+    if (staffProfile?.avatar_url) {
+      fetchAuthenticatedImage(staffProfile.avatar_url)
+        .then(blobUrl => {
+          if (blobUrl) {
+            avatarBlobUrlRef.current = blobUrl
+            setAvatarBlobUrl(blobUrl)
+          } else {
+            setAvatarBlobUrl(null)
+          }
+        })
+        .catch(err => {
+          console.error(`Failed to fetch avatar for ${staffProfile.full_name}:`, err)
+          setAvatarBlobUrl(null)
+        })
+    } else {
+      setAvatarBlobUrl(null)
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (avatarBlobUrlRef.current) {
+        try {
+          URL.revokeObjectURL(avatarBlobUrlRef.current)
+        } catch (e) {
+          // Silently fail if URL is already revoked
+        }
+        avatarBlobUrlRef.current = null
+      }
+    }
+  }, [staffProfile?.avatar_url, staffProfile?.full_name])
   const isOnUnassignedPage = pathname === '/dashboard/unassigned' || pathname?.startsWith('/dashboard/unassigned/')
   const isOnAssignedPage = pathname === '/dashboard/assigned' || pathname?.startsWith('/dashboard/assigned/')
   const isOnArchivePage = pathname === '/dashboard/archive' || pathname?.startsWith('/dashboard/archive/') || pathname?.startsWith('/dashboard/closed/')
@@ -489,7 +534,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <DropdownMenuTrigger asChild>
               <button suppressHydrationWarning className="flex w-full items-center gap-2 rounded-md px-2 py-2 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 !transition-none">
                 <Avatar className="h-8 w-8 shrink-0 rounded-lg">
-                  {staffProfile.avatar_url ? (
+                  {avatarBlobUrl ? (
+                    <AvatarImage src={avatarBlobUrl} alt={staffProfile.full_name} />
+                  ) : staffProfile.avatar_url ? (
+                    // Fallback: try direct URL if authenticated fetch hasn't completed yet
                     <AvatarImage src={staffProfile.avatar_url} alt={staffProfile.full_name} />
                   ) : null}
                   <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground rounded-lg">
@@ -515,7 +563,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <DropdownMenuLabel>
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8 rounded-lg shrink-0">
-                    {staffProfile.avatar_url ? (
+                    {avatarBlobUrl ? (
+                      <AvatarImage src={avatarBlobUrl} alt={staffProfile.full_name} />
+                    ) : staffProfile.avatar_url ? (
+                      // Fallback: try direct URL if authenticated fetch hasn't completed yet
                       <AvatarImage src={staffProfile.avatar_url} alt={staffProfile.full_name} />
                     ) : null}
                     <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground rounded-lg">
