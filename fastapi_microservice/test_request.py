@@ -6,7 +6,7 @@ import uuid
 async def test_analyze():
     url = "http://127.0.0.1:8001/api/v1/analyze"
     
-    # User's payload with generated valid UUIDs for format correctness
+    # Payload with generated UUIDs for format correctness.
     payload = {
         "session_uuid": str(uuid.uuid4()),
         "message_uuid": str(uuid.uuid4()),

@@ -2,9 +2,7 @@ from django.db import models
 
 
 class Neighborhood(models.Model):
-    """
-    Represents a neighborhood/mahalla in the system.
-    """
+    """Represent a neighborhood or mahalla within the system."""
     id = models.BigAutoField(primary_key=True)
     
     name_uz = models.CharField(max_length=128, db_index=True)  # Uzbek name
@@ -30,13 +28,13 @@ class Neighborhood(models.Model):
 class QuickReply(models.Model):
     id = models.AutoField(primary_key=True)
 
-    # Text of the quick reply (Uzbek phrases)
+    # Quick reply text.
     text = models.CharField(max_length=500)
 
-    # Optional: determine ordering in UI
+    # Display order in the interface.
     order = models.PositiveIntegerField(default=0)
 
-    # Optional: to group phrases in categories
+    # Optional category for grouping.
     category = models.CharField(max_length=100, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

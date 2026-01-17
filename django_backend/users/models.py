@@ -14,12 +14,11 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, phone_number, password=None, **extra_fields):
-        # Only sets the standard Django superuser flag
+        # Set standard Django superuser flags.
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
         
-        # We generally don't make the superuser an operator by default, 
-        # but you can if you want. For now, it stays separate.
+        # Grant operator privileges to superusers by default.
         extra_fields.setdefault('is_operator', True) 
 
         if extra_fields.get('is_superuser') is not True:
@@ -28,9 +27,7 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(phone_number, password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """
-    Unified User Identity.
-    """
+    """Represent the core identity for all users in the system."""
     id = models.BigAutoField(primary_key=True)
     user_uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     
@@ -74,10 +71,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_staff(self):
-        """
-        Required by Django Admin to determine if user can access admin site.
-        Only superusers can access admin.
-        """
+        """Determine admin site access. Only superusers are permitted."""
         return self.is_superuser
 
     def __str__(self):
@@ -88,9 +82,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class TelegramConnection(models.Model):
-    """
-    Telegram integration linked to the User.
-    """
+    """Link a user account to their Telegram profile."""
     LANGUAGE_CHOICES = [
         ('uz', 'Uzbek'),
         ('ru', 'Russian'),

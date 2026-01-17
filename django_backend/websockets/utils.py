@@ -9,10 +9,7 @@ logger = logging.getLogger(__name__)
 channel_layer = get_channel_layer()
 
 def broadcast_message_created(session_uuid, message_obj, request=None):
-    """
-    message_obj: Django Message instance (not serialized).
-    We'll serialize it to dict and send group event to chat_{session_uuid}.
-    """
+    """Serialize and broadcast a message to the chat group."""
     try:
         serializer = MessageSerializer(message_obj, context={'request': request})
         data = serializer.data
@@ -31,9 +28,7 @@ def broadcast_message_created(session_uuid, message_obj, request=None):
         raise
 
 def broadcast_message_update(session_uuid, message_obj, update_payload=None, request=None):
-    """
-    e.g., telegram delivery update; sends event chat.message_update
-    """
+    """Broadcast a message update event to the chat group."""
     serializer = MessageSerializer(message_obj, context={'request': request})
     data = serializer.data
     async_to_sync(channel_layer.group_send)(
@@ -46,9 +41,7 @@ def broadcast_message_update(session_uuid, message_obj, update_payload=None, req
     )
 
 def broadcast_session_created(department_id, session_obj, request=None):
-    """
-    Notify the department group that a new session has been assigned.
-    """
+    """Notify the department group about a new session assignment."""
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
     async_to_sync(channel_layer.group_send)(
@@ -70,9 +63,7 @@ def notify_staff(user_uuid, payload):
 
 
 def broadcast_new_session_to_department(department_id, session_uuid):
-    """
-    Notifies department dashboard of a new session assignment.
-    """
+    """Notify department dashboard of a new session assignment."""
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         f"department_{department_id}",
@@ -84,9 +75,7 @@ def broadcast_new_session_to_department(department_id, session_uuid):
 
 
 def broadcast_session_assigned(department_id, session_obj, request=None):
-    """
-    Notifies the department group that a session has been assigned to a staff member.
-    """
+    """Notify the department group when a session is assigned to staff."""
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
     async_to_sync(channel_layer.group_send)(
@@ -99,10 +88,7 @@ def broadcast_session_assigned(department_id, session_obj, request=None):
 
 
 def broadcast_session_hold(department_id, session_obj, request=None):
-    """
-    Notifies the department group that a session has been put on hold.
-    Optional: Can be used for UI updates when hold is applied.
-    """
+    """Notify the department group when a session is put on hold."""
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
     async_to_sync(channel_layer.group_send)(
@@ -115,10 +101,7 @@ def broadcast_session_hold(department_id, session_obj, request=None):
 
 
 def broadcast_session_escalated_to_superuser(session_obj, request=None):
-    """
-    Notifies the superuser and VIP groups that a session has been escalated.
-    All superusers and VIP members connected to the dashboard will receive this event.
-    """
+    """Notify superuser and VIP groups about an escalated session."""
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
     
@@ -142,10 +125,7 @@ def broadcast_session_escalated_to_superuser(session_obj, request=None):
 
 
 def broadcast_session_escalated_to_citizen(session_uuid, session_obj=None, request=None):
-    """
-    Notifies the citizen chat that their session has been escalated.
-    Frontend can use this to show read-only mode and display message.
-    """
+    """Notify the citizen chat about session escalation."""
     session_data = None
     if session_obj:
         serializer = SessionSerializer(session_obj, context={'request': request})
@@ -162,10 +142,7 @@ def broadcast_session_escalated_to_citizen(session_uuid, session_obj=None, reque
 
 
 def broadcast_session_closed_to_department(department_id, session_obj, request=None):
-    """
-    Notifies the department group that a session has been closed.
-    Updates department dashboard to remove from active list.
-    """
+    """Notify the department group when a session is closed."""
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
     async_to_sync(channel_layer.group_send)(
@@ -178,10 +155,7 @@ def broadcast_session_closed_to_department(department_id, session_obj, request=N
 
 
 def broadcast_session_closed_to_citizen(session_uuid, session_obj=None, request=None):
-    """
-    Notifies the citizen chat that their session has been closed.
-    Frontend can use this to show read-only mode and display closure message.
-    """
+    """Notify the citizen chat about session closure."""
     session_data = None
     if session_obj:
         serializer = SessionSerializer(session_obj, context={'request': request})
@@ -198,9 +172,7 @@ def broadcast_session_closed_to_citizen(session_uuid, session_obj=None, request=
 
 
 def broadcast_session_rerouted_to_vip(session_obj, department_name, request=None):
-    """
-    Notifies VIP members that a session has been rerouted.
-    """
+    """Notify VIP members about a session reroute."""
     serializer = SessionSerializer(session_obj, context={'request': request})
     data = serializer.data
     

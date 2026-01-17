@@ -4,15 +4,12 @@ from django.utils import timezone
 from message_app.models import Message, Session
 
 class InjectionLog(models.Model):
-    """
-    Dedicated log for Security/Guardrail failures.
-    Separated from AIResult to keep the main logic clean.
-    """
+    """Log security and guardrail failures separately for clean audit trails."""
     id = models.BigAutoField(primary_key=True)
     
     message = models.ForeignKey(
         Message,
-        to_field="message_uuid", # Links to UUID column
+        to_field="message_uuid",
         db_column="message_uuid",
         on_delete=models.CASCADE,
         related_name="injection_logs"
@@ -30,66 +27,51 @@ class InjectionLog(models.Model):
 
 
 class AIAnalysis(models.Model):
-    """
-    The 'Brain' Log. 
-    Stores how the AI classified, routed, and reasoned about a message.
-    """
+    """Store classification, routing decisions, and reasoning for messages."""
     id = models.BigAutoField(primary_key=True)
 
-    # --- 1. Context ---
+    # Context.
     session = models.ForeignKey(
         Session,
-        to_field="session_uuid", # Links to UUID column
+        to_field="session_uuid",
         db_column="session_uuid",
         on_delete=models.CASCADE,
         related_name="ai_logs"
     )
     message = models.ForeignKey(
         Message,
-        to_field="message_uuid", # Links to UUID column
+        to_field="message_uuid",
         db_column="message_uuid",
         on_delete=models.CASCADE,
         related_name="ai_analysis"
     )
 
-    # --- 2. Classification & Routing (The AI's Work) ---
-    # e.g., "Inquiry", "Complaint", "Spam"
+    # Classification and Routing.
     intent_label = models.CharField(max_length=64, blank=True, null=True, db_index=True) 
-    
-    # Confidence Score (0.0 - 1.0)
     confidence_score = models.FloatField(null=True, blank=True)
     
-    # We store ID for linking, and Name for historical snapshotting
+    # Department suggestion with historical snapshot.
     suggested_department_id = models.BigIntegerField(null=True, blank=True, db_index=True)
     suggested_department_name = models.CharField(max_length=255, null=True, blank=True)
 
-    # --- 3. Reasoning & Search ---
-    # Why did the AI choose this?
+    # Reasoning and Search.
     reason = models.TextField(blank=True, null=True) 
-    
-    # Vector Search Context (Top K results found in Qdrant)
-    # e.g. [{"dept": "Sales", "similarity": 0.92}, ...]
     vector_search_results = models.JSONField(blank=True, null=True) 
     
-    # --- 4. Human-in-the-Loop (Corrections) ---
-    # If this is True, the Operator overruled the AI
+    # Human-in-the-Loop Corrections.
     is_corrected = models.BooleanField(default=False, db_index=True)
-    
-    # Who corrected it? (Links to your Staff User)
     corrected_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        to_field="user_uuid", # Links to UUID column
+        to_field="user_uuid",
         db_column="corrected_by_uuid",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="ai_corrections"
     )
-    
-    # Where did they move it to?
     corrected_department_id = models.BigIntegerField(null=True, blank=True)
-    correction_notes = models.TextField(blank=True, null=True) # Optional operator comment
+    correction_notes = models.TextField(blank=True, null=True)
 
-    # --- 5. Performance Metrics ---
+    # Performance Metrics.
     language_detected = models.CharField(max_length=64, blank=True, null=True, db_index=True) 
     embedding_tokens = models.IntegerField(null=True, blank=True)
     prompt_tokens = models.IntegerField(null=True, blank=True)
@@ -109,5 +91,5 @@ class AIAnalysis(models.Model):
 
     @property
     def was_helpful(self):
-        """Returns False if operator had to correct it."""
+        """Indicate whether the analysis required correction."""
         return not self.is_corrected

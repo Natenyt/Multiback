@@ -7,9 +7,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 async def send_to_ai_service(session_uuid, message_uuid, text, language='uz'):
-    """
-    Sends the user message to the FastAPI AI Microservice for analysis.
-    """
+    """Send a user message to the AI Microservice for analysis."""
     url = f"{settings.AI_MICROSERVICE_URL}/analyze"
     
     payload = {

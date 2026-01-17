@@ -6,8 +6,7 @@ router = APIRouter()
 
 @router.post("/analyze")
 async def analyze_message(request: AnalyzeRequest, background_tasks: BackgroundTasks):
-    # Acknowledge receipt
-    # We pass the processing to background tasks
+    # Queue processing in the background.
     background_tasks.add_task(process_message_pipeline, request)
     return {"status": "processing", "message_uuid": request.message_uuid}
 

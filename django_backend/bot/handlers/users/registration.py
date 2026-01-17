@@ -28,7 +28,7 @@ async def enter_fullname(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.language)
         return
 
-    # Validate full name length (minimum 9 characters)
+    # Validate full name length.
     if len(message.text.strip()) < 9:
         await message.answer(get_text("invalid_fullname", lang), reply_markup=get_back_keyboard(lang))
         return
@@ -47,7 +47,7 @@ async def enter_phone(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.fullname)
         return
 
-    # Strict Check: Must be a contact
+    # Require contact sharing.
     if not message.contact:
         await message.answer(get_text("share_phone", lang), reply_markup=get_phone_keyboard(lang))
         return
@@ -56,7 +56,7 @@ async def enter_phone(message: types.Message, state: FSMContext):
     raw_phone = message.contact.phone_number
     phone = raw_phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     
-    # Ensure it starts with + if missing (Telegram sometimes sends without +)
+    # Normalize phone number format.
     if not phone.startswith("+"):
         phone = "+" + phone
 
@@ -78,10 +78,10 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.phone)
         return
 
-    # Validate that user selected from the menu, not typed
+    # Validate selection from menu.
     @sync_to_async
     def validate_neighborhood(neighborhood_text):
-        # Check if the text matches any active neighborhood name (name_uz or name_ru)
+        # Check if text matches any active neighborhood name.
         neighborhoods = Neighborhood.objects.filter(is_active=True)
         for n in neighborhoods:
             if n.name_uz == neighborhood_text:
@@ -98,10 +98,10 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
         await message.answer(get_text("invalid_neighborhood", lang), reply_markup=get_neighborhood_keyboard(neighborhoods, lang))
         return
     
-    # Store chosen neighborhood and COMPLETE registration without asking for a free-text location
+    # Store choice and complete registration.
     await state.update_data(neighborhood=message.text)
     
-    # Fetch latest state data
+    # Retrieve final state data.
     data = await state.get_data()
     fullname = data.get("fullname")
     phone = data.get("phone")
@@ -111,12 +111,12 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
     telegram_id = message.from_user.id
     telegram_username = message.from_user.username
 
-    # We no longer ask for full-text location; treat it as empty/optional
+    # Location field skipped.
     location = ""
 
     @sync_to_async
     def create_user_and_connection():
-        # Look up the Neighborhood instance by name (try name_uz first, then name_ru)
+        # Look up neighborhood by name.
         neighborhood_obj = None
         if neighborhood_name:
             try:
@@ -125,7 +125,7 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
                 try:
                     neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_ru=neighborhood_name)
                 except Neighborhood.DoesNotExist:
-                    # If not found, just continue without neighborhood
+                    # Continue without neighborhood if not found.
                     pass
 
         user, created = User.objects.get_or_create(
@@ -179,24 +179,20 @@ async def enter_location(message: types.Message, state: FSMContext):
     telegram_id = message.from_user.id
     telegram_username = message.from_user.username
     
-    # Create User and Connection
-    # We need to be careful about phone uniqueness. 
-    # If user exists with phone, we link. If not, we create.
+    # Create User and Connection.
     
     @sync_to_async
     def create_user_and_connection():
-        # Look up the Neighborhood instance by name (try name_uz first, then name_ru)
+        # Look up neighborhood by name.
         neighborhood_obj = None
         if neighborhood_name:
             try:
-                # Try to find by name_uz first
                 neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_uz=neighborhood_name)
             except Neighborhood.DoesNotExist:
                 try:
-                    # Fallback to name_ru
                     neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_ru=neighborhood_name)
                 except Neighborhood.DoesNotExist:
-                    # If not found, just log and continue without neighborhood
+                    # Continue without neighborhood.
                     pass
         
         user, created = User.objects.get_or_create(
@@ -208,7 +204,7 @@ async def enter_location(message: types.Message, state: FSMContext):
             }
         )
         if not created:
-            # Update info if needed
+            # Update existing user info.
             user.full_name = fullname
             user.neighborhood = neighborhood_obj
             user.location = location
@@ -227,8 +223,5 @@ async def enter_location(message: types.Message, state: FSMContext):
         await message.answer(get_text("main_menu", language), reply_markup=get_main_menu_keyboard(language))
         await state.clear()
     except Exception as e:
-        # Handle phone unique constraint violation if user tries to register with existing phone 
-        # but from different telegram account? Or if connection already exists?
-        # For now simple error handling
+        # Handle registration errors.
         await message.answer(f"Error: {e}")
-

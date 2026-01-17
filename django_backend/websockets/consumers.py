@@ -24,12 +24,7 @@ def get_department(department_id):
         return None
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
-    """
-    Connected clients join group: chat_{session_uuid}.
-    Only allowed:
-      - citizen if session.origin == 'web' and session.citizen == user
-      - staff if they are assigned_staff OR session.assigned_department == staff_profile.department
-    """
+    """Handle WebSocket connections for chat sessions."""
     async def connect(self):
         import logging
         logger = logging.getLogger(__name__)
@@ -83,10 +78,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         except Exception:
             pass
 
-    # This consumer doesn't accept sending messages from websocket for creation;
-    # message creation should go through REST POST /send/ to ensure persistency & analysis pipeline.
+    # Message creation should go through REST POST /send/ to ensure persistence.
     async def receive_json(self, content, **kwargs):
-        # we can optionally handle typing indicators or presence
+        # Handle typing indicators or presence signals.
         event_type = content.get("type")
         if event_type == "typing":
             # broadcast typing indicator to group
@@ -100,11 +94,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
         # else ignore or handle other small signals
 
-    # Handler for incoming "chat.message" events from server code (group_send)
     async def chat_message(self, event):
-        """
-        event expected to contain: {"message": <serialized message dict>}
-        """
+        """Handle incoming chat message events."""
         import logging
         logger = logging.getLogger(__name__)
         
@@ -130,9 +121,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         })
 
     async def chat_message_update(self, event):
-        """
-        e.g. delivery update or message edited
-        """
+        """Handle message updates such as delivery status."""
         await self.send_json({
             "type": "message.delivery_update",
             "message": event.get("message"),
@@ -140,11 +129,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         })
 
     async def session_escalated(self, event):
-        """
-        Handler for session escalation event.
-        Notifies connected clients that the session has been escalated.
-        Frontend can use this to show read-only mode and display message.
-        """
+        """Notify clients when a session is escalated."""
         await self.send_json({
             "type": "session.escalated",
             "session": event.get("session"),
@@ -152,11 +137,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         })
 
     async def session_closed(self, event):
-        """
-        Handler for session closure event.
-        Notifies connected clients that the session has been closed.
-        Frontend can use this to show read-only mode and display closure message.
-        """
+        """Notify clients when a session is closed."""
         await self.send_json({
             "type": "session.closed",
             "session": event.get("session"),
@@ -190,9 +171,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
 
 class DepartmentConsumer(AsyncJsonWebsocketConsumer):
-    """
-    Joins group: department_{department_id}. For staff dashboards in that department.
-    """
+    """Handle WebSocket connections for department dashboards."""
     async def connect(self):
         self.user = self.scope.get("user", None)
         self.department_id = self.scope['url_route']['kwargs'].get('department_id')
@@ -243,31 +222,21 @@ class DepartmentConsumer(AsyncJsonWebsocketConsumer):
         })
 
     async def session_hold(self, event):
-        """
-        Handler for session hold event.
-        Notifies department dashboard that a session has been put on hold.
-        """
+        """Notify department dashboards when a session is put on hold."""
         await self.send_json({
             "type": "session.hold",
             "session": event.get("session")
         })
 
     async def session_closed(self, event):
-        """
-        Handler for session closure event.
-        Notifies department dashboard that a session has been closed.
-        Updates UI to remove from active list.
-        """
+        """Notify department dashboards when a session is closed."""
         await self.send_json({
             "type": "session.closed",
             "session": event.get("session")
         })
 
-
 class StaffConsumer(AsyncJsonWebsocketConsumer):
-    """
-    Personal staff notifications: staff_{user_uuid}
-    """
+    """Handle personal staff notification WebSocket connections."""
     async def connect(self):
         self.user = self.scope.get("user", None)
         self.user_uuid = self.scope['url_route']['kwargs'].get('user_uuid')
@@ -299,13 +268,8 @@ class StaffConsumer(AsyncJsonWebsocketConsumer):
             "payload": event.get("payload")
         })
 
-
 class SuperuserConsumer(AsyncJsonWebsocketConsumer):
-    """
-    Superuser dashboard channel: superuser
-    Only users with is_superuser=True can connect.
-    Receives escalated sessions for review.
-    """
+    """Handle WebSocket connections for superuser dashboards."""
     async def connect(self):
         self.user = self.scope.get("user", None)
 
@@ -336,22 +300,14 @@ class SuperuserConsumer(AsyncJsonWebsocketConsumer):
             pass
 
     async def session_escalated(self, event):
-        """
-        Handler for escalated session events.
-        Sends escalated session data to superuser dashboard.
-        """
+        """Send escalated session data to superuser dashboards."""
         await self.send_json({
             "type": "session.escalated",
             "session": event.get("session")
         })
 
-
 class VIPConsumer(AsyncJsonWebsocketConsumer):
-    """
-    VIP dashboard channel: vip
-    Only users with staff_profile.role='VIP' can connect.
-    Receives escalated sessions for review and training.
-    """
+    """Handle WebSocket connections for VIP dashboards."""
     async def connect(self):
         self.user = self.scope.get("user", None)
 
@@ -389,20 +345,14 @@ class VIPConsumer(AsyncJsonWebsocketConsumer):
             pass
 
     async def session_escalated(self, event):
-        """
-        Handler for escalated session events.
-        Sends escalated session data to VIP dashboard.
-        """
+        """Send escalated session data to VIP dashboards."""
         await self.send_json({
             "type": "session.escalated",
             "session": event.get("session")
         })
 
     async def session_rerouted(self, event):
-        """
-        Handler for rerouted session events.
-        Sends rerouted session data to VIP dashboard.
-        """
+        """Send rerouted session data to VIP dashboards."""
         await self.send_json({
             "type": "session.rerouted",
             "session": event.get("session"),

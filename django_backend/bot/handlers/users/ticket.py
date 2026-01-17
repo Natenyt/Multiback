@@ -57,7 +57,7 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
         @sync_to_async
         def create_session_and_message(user_obj, text_content):
             try:
-                # Find open session (status should be 'unassigned' or 'assigned', not 'open')
+                # Find or create an active session.
                 session = Session.objects.filter(citizen=user_obj, status__in=['unassigned', 'assigned']).first()
                 if not session:
                     session = Session.objects.create(citizen=user_obj, status='unassigned', origin='telegram')
@@ -131,8 +131,7 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
                     language=lang
                 )
                 if not success:
-                     # Log error but don't fail the user interaction entirely if possible?
-                     # For now, we notify user as requested.
+                     # Log error but continue user interaction.
                      await message.answer(get_text("error_generic", lang))
                      return
 
@@ -154,12 +153,9 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
     await state.update_data(messages=messages)
 
 
-# Handler for photos/images from citizens with active sessions
 @dp.message(lambda msg: msg.photo is not None or msg.document is not None)
 async def handle_citizen_media_in_active_session(message: types.Message, state: FSMContext):
-    """
-    Handle photos/images/files from citizens who have active sessions with assigned staff.
-    """
+    """Handle photos and files from citizens with active sessions."""
     telegram_id = message.from_user.id
     
     # Skip if user is in FSM state
@@ -339,15 +335,9 @@ async def handle_citizen_media_in_active_session(message: types.Message, state: 
         logger.error(f"Error handling citizen media in active session: {e}")
 
 
-# Handler for messages from citizens with active sessions (when staff is assigned)
-# This runs when user is NOT in FSM state and has an active session
-# Note: This handler has lower priority than FSM handlers due to no FSM filter
-@dp.message(lambda msg: msg.text is not None)  # Only catch text messages
+@dp.message(lambda msg: msg.text is not None)
 async def handle_citizen_message_in_active_session(message: types.Message, state: FSMContext):
-    """
-    Handle messages from citizens who have active sessions with assigned staff.
-    These messages should be saved and routed to the assigned department.
-    """
+    """Handle text messages from citizens with active sessions."""
     telegram_id = message.from_user.id
     
     # Skip if user is in FSM state (FSM handlers should take precedence)
@@ -400,8 +390,7 @@ async def handle_citizen_message_in_active_session(message: types.Message, state
     # Extract message text
     text = message.text
     if not text:
-        # For non-text messages (photos, files, etc.), we could handle them later
-        # For now, just skip
+        # Non-text messages handled elsewhere.
         return
     
     # Create message in database

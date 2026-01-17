@@ -15,20 +15,19 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 # Import models from the api/v1 folder
 from api.v1.models import AnalyzeRequest, TrainCorrectionRequest, Candidate
 
-# --- Configuration ---
+# Configuration.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Docker Networking: Default to 'localhost' for local dev, override with 'qdrant' in Docker
+# Host defaults to localhost for local dev; override with 'qdrant' in Docker.
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost") 
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-# Docker Networking: Default to 'http://127.0.0.1:8000' for local dev, override with 'http://django_backend:8000' in Docker
+# Django backend URL defaults to localhost; override in Docker.
 DJANGO_BACKEND_URL = os.getenv("DJANGO_BACKEND_URL", "http://127.0.0.1:8000")
 
-# --- FORCE LOGGING TO CONSOLE ---
-# This ensures logs appear in your terminal even if Uvicorn tries to capture them
+# Logging configuration.
 logger = logging.getLogger("ai_pipeline")
 logger.setLevel(logging.INFO)
 
-# Check if handlers already exist to avoid double logging
+# Prevent duplicate handlers.
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -37,25 +36,25 @@ if not logger.handlers:
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# --- Global Clients (Connection Pooling) ---
+# Qdrant client instance.
 qdrant_client = None
 
 def init_qdrant():
-    """Initializes Qdrant Client with smart fallback to localhost."""
+    """Initialize Qdrant Client with fallback to localhost."""
     global qdrant_client
     
-    # Attempt 1: Configured Host (e.g., 'qdrant')
+    # Primary connection attempt.
     try:
         logger.info(f"Attempting connection to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
         client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-        # Force a request to verify connectivity immediately
+        # Verify connectivity.
         client.get_collections() 
         logger.info(f"✅ SUCCESS: Connected to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
         return client
     except Exception as e:
         logger.warning(f"⚠️ Failed to connect to {QDRANT_HOST}: {e}")
         
-        # Attempt 2: Fallback to localhost if we aren't already there
+        # Fallback to localhost if not already there.
         if QDRANT_HOST != "localhost" and QDRANT_HOST != "127.0.0.1":
             try:
                 logger.info("🔄 Attempting fallback to 'localhost'...")
@@ -70,13 +69,12 @@ def init_qdrant():
             
     return None
 
-# Initialize clients
+# Initialize clients.
 qdrant_client = init_qdrant()
 http_client = httpx.AsyncClient(timeout=10.0)
 
-# --- Helper: Run Blocking Code in Threads ---
 async def async_embed(text: str, model: str = "models/text-embedding-004"):
-    """Runs the blocking Google Embed call in a separate thread"""
+    """Run the blocking embedding call in a separate thread."""
     return await asyncio.to_thread(
         genai.embed_content,
         model=model,
@@ -85,7 +83,7 @@ async def async_embed(text: str, model: str = "models/text-embedding-004"):
     )
 
 async def async_generate(model_name: str, prompt: str, config: dict):
-    """Runs the blocking Google Generate call in a separate thread"""
+    """Run the blocking generation call in a separate thread."""
     model = genai.GenerativeModel(model_name)
     return await asyncio.to_thread(
         model.generate_content,
@@ -93,7 +91,6 @@ async def async_generate(model_name: str, prompt: str, config: dict):
         generation_config=config
     )
 
-# --- Main Pipelines ---
 
 async def process_message_pipeline(request: AnalyzeRequest):
     start_time = time.time()
@@ -154,7 +151,7 @@ async def process_message_pipeline(request: AnalyzeRequest):
         logger.info(f"Step 3 [Embedding]: Success. Vector length: {len(vector)}")
     except Exception as e:
         logger.error(f"Step 3 [Embedding] FAILED: {e}")
-        # We fail gracefully here, stopping pipeline
+        # Fail gracefully and stop the pipeline.
         return 
         
     # Step 4: Semantic Search
@@ -396,7 +393,7 @@ async def process_message_pipeline(request: AnalyzeRequest):
     logger.info(f"--- END PIPELINE: {request.message_uuid} ---")
 
 async def send_webhook(url: str, data: Dict[str, Any]):
-    """Uses global http_client for better performance"""
+    """Send webhook using the global HTTP client."""
     try:
         # Debug print payload keys to ensure we aren't sending massive binary blobs
         logger.info(f"Sending webhook to {url} | Keys: {list(data.keys())}")

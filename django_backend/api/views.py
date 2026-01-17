@@ -16,24 +16,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# FastAPI microservice URL - get from settings or environment
-# AI_MICROSERVICE_URL might include /api/v1, so we'll handle that
+# FastAPI microservice URL.
 FASTAPI_BASE = getattr(settings, 'AI_MICROSERVICE_URL', os.getenv('AI_MICROSERVICE_URL', 'http://localhost:8001'))
-# Remove /api/v1 suffix if present (we'll add it in the endpoint)
+# Normalize URL by removing API path suffix.
 if FASTAPI_BASE.endswith('/api/v1'):
     FASTAPI_BASE = FASTAPI_BASE[:-7]
 elif FASTAPI_BASE.endswith('/api'):
     FASTAPI_BASE = FASTAPI_BASE[:-4]
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
+@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret.
 def injection_alert(request):
     data = request.data
     logger.warning(f"Injection Detected: {data}")
     
     try:
-        # Fetch related message. If not found, we can't link it strictly, 
-        # but we should handle it. For now, strict link.
+        # Link to the referenced message if it exists.
         message_ref = Message.objects.filter(message_uuid=data.get('message_uuid')).first()
         
         if message_ref:
@@ -54,7 +52,7 @@ def injection_alert(request):
 from departments.models import Department
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
+@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret.
 def routing_result(request):
     data = request.data
     logger.info(f"Routing Result Received: {data}")
@@ -70,7 +68,7 @@ def routing_result(request):
             logger.error(f"Routing Result Error: Session {session_uuid} or Message {message_uuid} not found.")
             return Response({"status": "error", "detail": "Session or Message not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Fetch Department Name dynamically
+        # Retrieve department name based on language preference.
         dept_id = data.get('suggested_department_id')
         lang = data.get('language_detected', 'uz')
         dept_name = data.get('suggested_department_name') # Default to what AI sent, or override
@@ -137,12 +135,9 @@ def routing_result(request):
     return Response({"status": "processed"}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret for production
+@permission_classes([AllowAny])  # TODO: Add IP whitelist or shared secret.
 def train_correction_webhook(request):
-    """
-    Webhook endpoint called by FastAPI after training correction.
-    Updates AIAnalysis record with correction data.
-    """
+    """Handle training correction callbacks from FastAPI and update AIAnalysis records."""
     data = request.data
     logger.info(f"Train Correction Webhook Received: {data}")
     
@@ -281,12 +276,9 @@ def train_correction_webhook(request):
     return Response({"status": "processed"}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])  # Require authentication for training
+@permission_classes([IsAuthenticated])
 def train_correction(request):
-    """
-    Django endpoint that proxies training correction requests to FastAPI.
-    This keeps FastAPI internal and secure.
-    """
+    """Proxy training correction requests to FastAPI while keeping the service internal."""
     data = request.data
     logger.info(f"Train Correction Request Received: {data}")
     
@@ -355,12 +347,9 @@ def train_correction(request):
         )
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Frontend logs - allow any, but could add authentication if needed
+@permission_classes([AllowAny])
 def frontend_logs(request):
-    """
-    Endpoint to receive frontend logs from Vercel-hosted Next.js app.
-    Writes logs to logs/frontend/ directory on the VPS.
-    """
+    """Receive and persist frontend logs from the Next.js application."""
     try:
         # Get logs array from request
         logs = request.data

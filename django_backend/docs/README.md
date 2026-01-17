@@ -24,37 +24,6 @@ tests/
 └── test_integration_flows.py     # End-to-end flow tests
 ```
 
-## Running Tests
-
-### Prerequisites
-
-Install test dependencies:
-```bash
-pip install pytest pytest-django pytest-asyncio channels-test
-```
-
-### Run All Tests
-```bash
-cd django_backend
-pytest tests/
-```
-
-### Run Specific Test File
-```bash
-pytest tests/test_auth_endpoints.py
-```
-
-### Run with Coverage
-```bash
-pytest tests/ --cov=. --cov-report=html
-```
-
-### Run FastAPI Tests
-```bash
-cd fastapi_microservice
-pytest tests/
-```
-
 ## Test Categories
 
 ### Unit Tests

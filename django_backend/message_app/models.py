@@ -4,31 +4,27 @@ from django.conf import settings # Always use this for User FKs
 from departments.models import Department
 
 class Session(models.Model):
-    """
-    Represents a support ticket or conversation thread.
-    """
+    """Represent a support ticket or conversation thread."""
     id = models.BigAutoField(primary_key=True)
     session_uuid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
 
-    # 1. The Customer (User)
+    # The customer who initiated the session.
     citizen = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        to_field="user_uuid", # Links to UUID column
+        to_field="user_uuid",
         db_column="citizen_uuid",
         on_delete=models.CASCADE,
         related_name="sessions",
     )
 
-    # 2. The Agent (Also a User now, thanks to our refactor)
+    # The staff member handling the session.
     assigned_staff = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        to_field="user_uuid", # Links to UUID column
+        to_field="user_uuid",
         db_column="assigned_staff_uuid",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="assigned_sessions",
-        # Optional: Limit this field only to users who have a staff profile
-        # limit_choices_to={'staff_profile__isnull': False} 
     )
     
     assigned_department = models.ForeignKey(
@@ -56,7 +52,7 @@ class Session(models.Model):
     assigned_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when session was assigned to staff")
     closed_at = models.DateTimeField(null=True, blank=True)
     
-    is_deleted = models.BooleanField(default=False) # Fixed typo (BooleanFiled -> BooleanField)
+    is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     # SLA Tracking Fields
@@ -70,7 +66,7 @@ class Session(models.Model):
     description = models.TextField(null=True, blank=True, help_text="Staff description/notes for the session")
 
     def check_sla_breach(self):
-        """Check if SLA deadline has been breached and update flag."""
+        """Check and update the SLA breach status."""
         if not self.sla_deadline:
             self.sla_breached = False
             return
@@ -82,9 +78,7 @@ class Session(models.Model):
 
 
 class Message(models.Model):
-    """
-    The 'Envelope' of the message. Contains metadata (sender, time, status).
-    """
+    """Represent a message envelope with metadata."""
     id = models.BigAutoField(primary_key=True)
     message_uuid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
     client_message_id = models.CharField(max_length=64, null=True, blank=True)
@@ -97,19 +91,17 @@ class Message(models.Model):
         related_name="messages"
     )
 
-    # --- SIMPLIFIED SENDER LOGIC ---
-    # Since Admins are Users, we only need ONE Foreign Key.
+    # Single sender field for both citizens and staff.
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        to_field="user_uuid", # Links to UUID column
+        to_field="user_uuid",
         db_column="sender_uuid",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="sent_messages"
     )
     
-    # We still keep this to easily know IF it was sent by staff or client
-    # without doing a JOIN on the StaffProfile table every time.
+    # Flag for quick sender type identification.
     is_staff_message = models.BooleanField(default=False) 
 
     sender_platform = models.CharField(
@@ -132,7 +124,7 @@ class Message(models.Model):
     quarantined_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ['created_at'] # Ensures messages always load in order
+        ordering = ['created_at']
         constraints = [
             models.UniqueConstraint(
                 fields=['session', 'client_message_id'],
@@ -146,9 +138,7 @@ class Message(models.Model):
 
 
 class MessageContent(models.Model):
-    """
-    The actual payload. Separated to handle Telegram 'Albums' (Multiple images in one message).
-    """
+    """Store the actual message payload. Supports multiple content items per message."""
     id = models.BigAutoField(primary_key=True)
 
     message = models.ForeignKey(
@@ -174,14 +164,14 @@ class MessageContent(models.Model):
     text = models.TextField(null=True, blank=True)
     caption = models.TextField(null=True, blank=True) # Used for media captions
 
-    # Files (Local Storage)
+    # Local file storage.
     file = models.FileField(upload_to="message_media/%Y/%m/%d/", null=True, blank=True)
     
-    # Files (External/Telegram)
+    # External file references.
     file_url = models.URLField(null=True, blank=True)
-    telegram_file_id = models.CharField(max_length=256, null=True, blank=True) # File ID for fast resending
+    telegram_file_id = models.CharField(max_length=256, null=True, blank=True)
     
-    # Grouping (For Telegram Albums)
+    # For grouping multi-media messages.
     media_group_id = models.CharField(max_length=128, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

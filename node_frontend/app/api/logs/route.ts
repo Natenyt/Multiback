@@ -46,9 +46,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if we're in a serverless environment (Vercel, etc.)
-    // In serverless, file system is read-only except /tmp
-    // We'll try to write, but fail gracefully if it's not possible
     const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
     
     // Always write logs to server (file logging is always enabled)
