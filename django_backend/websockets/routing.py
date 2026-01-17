@@ -2,7 +2,7 @@
 from django.urls import re_path
 from channels.routing import URLRouter
 from .consumers import ChatConsumer, DepartmentConsumer, StaffConsumer, SuperuserConsumer, VIPConsumer
-from .middleware import JWTAuthMiddleware  # your custom middleware
+from .middleware import JWTAuthMiddleware
 
 websocket_urlpatterns = [
     # Chat for a specific session

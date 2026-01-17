@@ -15,19 +15,19 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 # Import models from the api/v1 folder
 from api.v1.models import AnalyzeRequest, TrainCorrectionRequest, Candidate
 
-# Configuration.
+# Configuration values.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Host defaults to localhost for local dev; override with 'qdrant' in Docker.
+# Host defaults to localhost for local dev; can be overridden with 'qdrant' in Docker.
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost") 
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-# Django backend URL defaults to localhost; override in Docker.
+# Django backend URL defaults to localhost; can be overridden in Docker.
 DJANGO_BACKEND_URL = os.getenv("DJANGO_BACKEND_URL", "http://127.0.0.1:8000")
 
 # Logging configuration.
 logger = logging.getLogger("ai_pipeline")
 logger.setLevel(logging.INFO)
 
-# Prevent duplicate handlers.
+# Prevents duplicate handlers.
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -36,25 +36,25 @@ if not logger.handlers:
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# Qdrant client instance.
+# Qdrant client is stored globally.
 qdrant_client = None
 
 def init_qdrant():
-    """Initialize Qdrant Client with fallback to localhost."""
+    """Initializes Qdrant Client with fallback to localhost."""
     global qdrant_client
     
     # Primary connection attempt.
     try:
         logger.info(f"Attempting connection to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
         client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-        # Verify connectivity.
+        # Verifies connectivity.
         client.get_collections() 
         logger.info(f"✅ SUCCESS: Connected to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
         return client
     except Exception as e:
         logger.warning(f"⚠️ Failed to connect to {QDRANT_HOST}: {e}")
         
-        # Fallback to localhost if not already there.
+        # Falls back to localhost if not already there.
         if QDRANT_HOST != "localhost" and QDRANT_HOST != "127.0.0.1":
             try:
                 logger.info("🔄 Attempting fallback to 'localhost'...")
@@ -69,12 +69,12 @@ def init_qdrant():
             
     return None
 
-# Initialize clients.
+# Initializes clients.
 qdrant_client = init_qdrant()
 http_client = httpx.AsyncClient(timeout=10.0)
 
 async def async_embed(text: str, model: str = "models/text-embedding-004"):
-    """Run the blocking embedding call in a separate thread."""
+    """Runs the blocking embedding call in a separate thread."""
     return await asyncio.to_thread(
         genai.embed_content,
         model=model,
@@ -83,7 +83,7 @@ async def async_embed(text: str, model: str = "models/text-embedding-004"):
     )
 
 async def async_generate(model_name: str, prompt: str, config: dict):
-    """Run the blocking generation call in a separate thread."""
+    """Runs the blocking generation call in a separate thread."""
     model = genai.GenerativeModel(model_name)
     return await asyncio.to_thread(
         model.generate_content,
@@ -151,7 +151,7 @@ async def process_message_pipeline(request: AnalyzeRequest):
         logger.info(f"Step 3 [Embedding]: Success. Vector length: {len(vector)}")
     except Exception as e:
         logger.error(f"Step 3 [Embedding] FAILED: {e}")
-        # Fail gracefully and stop the pipeline.
+        # Fails gracefully and stops the pipeline.
         return 
         
     # Step 4: Semantic Search
@@ -393,7 +393,7 @@ async def process_message_pipeline(request: AnalyzeRequest):
     logger.info(f"--- END PIPELINE: {request.message_uuid} ---")
 
 async def send_webhook(url: str, data: Dict[str, Any]):
-    """Send webhook using the global HTTP client."""
+    """Sends webhook using the global HTTP client."""
     try:
         # Debug print payload keys to ensure we aren't sending massive binary blobs
         logger.info(f"Sending webhook to {url} | Keys: {list(data.keys())}")

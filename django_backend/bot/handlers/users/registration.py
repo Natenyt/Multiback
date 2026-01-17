@@ -28,7 +28,7 @@ async def enter_fullname(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.language)
         return
 
-    # Validate full name length.
+    # Validates full name length.
     if len(message.text.strip()) < 9:
         await message.answer(get_text("invalid_fullname", lang), reply_markup=get_back_keyboard(lang))
         return
@@ -47,7 +47,7 @@ async def enter_phone(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.fullname)
         return
 
-    # Require contact sharing.
+    # Requires contact sharing.
     if not message.contact:
         await message.answer(get_text("share_phone", lang), reply_markup=get_phone_keyboard(lang))
         return
@@ -56,7 +56,7 @@ async def enter_phone(message: types.Message, state: FSMContext):
     raw_phone = message.contact.phone_number
     phone = raw_phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     
-    # Normalize phone number format.
+    # Normalizes phone number format.
     if not phone.startswith("+"):
         phone = "+" + phone
 
@@ -78,10 +78,10 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationFSM.phone)
         return
 
-    # Validate selection from menu.
+    # Validates selection from menu.
     @sync_to_async
     def validate_neighborhood(neighborhood_text):
-        # Check if text matches any active neighborhood name.
+        # Checks if text matches any active neighborhood name.
         neighborhoods = Neighborhood.objects.filter(is_active=True)
         for n in neighborhoods:
             if n.name_uz == neighborhood_text:
@@ -98,10 +98,10 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
         await message.answer(get_text("invalid_neighborhood", lang), reply_markup=get_neighborhood_keyboard(neighborhoods, lang))
         return
     
-    # Store choice and complete registration.
+    # Stores choice and completes registration.
     await state.update_data(neighborhood=message.text)
     
-    # Retrieve final state data.
+    # Retrieves final state data.
     data = await state.get_data()
     fullname = data.get("fullname")
     phone = data.get("phone")
@@ -111,12 +111,12 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
     telegram_id = message.from_user.id
     telegram_username = message.from_user.username
 
-    # Location field skipped.
+    # Location field is omitted.
     location = ""
 
     @sync_to_async
     def create_user_and_connection():
-        # Look up neighborhood by name.
+        # Looks up neighborhood by name.
         neighborhood_obj = None
         if neighborhood_name:
             try:
@@ -125,7 +125,7 @@ async def select_neighborhood(message: types.Message, state: FSMContext):
                 try:
                     neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_ru=neighborhood_name)
                 except Neighborhood.DoesNotExist:
-                    # Continue without neighborhood if not found.
+                    # Continues without neighborhood if not found.
                     pass
 
         user, created = User.objects.get_or_create(
@@ -179,11 +179,11 @@ async def enter_location(message: types.Message, state: FSMContext):
     telegram_id = message.from_user.id
     telegram_username = message.from_user.username
     
-    # Create User and Connection.
+    # Creates User and Connection.
     
     @sync_to_async
     def create_user_and_connection():
-        # Look up neighborhood by name.
+        # Looks up neighborhood by name.
         neighborhood_obj = None
         if neighborhood_name:
             try:
@@ -192,7 +192,7 @@ async def enter_location(message: types.Message, state: FSMContext):
                 try:
                     neighborhood_obj = Neighborhood.objects.filter(is_active=True).get(name_ru=neighborhood_name)
                 except Neighborhood.DoesNotExist:
-                    # Continue without neighborhood.
+                    # Continues without neighborhood.
                     pass
         
         user, created = User.objects.get_or_create(
@@ -204,7 +204,7 @@ async def enter_location(message: types.Message, state: FSMContext):
             }
         )
         if not created:
-            # Update existing user info.
+            # Updates existing user info.
             user.full_name = fullname
             user.neighborhood = neighborhood_obj
             user.location = location
@@ -223,5 +223,5 @@ async def enter_location(message: types.Message, state: FSMContext):
         await message.answer(get_text("main_menu", language), reply_markup=get_main_menu_keyboard(language))
         await state.clear()
     except Exception as e:
-        # Handle registration errors.
+        # Handles registration errors.
         await message.answer(f"Error: {e}")

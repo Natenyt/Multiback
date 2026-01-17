@@ -57,7 +57,7 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
         @sync_to_async
         def create_session_and_message(user_obj, text_content):
             try:
-                # Find or create an active session.
+                # Finds or creates an active session.
                 session = Session.objects.filter(citizen=user_obj, status__in=['unassigned', 'assigned']).first()
                 if not session:
                     session = Session.objects.create(citizen=user_obj, status='unassigned', origin='telegram')
@@ -131,7 +131,7 @@ async def collect_ticket_content(message: types.Message, state: FSMContext):
                     language=lang
                 )
                 if not success:
-                     # Log error but continue user interaction.
+                     # Logs error but continues user interaction.
                      await message.answer(get_text("error_generic", lang))
                      return
 
@@ -390,7 +390,7 @@ async def handle_citizen_message_in_active_session(message: types.Message, state
     # Extract message text
     text = message.text
     if not text:
-        # Non-text messages handled elsewhere.
+        # Non-text messages are handled elsewhere.
         return
     
     # Create message in database

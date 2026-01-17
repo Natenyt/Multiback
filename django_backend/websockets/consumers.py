@@ -78,9 +78,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         except Exception:
             pass
 
-    # Message creation should go through REST POST /send/ to ensure persistence.
+    # Message creation goes through REST POST /send/ to ensure persistence.
     async def receive_json(self, content, **kwargs):
-        # Handle typing indicators or presence signals.
+        # Handles typing indicators or presence signals.
         event_type = content.get("type")
         if event_type == "typing":
             # broadcast typing indicator to group

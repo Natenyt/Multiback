@@ -12,7 +12,7 @@ from bot.utils.i18n import get_text
 async def bot_start(message: types.Message, state):
     telegram_id = message.from_user.id
     
-    # Check for existing user.
+    # Checks for existing user.
     connection = await sync_to_async(TelegramConnection.objects.filter(telegram_chat_id=telegram_id).select_related('user').first)()
     
     if connection:
@@ -20,7 +20,7 @@ async def bot_start(message: types.Message, state):
         welcome_text = get_text("welcome_back", lang).format(name=connection.user.full_name)
         await message.answer(welcome_text, reply_markup=get_main_menu_keyboard(lang))
     else:
-        # New user: show welcome and language selection.
+        # New user flow: displays welcome and language selection.
         welcome_text = get_text("welcome", "uz")
         await message.answer(welcome_text)
         await message.answer(get_text("select_language", "uz"), reply_markup=language_keyboard)

@@ -16,9 +16,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# FastAPI microservice URL.
+# FastAPI microservice URL configuration.
 FASTAPI_BASE = getattr(settings, 'AI_MICROSERVICE_URL', os.getenv('AI_MICROSERVICE_URL', 'http://localhost:8001'))
-# Normalize URL by removing API path suffix.
+# Normalizes URL by removing API path suffix.
 if FASTAPI_BASE.endswith('/api/v1'):
     FASTAPI_BASE = FASTAPI_BASE[:-7]
 elif FASTAPI_BASE.endswith('/api'):
@@ -31,7 +31,7 @@ def injection_alert(request):
     logger.warning(f"Injection Detected: {data}")
     
     try:
-        # Link to the referenced message if it exists.
+        # Links to the referenced message if it exists.
         message_ref = Message.objects.filter(message_uuid=data.get('message_uuid')).first()
         
         if message_ref:
@@ -68,7 +68,7 @@ def routing_result(request):
             logger.error(f"Routing Result Error: Session {session_uuid} or Message {message_uuid} not found.")
             return Response({"status": "error", "detail": "Session or Message not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Retrieve department name based on language preference.
+        # Retrieves department name based on language preference.
         dept_id = data.get('suggested_department_id')
         lang = data.get('language_detected', 'uz')
         dept_name = data.get('suggested_department_name') # Default to what AI sent, or override

@@ -14,11 +14,11 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, phone_number, password=None, **extra_fields):
-        # Set standard Django superuser flags.
+        # Sets standard Django superuser flags.
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
         
-        # Grant operator privileges to superusers by default.
+        # Grants operator privileges to superusers by default.
         extra_fields.setdefault('is_operator', True) 
 
         if extra_fields.get('is_superuser') is not True:
